@@ -100,6 +100,12 @@ Bloc « Importer une vidéo ou un audio » de l'accueil (replay, webinaire, mp4/
 plus rapide que le temps réel (≈ 6× sur GPU), horodatage en position dans le fichier. Le fichier envoyé est supprimé dès qu'il est décodé.
 Une vidéo jouée dans le casque pendant un enregistrement fonctionne aussi.
 
+### Onglets
+
+Chaque réunion ouverte a son onglet sous l'en-tête, comme dans un navigateur : passer de l'une à l'autre, fermer,
+renommer (double-clic), supprimer (corbeille de l'onglet actif). Le « + » rouvre une réunion récente ou revient à
+l'accueil pour en démarrer une. Les onglets sont gardés d'une session à l'autre.
+
 ### Historique
 
 Les réunions sont conservées uniquement sur la machine, dans une base SQLite (jamais dans le dépôt) :

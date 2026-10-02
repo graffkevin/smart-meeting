@@ -103,3 +103,14 @@ export interface AiStatusProps {
 export interface RecordFormProps {
   preferences: Preferences;
 }
+
+/** Meetings open as tabs, by id, in their display order */
+export interface TabsState {
+  ids: number[];
+  add: (meetingId: number) => void;
+  remove: (meetingId: number) => void;
+}
+
+export interface TabsProviderProps {
+  children: ReactNode;
+}

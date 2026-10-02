@@ -24,3 +24,9 @@ export interface AnswerEntry {
 
 /** Steps of quitting the app from its Quit button */
 export type QuitState = 'running' | 'quitting' | 'stopped';
+
+/** A meeting renamed from its tab */
+export interface RenameValues {
+  id: number;
+  title: string;
+}

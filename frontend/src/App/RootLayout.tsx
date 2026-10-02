@@ -16,7 +16,9 @@ import { Link, Outlet, useMatch } from 'react-router';
 import { ROUTES } from '@/constants/routes';
 import SettingsDialogProvider from '@/contexts/settings/SettingsDialogProvider';
 import useSettingsDialog from '@/contexts/settings/useSettingsDialog';
+import TabsProvider from '@/contexts/tabs/TabsProvider';
 import SettingsDialog from '@/features/settings/SettingsDialog';
+import MeetingTabs from '@/features/shell/MeetingTabs';
 import ModelStatus from '@/features/shell/ModelStatus';
 import QuitButton from '@/features/shell/QuitButton';
 import useServerPresence from '@/features/shell/useServerPresence';
@@ -65,6 +67,11 @@ const Layout = () => {
           <QuitButton onStopping={() => setQuitState('quitting')} onStopped={() => setQuitState('stopped')} />
         )}
       </Stack>
+      {quitState === 'running' && (
+        <Box px="lg">
+          <MeetingTabs />
+        </Box>
+      )}
       <Page width={isDefined(meetingPage) ? 'wide' : 'medium'}>
         {quitState === 'running' ? (
           <Outlet />
@@ -85,8 +92,10 @@ const Layout = () => {
 
 const RootLayout = () => (
   <SettingsDialogProvider>
-    <Layout />
-    <SettingsDialog />
+    <TabsProvider>
+      <Layout />
+      <SettingsDialog />
+    </TabsProvider>
   </SettingsDialogProvider>
 );
 

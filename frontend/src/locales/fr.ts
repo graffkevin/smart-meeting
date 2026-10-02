@@ -60,6 +60,16 @@ const fr = {
     inProgress: 'Une réunion est en cours',
     join: 'Reprendre la réunion',
   },
+  tabs: {
+    label: 'Réunions ouvertes',
+    close: 'Fermer « {{title}} »',
+    add: 'Ouvrir une réunion',
+    newMeeting: 'Nouvelle réunion',
+    rename: 'Renommer « {{title}} »',
+    delete: 'Supprimer « {{title}} »',
+    deleteConfirm: 'Supprimer définitivement « {{title}} », sa transcription et son compte rendu ?',
+    loading: 'Réunion',
+  },
   settings: {
     open: 'Paramètres',
     title: 'Paramètres',

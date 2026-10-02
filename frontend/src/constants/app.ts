@@ -24,3 +24,12 @@ export const TRANSCRIPTION_LANGUAGES = ['auto', 'fr', 'en', 'de', 'es', 'it'] as
 
 /** A final sentence replaces a provisional text that started at most this much later (seconds) */
 export const PARTIAL_TOLERANCE_S = 0.5;
+
+/** Open meeting tabs, kept in this browser between sessions */
+export const TABS_STORAGE_KEY = 'smart-meeting.tabs';
+
+/** Recent meetings offered by the "+" of the tab bar */
+export const RECENT_MEETINGS_IN_TABS = 8;
+
+/** Value of the "+" option that goes back to the home page to start a meeting */
+export const NEW_MEETING_TAB = 'new';

@@ -24,13 +24,12 @@ import {
 import { useForm } from '@tanstack/react-form';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router';
 import type { AudioDevice } from '@/api/generated/model/audioDevice';
 import { importMeeting, startMeeting } from '@/api/generated/smartMeetingApi';
 import { TRANSCRIPTION_LANGUAGES } from '@/constants/app';
-import { meetingPath } from '@/constants/routes';
 import useSettingsDialog from '@/contexts/settings/useSettingsDialog';
 import History from '@/features/history/History';
+import useOpenMeeting from '@/hooks/useOpenMeeting';
 import audioDevicesQueryOptions from '@/services/audioDevicesQueryOptions';
 import healthQueryOptions from '@/services/healthQueryOptions';
 import preferencesQueryOptions from '@/services/preferencesQueryOptions';
@@ -104,7 +103,6 @@ const HealthStatus = () => {
 
 /** The main call to action: name the meeting, check its language, start recording */
 const RecordForm = ({ preferences }: RecordFormProps) => {
-  const navigate = useNavigate();
   const { t } = useTranslation();
   const { data: devices } = useQuery(audioDevicesQueryOptions());
   const start = useMutation({
@@ -116,13 +114,14 @@ const RecordForm = ({ preferences }: RecordFormProps) => {
         keep_audio: preferences.keep_audio ?? false,
         language: values.language,
       }),
-    onSuccess: (meeting) => navigate(meetingPath(meeting.id)),
+    onSuccess: (meeting) => openMeeting(meeting.id),
   });
   const { Field, handleSubmit } = useForm({
     defaultValues: { title: '', language: (preferences.language ?? 'auto') as TranscriptionLanguage },
     onSubmit: ({ value }) => start.mutate(value),
   });
   const { open: openSettings } = useSettingsDialog();
+  const openMeeting = useOpenMeeting();
   const none = t('sources.none');
   // Chosen device, or the one the applications use right now (automatic)
   const mic = describe(devices?.sources ?? [], preferences.mic_device ?? devices?.in_use_source, none);
@@ -195,10 +194,10 @@ const RecordForm = ({ preferences }: RecordFormProps) => {
 
 /** Recording panel: a meeting in progress to join, or the form to start one (once the settings are loaded) */
 const RecordPanel = () => {
-  const navigate = useNavigate();
   const { t } = useTranslation();
   const { data: health } = useQuery(healthQueryOptions());
   const { data: preferences } = useQuery(preferencesQueryOptions());
+  const openMeeting = useOpenMeeting();
 
   if (isDefined(health) && isDefined(health.active_meeting_id)) {
     const activeId = health.active_meeting_id;
@@ -210,12 +209,7 @@ const RecordPanel = () => {
             {t('meeting.recording')}
           </Badge>
           <Typography variant="h2">{t('home.inProgress')}</Typography>
-          <Button
-            size="md"
-            icon={IconMicrophone}
-            label={t('home.join')}
-            onClick={() => navigate(meetingPath(activeId))}
-          />
+          <Button size="md" icon={IconMicrophone} label={t('home.join')} onClick={() => openMeeting(activeId)} />
         </Stack>
       </Card>
     );
@@ -226,18 +220,18 @@ const RecordPanel = () => {
 
 /** Transcribes a video or audio file: a replay, a webinar, a voice note */
 const ImportPanel = () => {
-  const navigate = useNavigate();
   const { t } = useTranslation();
   const { data: health } = useQuery(healthQueryOptions());
   const upload = useMutation({
     mutationFn: ({ file, title, language }: ImportFormValues) =>
       isDefined(file) ? importMeeting({ file, title, language }) : Promise.reject(new Error(t('importFile.error'))),
-    onSuccess: (meeting) => navigate(meetingPath(meeting.id)),
+    onSuccess: (meeting) => openMeeting(meeting.id),
   });
   const { Field, Subscribe, handleSubmit, setFieldValue } = useForm({
     defaultValues: IMPORT_DEFAULTS,
     onSubmit: ({ value }) => upload.mutate(value),
   });
+  const openMeeting = useOpenMeeting();
   const busy = isDefined(health) && isDefined(health.active_meeting_id);
 
   return (
