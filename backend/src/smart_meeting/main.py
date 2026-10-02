@@ -43,6 +43,8 @@ app = FastAPI(
 app.include_router(router)
 # Replaced by the launcher with a cross-platform uvicorn exit; SIGINT works under `uvicorn` (dev).
 app.state.request_exit = lambda: os.kill(os.getpid(), signal.SIGINT)
+# Set by the launcher only: in development, closing the page must not stop the server.
+app.state.stop_when_unused = None
 
 # Production-like mode: serve the built frontend from the same origin.
 if FRONTEND_DIST.is_dir():

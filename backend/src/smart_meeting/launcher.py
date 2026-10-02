@@ -147,4 +147,5 @@ def run() -> None:
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=args.port))
     # Quit button: on Windows a signal would kill the process without a graceful shutdown.
     app.state.request_exit = lambda: setattr(server, "should_exit", True)
+    app.state.stop_when_unused = app.state.request_exit
     server.run()

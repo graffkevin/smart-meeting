@@ -72,9 +72,14 @@ L'application est cette page web locale, servie par votre machine : rien ne pass
 
 ### Arrêter
 
-Bouton **Quitter** en haut à droite de l'interface (arrête tout, Ollama compris ; une réunion en cours est d'abord
-stoppée et sa transcription terminée), ou `Ctrl+C` dans le terminal si elle a été lancée depuis un terminal. Fermer
-l'onglet ne l'arrête pas.
+**Fermer l'onglet suffit** : l'application s'arrête 10 secondes après la fermeture de la dernière page Smart Meeting
+(le temps d'un rechargement). Si un enregistrement, un import, une analyse ou un téléchargement est en cours, elle
+attend qu'il soit terminé : un enregistrement continue même onglet fermé, et rouvrir la page le retrouve. Avec
+plusieurs pages ouvertes, toutes affichent la même chose en direct et l'arrêt n'intervient qu'à la fermeture de la
+dernière.
+
+Le bouton **Quitter** arrête immédiatement (une réunion en cours est d'abord stoppée et sa transcription terminée),
+tout comme `Ctrl+C` dans le terminal.
 
 ### Enregistrer une réunion
 

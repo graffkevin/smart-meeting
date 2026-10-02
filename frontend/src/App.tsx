@@ -13,22 +13,31 @@ export function App() {
   const [meetingId, setMeetingId] = useState(currentMeetingId);
   const [quitState, setQuitState] = useState<"running" | "quitting" | "stopped">("running");
 
-  // Presence: tells the launcher a page is open (it then opens none). When the server comes
-  // back after a stop or restart, reload so this page is reused instead of a new one.
+  // Presence: an open WebSocket tells the server this page exists. The launcher then reuses it
+  // instead of opening another one, and the app stops once the last page is closed. If the
+  // server comes back after a stop or restart, reload so this page is reused.
   useEffect(() => {
     let lost = false;
-    const ping = () =>
-      fetch("/api/health?ui=1")
-        .then((response) => {
-          if (!response.ok) throw new Error(String(response.status));
-          if (lost) location.reload();
-        })
-        .catch(() => {
-          lost = true;
-        });
-    ping();
-    const timer = setInterval(ping, 2000);
-    return () => clearInterval(timer);
+    let unmounted = false;
+    let socket: WebSocket | null = null;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const connect = () => {
+      const protocol = location.protocol === "https:" ? "wss" : "ws";
+      socket = new WebSocket(`${protocol}://${location.host}/api/presence`);
+      socket.onopen = () => {
+        if (lost) location.reload();
+      };
+      socket.onclose = () => {
+        lost = true;
+        if (!unmounted) retry = setTimeout(connect, 2000);
+      };
+    };
+    connect();
+    return () => {
+      unmounted = true;
+      clearTimeout(retry);
+      socket?.close();
+    };
   }, []);
 
   useEffect(() => {

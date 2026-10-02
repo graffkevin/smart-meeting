@@ -120,6 +120,10 @@ class OllamaProvisioner:
                 if not step.done and not step.error:
                     step.error = str(exc) or type(exc).__name__
 
+    @property
+    def busy(self) -> bool:
+        return any(not step.done and not step.error for step in self.steps.values())
+
     async def stop(self) -> None:
         if self._process and self._process.poll() is None:
             self._process.terminate()

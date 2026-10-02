@@ -119,3 +119,37 @@ def test_meeting_fails_when_no_source_works(tmp_path):
 
     meeting = asyncio.run(run())
     assert meeting.status == "error"
+
+
+def test_closing_last_page_stops_app_only_when_idle(tmp_path, monkeypatch):
+    from smart_meeting.meeting import service as service_module
+
+    monkeypatch.setattr(service_module, "UNUSED_GRACE_S", 0.01)
+    stops = []
+
+    async def run():
+        svc = make_service(tmp_path, FakeBackend())
+        svc.page_opened()
+        meeting = await svc.start(StartMeetingRequest(title="t"))
+        svc.page_closed(lambda: stops.append("stop"))
+        await asyncio.sleep(0.1)
+        assert stops == []  # a recording is running: keep going
+        svc.page_opened()  # page reopened: no stop either
+        svc.page_closed(lambda: stops.append("stop"))
+        await svc.stop(meeting.id)
+        svc._whisper_ready.set()
+        monkeypatch.setattr(asyncio, "sleep", _fast_sleep)
+        for _ in range(100):
+            if stops:
+                break
+            await _real_sleep(0.01)
+
+    asyncio.run(run())
+    assert stops
+
+
+_real_sleep = asyncio.sleep
+
+
+async def _fast_sleep(delay):
+    await _real_sleep(min(delay, 0.01))

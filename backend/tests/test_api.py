@@ -20,6 +20,7 @@ def client(tmp_path):
     app = FastAPI()
     app.include_router(router)
     app.state.service = MeetingService(settings, Database(settings.db_path), EventHub())
+    app.state.stop_when_unused = None
     with TestClient(app) as test_client:
         yield test_client
 
@@ -67,5 +68,6 @@ def test_cannot_stop_a_meeting_that_is_not_recording(client):
 
 def test_health_reports_open_pages(client):
     assert client.get("/api/health").json()["ui_open"] is False
-    client.get("/api/health", params={"ui": 1})
-    assert client.get("/api/health").json()["ui_open"] is True
+    with client.websocket_connect("/api/presence"):
+        assert client.get("/api/health").json()["ui_open"] is True
+    assert client.get("/api/health").json()["ui_open"] is False

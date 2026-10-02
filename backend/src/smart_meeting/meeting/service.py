@@ -9,6 +9,7 @@ import logging
 import math
 import shutil
 import wave
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -37,6 +38,8 @@ from smart_meeting.transcription.whisper import WhisperTranscriber
 logger = logging.getLogger(__name__)
 
 DEVICE_POLL_S = 2.0
+# Without any open page for this long (time to reload a page), the app stops once idle.
+UNUSED_GRACE_S = 10
 
 
 class ConflictError(Exception):
@@ -97,7 +100,8 @@ class MeetingService:
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="whisper")
         self._background: set[asyncio.Task[None]] = set()
         self._start_lock = asyncio.Lock()
-        self.ui_last_seen = 0.0  # monotonic time of the last poll from an open page
+        self.ui_connections = 0  # open browser pages (presence WebSockets)
+        self._analyses = 0
         self._import_task: asyncio.Task[None] | None = None
         self._import_meeting_id: int | None = None
 
@@ -120,6 +124,31 @@ class MeetingService:
         self.whisper_detail = f"{self.transcriber.model_name} ({self.transcriber.device})"
         self._whisper_ready.set()
         logger.info("Whisper ready: %s", self.whisper_detail)
+
+    # Open pages
+
+    def page_opened(self) -> None:
+        self.ui_connections += 1
+
+    def page_closed(self, on_unused: Callable[[], None] | None) -> None:
+        """Last page closed: call `on_unused` (stop the app) once nothing is running."""
+        self.ui_connections -= 1
+        if self.ui_connections == 0 and on_unused:
+            self._spawn(self._stop_when_unused(on_unused))
+
+    @property
+    def busy(self) -> bool:
+        """Work that closing the page must not interrupt."""
+        return bool(self.active or self._import_task or self._analyses or self.provisioner.busy)
+
+    async def _stop_when_unused(self, on_unused: Callable[[], None]) -> None:
+        await asyncio.sleep(UNUSED_GRACE_S)
+        while self.ui_connections == 0:
+            if not self.busy:
+                logger.info("No page open and nothing running: stopping")
+                on_unused()
+                return
+            await asyncio.sleep(5)
 
     async def quit(self) -> None:
         """Prepare a user-requested exit: stop the recording and let its transcription finish,
@@ -486,6 +515,13 @@ class MeetingService:
     # Analysis
 
     async def analyze(self, meeting_id: int) -> None:
+        self._analyses += 1
+        try:
+            await self._analyze(meeting_id)
+        finally:
+            self._analyses -= 1
+
+    async def _analyze(self, meeting_id: int) -> None:
         meeting = self.db.get_meeting(meeting_id)
         segments = self.db.list_segments(meeting_id)
         if not meeting:
