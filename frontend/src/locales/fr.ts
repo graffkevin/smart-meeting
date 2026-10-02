@@ -15,6 +15,7 @@ const fr = {
     localHint: 'Aucun son ni aucun texte ne quitte votre ordinateur',
     toLight: 'Passer en thème clair',
     toDark: 'Passer en thème sombre',
+    language: "Langue de l'interface",
     quit: 'Quitter Smart Meeting',
     quitTitle: 'Quitter Smart Meeting ?',
     quitText: "L'application et l'IA locale s'arrêtent. Vous pourrez la relancer depuis le menu des applications.",

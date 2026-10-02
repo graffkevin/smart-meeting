@@ -58,16 +58,26 @@ class ConflictError(Exception):
     pass
 
 
-MONTHS = [
-    "janvier", "février", "mars", "avril", "mai", "juin",
-    "juillet", "août", "septembre", "octobre", "novembre", "décembre",
-]  # fmt: skip
+MONTHS = {
+    "fr": [
+        "janvier", "février", "mars", "avril", "mai", "juin",
+        "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+    ],
+    "en": [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+    ],
+}  # fmt: skip
 
 
-def default_title(at: datetime | None = None) -> str:
+def default_title(at: datetime | None = None, language: str = "fr") -> str:
     """Title of a meeting started without a name: its date and local time."""
     at = at or datetime.now()
-    return f"Réunion du {at.day} {MONTHS[at.month - 1]} {at.year} à {at.hour}h{at.minute:02d}"
+    if language == "en":
+        month = MONTHS["en"][at.month - 1]
+        return f"Meeting on {month} {at.day}, {at.year} at {at.hour}:{at.minute:02d}"
+    month = MONTHS["fr"][at.month - 1]
+    return f"Réunion du {at.day} {month} {at.year} à {at.hour}h{at.minute:02d}"
 
 
 @dataclass
@@ -248,7 +258,7 @@ class MeetingService:
                 raise ConflictError(f"Audio indisponible : {exc}") from exc
 
         meeting = self.db.create_meeting(
-            request.title.strip() or default_title(),
+            request.title.strip() or default_title(language=self.settings.ui_language),
             request.mic_device,
             request.remote_device,
             request.keep_audio,

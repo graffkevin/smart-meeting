@@ -8,7 +8,8 @@ and to your microphone, transcribes both live (you on one side, the other partic
 the local AI anything about the meeting ("what do I have to do?"), and writes the minutes: summary, decisions,
 actions, open questions, risks. Everything can be copied as Markdown.
 
-The interface is in French for now. Architecture and design choices: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+The interface is in French and English (FR | EN switch in the header; the AI answers, the minutes and the default
+meeting names follow it). Architecture and design choices: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 (in French).
 
 ## Install

@@ -42,6 +42,7 @@ const SettingsForm = ({ preferences, onSaved }: SettingsFormProps) => {
         mic_device: value.mic === AUTO_DEVICE ? null : value.mic,
         output_device: value.output === AUTO_DEVICE ? null : value.output,
         keep_audio: value.keepAudio,
+        ui_language: preferences.ui_language,
       }),
   });
   const describe = (list: AudioDevice[], name: string | null | undefined) =>

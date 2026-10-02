@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     # Speaker labels. Mic and remote audio are captured separately, which gives
     # a free two-way diarization: "me" vs "the others".
     user_name: str = "Moi"
+    # Language of the interface, of the AI answers and of the minutes (fr, en)
+    ui_language: str = "fr"
     remote_name: str = "Interlocuteur"
     import_speaker: str = "Intervenant"  # imported files: a single mixed track
 

@@ -1440,6 +1440,15 @@
             "type": "boolean",
             "title": "Keep Audio",
             "default": false
+          },
+          "ui_language": {
+            "type": "string",
+            "enum": [
+              "fr",
+              "en"
+            ],
+            "title": "Ui Language",
+            "default": "fr"
           }
         },
         "type": "object",

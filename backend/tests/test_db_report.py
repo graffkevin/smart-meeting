@@ -150,3 +150,20 @@ def test_tags_are_cleaned_listed_and_searchable(tmp_path):
     assert db.list_meetings()[0].tags == ["Atlas"]  # newest first: Comité
     db.set_tags(atlas.id, [])
     assert db.get_meeting(atlas.id).tags == []
+
+
+def test_report_and_default_title_in_english(tmp_path):
+    from datetime import datetime
+
+    from smart_meeting.meeting.service import default_title
+
+    db = Database(tmp_path / "test.db")
+    meeting = db.create_meeting("Weekly", None, None, keep_audio=False)
+    analysis = MeetingAnalysis(
+        summary="Short.", decisions=[], actions=[], questions=[], risks=[], technical_topics=[]
+    )
+    markdown = build_markdown(meeting, [], analysis, language="en")
+    assert "## Summary" in markdown and "## Decisions" in markdown and "_None._" in markdown
+    assert (
+        default_title(datetime(2026, 10, 2, 14, 5), "en") == "Meeting on October 2, 2026 at 14:05"
+    )

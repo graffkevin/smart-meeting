@@ -170,7 +170,8 @@ def update_meeting(request: Request, meeting_id: int, body: UpdateMeetingRequest
     svc = service(request)
     meeting = get_meeting_or_404(svc, meeting_id)
     started = datetime.fromisoformat(meeting.started_at).astimezone()
-    svc.db.update_meeting(meeting_id, title=body.title.strip() or default_title(started))
+    title = body.title.strip() or default_title(started, svc.settings.ui_language)
+    svc.db.update_meeting(meeting_id, title=title)
     return get_meeting_or_404(svc, meeting_id)
 
 
@@ -235,6 +236,7 @@ def meeting_report(request: Request, meeting_id: int) -> str:
         svc.db.list_segments(meeting_id),
         svc.db.get_analysis(meeting_id),
         svc.db.list_questions(meeting_id),
+        svc.settings.ui_language,
     )
 
 

@@ -114,6 +114,7 @@ class Preferences(BaseModel):
     mic_device: str | None = None  # None: automatic
     output_device: str | None = None  # None: automatic
     keep_audio: bool = False
+    ui_language: Literal["fr", "en"] = "fr"  # interface, AI answers and minutes
 
 
 class TagsRequest(BaseModel):

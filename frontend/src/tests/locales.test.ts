@@ -16,3 +16,15 @@ describe('French texts', () => {
     });
   });
 });
+
+describe('English texts', () => {
+  const keys = (value: unknown, prefix = ''): string[] =>
+    typeof value === 'object' && value !== null
+      ? Object.entries(value).flatMap(([key, child]) => keys(child, `${prefix}${key}.`))
+      : [prefix];
+
+  it('translate every French text', async () => {
+    const { default: en } = await import('@/locales/en');
+    expect(keys(en)).toEqual(keys(fr));
+  });
+});

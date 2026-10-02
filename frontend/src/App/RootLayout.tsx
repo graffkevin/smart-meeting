@@ -18,6 +18,7 @@ import SettingsDialogProvider from '@/contexts/settings/SettingsDialogProvider';
 import useSettingsDialog from '@/contexts/settings/useSettingsDialog';
 import TabsProvider from '@/contexts/tabs/TabsProvider';
 import SettingsDialog from '@/features/settings/SettingsDialog';
+import LanguageSwitch from '@/features/shell/LanguageSwitch';
 import MeetingTabs from '@/features/shell/MeetingTabs';
 import ModelStatus from '@/features/shell/ModelStatus';
 import QuitButton from '@/features/shell/QuitButton';
@@ -63,6 +64,7 @@ const Layout = () => {
           </Badge>
           <Box flex={1} />
           <ModelStatus />
+          <LanguageSwitch />
           <SettingsButton />
           <ColorSchemeToggle labels={{ toLight: t('shell.toLight'), toDark: t('shell.toDark') }} />
           {quitState === 'running' && (

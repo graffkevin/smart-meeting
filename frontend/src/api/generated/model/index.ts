@@ -21,6 +21,7 @@ export * from './meetingDetail';
 export * from './meetingListItem';
 export * from './meetingStatus';
 export * from './preferences';
+export * from './preferencesUiLanguage';
 export * from './segment';
 export * from './segmentSource';
 export * from './setupStepInfo';

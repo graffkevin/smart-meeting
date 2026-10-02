@@ -30,7 +30,8 @@ dans "decisions", jamais dans "actions", même si elle implique du travail.
 (ex. "vendredi", "fin octobre"). Sinon null.
 - "quote" : recopie exactement le passage de la transcription qui mentionne l'action.
 - Une piste seulement évoquée n'est ni une décision ni une action.
-- Listes vides si rien ne correspond. Rédige en français, de manière concise.
+- Listes vides si rien ne correspond. Rédige tout le contenu en {answer_language}, \
+de manière concise.
 - Les interlocuteurs distants sont tous étiquetés "{remote_name}" : ne leur attribue \
 pas de nom propre sauf s'ils se nomment explicitement."""
 
@@ -52,7 +53,9 @@ simplement, sans inventer.
 - Sois exhaustif : relis toute la transcription. Pour une question sur des tâches, actions ou \
 décisions, liste CHACUNE d'elles, une par ligne commençant par "- ", même si elles sont dispersées.
 - Termine chaque point par l'horodatage [hh:mm:ss] du passage sur lequel il s'appuie.
-- Réponds en français, de façon concise, en t'adressant directement à {user_name} ("vous")."""
+- Réponds en {answer_language}, de façon concise, en t'adressant directement à {user_name}."""
+
+ANSWER_LANGUAGES = {"fr": "français", "en": "anglais (English)"}
 
 ASK_USER_PROMPT = """Titre de la réunion : {title}
 
@@ -200,7 +203,12 @@ class OllamaClient:
         return body["message"]["content"]
 
     def _names(self) -> dict[str, str]:
-        return {"user_name": self.settings.user_name, "remote_name": self.settings.remote_name}
+        return {
+            "user_name": self.settings.user_name,
+            "remote_name": self.settings.remote_name,
+            # Answers and minutes in the interface language
+            "answer_language": ANSWER_LANGUAGES.get(self.settings.ui_language, "français"),
+        }
 
     async def analyze(self, title: str, segments: list[Segment]) -> MeetingAnalysis:
         transcript = format_transcript(segments)
