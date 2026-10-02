@@ -1,5 +1,6 @@
 import logging
 import os
+import signal
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -40,6 +41,8 @@ app = FastAPI(
     telemetry={"tracing": False, "metrics": False, "logs": False, "auto_configure": False},
 )
 app.include_router(router)
+# Replaced by the launcher with a cross-platform uvicorn exit; SIGINT works under `uvicorn` (dev).
+app.state.request_exit = lambda: os.kill(os.getpid(), signal.SIGINT)
 
 # Production-like mode: serve the built frontend from the same origin.
 if FRONTEND_DIST.is_dir():

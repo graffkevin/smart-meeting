@@ -16,9 +16,8 @@ from typing import Literal
 
 import numpy as np
 
-from smart_meeting.audio.capture import PipeWireCapture
+from smart_meeting.audio.backend import AudioBackend, Capture, get_backend
 from smart_meeting.audio.decode import decode_audio, probe_duration
-from smart_meeting.audio.devices import pw_dump, resolve_in_use
 from smart_meeting.audio.segmenter import Utterance, UtteranceSegmenter, silero_vad
 from smart_meeting.config import Settings
 from smart_meeting.db import Database, now_iso
@@ -50,7 +49,9 @@ class SourceStream:
     speaker: str
     # Automatic mode: follow the device applications use instead of a fixed one.
     auto: bool = False
-    capture: PipeWireCapture | None = None
+    capture: Capture | None = None
+    # Why this source could not be captured (the meeting goes on with the other one).
+    error: str | None = None
     segmenter: UtteranceSegmenter | None = None
     # Meeting time (s) of the first sample received, to align both sources.
     offset_s: float | None = None
@@ -75,8 +76,15 @@ class Recording:
 
 
 class MeetingService:
-    def __init__(self, settings: Settings, db: Database, hub: EventHub) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        db: Database,
+        hub: EventHub,
+        audio: AudioBackend | None = None,
+    ) -> None:
         self.settings = settings
+        self.audio = audio or get_backend()
         self.db = db
         self.hub = hub
         self.transcriber = WhisperTranscriber(settings)
@@ -108,7 +116,7 @@ class MeetingService:
             self.whisper_state, self.whisper_detail = "error", str(exc)
             return
         self.whisper_state = "ready"
-        self.whisper_detail = f"{self.settings.whisper_model} ({self.transcriber.device})"
+        self.whisper_detail = f"{self.transcriber.model_name} ({self.transcriber.device})"
         self._whisper_ready.set()
         logger.info("Whisper ready: %s", self.whisper_detail)
 
@@ -162,9 +170,11 @@ class MeetingService:
         in_use: dict[Source, str | None] = {}
         if None in targets.values():
             try:
-                in_use = dict(zip(("mic", "remote"), resolve_in_use(await pw_dump()), strict=True))
+                in_use = dict(
+                    zip(("mic", "remote"), await self.audio.resolve_in_use(), strict=True)
+                )
             except (OSError, RuntimeError) as exc:
-                raise ConflictError(f"PipeWire indisponible : {exc}") from exc
+                raise ConflictError(f"Audio indisponible : {exc}") from exc
 
         meeting = self.db.create_meeting(
             request.title.strip() or "Réunion sans titre",
@@ -191,12 +201,17 @@ class MeetingService:
             stream.capture = self._new_capture(recording, stream, targets[stream.source])
 
         self.active = recording
-        try:
-            for stream in recording.streams.values():
+        for stream in recording.streams.values():
+            try:
                 await stream.capture.start()
-        except Exception as exc:
+            except Exception as exc:
+                logger.exception("Could not start %s capture", stream.source)
+                stream.error = str(exc) or type(exc).__name__
+        if all(stream.error for stream in recording.streams.values()):
+            errors = " ; ".join(f"{s.source} : {s.error}" for s in recording.streams.values())
+            exc = RuntimeError(f"Aucune source audio capturée ({errors})")
             await self._abort(recording, exc)
-            raise
+            raise ConflictError(str(exc))
         recording.tasks = [
             asyncio.create_task(self._transcription_worker(recording), name="transcription"),
             asyncio.create_task(self._publish_levels(recording), name="levels"),
@@ -216,13 +231,12 @@ class MeetingService:
 
     def _new_capture(
         self, recording: Recording, stream: SourceStream, target: str | None
-    ) -> PipeWireCapture:
-        return PipeWireCapture(
-            name=stream.source,
-            target=target,
-            capture_sink=stream.source == "remote",
-            on_audio=lambda samples: self._on_audio(recording, stream, samples),
-            sample_rate=self.settings.sample_rate,
+    ) -> Capture:
+        return self.audio.create_capture(
+            stream.source,
+            target,
+            lambda samples: self._on_audio(recording, stream, samples),
+            self.settings.sample_rate,
         )
 
     def captured_devices(self, meeting_id: int) -> dict[Source, CapturedDevice] | None:
@@ -230,7 +244,9 @@ class MeetingService:
         if not recording or recording.meeting_id != meeting_id or recording.stopping:
             return None
         return {
-            source: CapturedDevice(device=stream.capture.target, auto=stream.auto)
+            source: CapturedDevice(
+                device=stream.capture.target, auto=stream.auto, error=stream.error
+            )
             for source, stream in recording.streams.items()
         }
 
@@ -248,9 +264,9 @@ class MeetingService:
             await asyncio.sleep(DEVICE_POLL_S)
             try:
                 # No fallback: a call pausing must not send the capture back to the defaults.
-                mic, sink = resolve_in_use(await pw_dump(), fallback_to_defaults=False)
+                mic, sink = await self.audio.resolve_in_use(fallback_to_defaults=False)
             except (OSError, RuntimeError):
-                logger.warning("Could not inspect PipeWire devices", exc_info=True)
+                logger.warning("Could not inspect audio devices", exc_info=True)
                 continue
             for stream in auto_streams:
                 target = mic if stream.source == "mic" else sink
@@ -267,7 +283,12 @@ class MeetingService:
         stream.segmenter = self._new_segmenter()
         stream.offset_s = None
         stream.capture = self._new_capture(recording, stream, target)
-        await stream.capture.start()
+        try:
+            await stream.capture.start()
+            stream.error = None
+        except Exception as exc:
+            logger.exception("Could not switch %s capture to %s", stream.source, target)
+            stream.error = str(exc) or type(exc).__name__
         self._publish_devices(recording)
 
     def _open_wav(self, meeting_id: int, source: Source) -> wave.Wave_write:

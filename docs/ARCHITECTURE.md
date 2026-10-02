@@ -104,7 +104,8 @@ smart-meeting/
 │   │   ├── models.py             # modèles Pydantic (API + LLM)
 │   │   ├── db.py                 # SQLite
 │   │   ├── api/routes.py         # REST + WebSocket
-│   │   ├── audio/                # devices.py (pw-dump), capture.py (pw-record), decode.py (ffmpeg), segmenter.py (VAD)
+│   │   ├── audio/                # backend.py (interface), pipewire*.py, windows.py, macos.py, threaded.py,
+│   │   │                         # decode.py (PyAV), segmenter.py (VAD)
 │   │   ├── transcription/whisper.py
 │   │   ├── llm/analysis.py       # Ollama, prompt, garde-fous
 │   │   └── meeting/              # service.py (orchestration), events.py, report.py (Markdown)
@@ -163,9 +164,15 @@ deux WAV 16 kHz sont écrits dans `~/.local/share/smart-meeting/audio/<id>/`, su
 6. ✅ Installation « plug & play » : `./smart-meeting` installe uv, les dépendances et l'interface ; l'application
    provisionne Ollama (`provision.py` : binaire dans `~/.local/opt/ollama`, modèle téléchargé depuis le registre
    Ollama avec reprise et vérification sha256, compatible proxy) et affiche la progression dans `/api/health`.
-7. ✅ Import de fichiers audio/vidéo : ffmpeg décode en flux vers le même découpage VAD + Whisper (le pipe régule
-   ffmpeg pendant que Whisper travaille). `meetings.source_file` est renseigné ; horodatage relatif au fichier.
-8. À venir, une fois la chaîne validée en réunion réelle :
+7. ✅ Multi-plateforme : capture derrière `audio/backend.py` (`AudioBackend`, `Capture`) avec un backend par système :
+   PipeWire (Linux), WASAPI loopback via PyAudioWPatch (Windows), ScreenCaptureKit + sounddevice (macOS 13+).
+   `audio/threaded.py` convertit les flux des bibliothèques à callback (rééchantillonnage soxr vers 16 kHz mono,
+   silences comblés car le loopback WASAPI n'émet rien quand rien ne joue). Une source en échec n'arrête pas la
+   réunion. Windows et macOS ne sont pas encore testés sur machine réelle. Décodage des imports par PyAV (plus de
+   ffmpeg système), archives Ollama extraites en Python (zip, tgz, tar.zst).
+8. ✅ Import de fichiers audio/vidéo : PyAV décode en flux vers le même découpage VAD + Whisper (une file bornée
+   met le décodage en pause pendant que Whisper travaille). `meetings.source_file` est renseigné ; horodatage relatif au fichier.
+9. À venir, une fois la chaîne validée en réunion réelle :
    - réglage du VAD et du glossaire sur de vraies réunions ;
    - découpage map-reduce pour les réunions qui dépassent le contexte du LLM ;
    - diarisation pyannote du flux distant ;

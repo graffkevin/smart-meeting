@@ -1,48 +1,17 @@
 #!/usr/bin/env bash
-# Smart Meeting launcher: installs what is missing (without sudo), then starts the local server
-# and opens the app. Ollama and the AI model are installed by the app itself, with progress
-# shown in the interface. Ctrl+C, or the Quit button, stops everything.
+# Smart Meeting launcher for Linux and macOS (used by the Linux desktop entry); `make run` does
+# the same. Installs uv if needed; the app then checks the system, builds the interface and
+# installs Ollama and the AI model itself. Ctrl+C, or the Quit button, stops everything.
 set -euo pipefail
 
 ROOT="$(dirname "$(readlink -f "$0")")"
 export PATH="$HOME/.local/bin:$PATH"
 
-# Errors must be visible even when started from the applications menu (no terminal).
-fail() {
-  echo "Smart Meeting : $1" >&2
-  command -v notify-send >/dev/null && notify-send -i dialog-error "Smart Meeting" "$1"
-  exit 1
-}
-
-info() { echo "Smart Meeting : $1"; }
-
-# 1. System packages: the only part that needs sudo.
-missing=()
-for tool in pw-record pw-dump; do command -v "$tool" >/dev/null || missing+=(pipewire-bin); done
-command -v ffmpeg >/dev/null || missing+=(ffmpeg)
-command -v zstd >/dev/null || missing+=(zstd)
-if ((${#missing[@]})); then
-  packages="$(printf '%s\n' "${missing[@]}" | sort -u | tr '\n' ' ')"
-  fail "paquets manquants. Installez-les avec : sudo apt install ${packages% }"
-fi
-
-# 2. uv (Python toolchain).
 if ! command -v uv >/dev/null; then
-  info "installation de uv…"
-  curl -LsSf https://astral.sh/uv/install.sh | sh -s -- --quiet || fail "installation de uv impossible"
+  echo "Smart Meeting : installation de uv…"
+  curl -LsSf https://astral.sh/uv/install.sh | sh -s -- --quiet
 fi
 
-# 3. Web interface: built on first run and whenever its sources change.
-dist="$ROOT/frontend/dist/index.html"
-if [[ ! -f "$dist" ]] || [[ -n "$(find "$ROOT/frontend/src" "$ROOT/frontend/package.json" -newer "$dist" -print -quit)" ]]; then
-  command -v npm >/dev/null || fail "Node.js est requis pour construire l'interface : sudo apt install nodejs npm"
-  info "construction de l'interface…"
-  (cd "$ROOT/frontend" && npm ci --silent --no-audit --no-fund && npm run --silent build >/dev/null) \
-    || fail "construction de l'interface impossible (voir le terminal)"
-fi
-
-# 4. Python dependencies (synced by uv run); CUDA libraries only with an NVIDIA GPU.
 extras=()
 command -v nvidia-smi >/dev/null && nvidia-smi -L >/dev/null 2>&1 && extras=(--extra cuda)
-cd "$ROOT/backend"
-exec uv run --quiet "${extras[@]}" smart-meeting "$@"
+exec uv run --quiet --directory "$ROOT/backend" "${extras[@]}" smart-meeting "$@"

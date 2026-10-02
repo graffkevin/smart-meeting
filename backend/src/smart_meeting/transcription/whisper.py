@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import site
+import sys
 import unicodedata
 from dataclasses import dataclass
 
@@ -33,6 +34,13 @@ class TranscribedPiece:
 
 def preload_cuda_libraries() -> None:
     """Make pip-installed CUDA 12 libraries (the `cuda` extra) visible to CTranslate2."""
+    if sys.platform == "win32":
+        # Windows: DLLs live in nvidia/*/bin and are found through the DLL search path.
+        for base in site.getsitepackages():
+            for directory in glob.glob(os.path.join(base, "nvidia", "*", "bin")):
+                os.add_dll_directory(directory)
+                os.environ["PATH"] = directory + os.pathsep + os.environ["PATH"]
+        return
     patterns = [
         "nvidia/cublas/lib/libcublasLt.so.12",
         "nvidia/cublas/lib/libcublas.so.12",
@@ -69,6 +77,7 @@ class WhisperTranscriber:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._model = None
+        self.model_name: str | None = None
         self.device: str | None = None
 
     def load(self) -> None:
@@ -85,13 +94,15 @@ class WhisperTranscriber:
 
         from faster_whisper import WhisperModel
 
-        logger.info(
-            "Loading Whisper %s on %s (%s)", self.settings.whisper_model, device, compute_type
-        )
-        model = WhisperModel(self.settings.whisper_model, device=device, compute_type=compute_type)
+        name = self.settings.whisper_model
+        if name == "auto":
+            name = "large-v3-turbo" if device == "cuda" else "small"
+        logger.info("Loading Whisper %s on %s (%s)", name, device, compute_type)
+        model = WhisperModel(name, device=device, compute_type=compute_type)
         # Warm-up so the first real utterance is not delayed (and CUDA errors surface now).
         list(model.transcribe(np.zeros(16000, dtype=np.float32), language="fr")[0])
         self._model = model
+        self.model_name = name
         self.device = f"{device}/{compute_type}"
 
     def transcribe(self, audio: np.ndarray, previous_text: str = "") -> list[TranscribedPiece]:

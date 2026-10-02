@@ -1,7 +1,8 @@
 """First-run provisioning of Ollama and its model, without sudo, with progress for the UI.
 
-- Ollama: an existing install (PATH, SM_OLLAMA_BIN, system service) is used as is. Otherwise
-  the official Linux build is extracted to ~/.local/opt/ollama.
+- Ollama: an existing install (PATH, SM_OLLAMA_BIN, desktop app, system service) is used as
+  is. Otherwise the official standalone build for the OS is extracted to a per-user directory
+  (~/.local/opt/ollama on Linux).
 - Ollama is started as a child process when it is not already running, and stopped with us.
 - Model: when we manage Ollama, blobs are fetched from the Ollama registry by our own
   resumable downloader (`ollama pull` stalls behind some corporate proxies); with a system
@@ -21,12 +22,16 @@ import platform
 import shutil
 import signal
 import subprocess
+import sys
 import tarfile
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
+import zstandard
+from platformdirs import user_data_path
 
 from smart_meeting.config import Settings
 
@@ -34,7 +39,17 @@ logger = logging.getLogger(__name__)
 
 REGISTRY = "https://registry.ollama.ai"
 MANIFEST_TYPE = "application/vnd.docker.distribution.manifest.v2+json"
-LOCAL_OLLAMA_DIR = Path.home() / ".local" / "opt" / "ollama"
+LOCAL_OLLAMA_DIR = (
+    Path.home() / ".local" / "opt" / "ollama"
+    if sys.platform.startswith("linux")
+    else user_data_path("smart-meeting", appauthor=False) / "ollama"
+)
+BINARY_NAME = "ollama.exe" if sys.platform == "win32" else "ollama"
+# Desktop app installs, checked before downloading anything.
+KNOWN_INSTALLS = [
+    Path("/Applications/Ollama.app/Contents/Resources/ollama"),
+    Path(os.environ.get("LOCALAPPDATA", "~")) / "Programs" / "Ollama" / "ollama.exe",
+]
 CHUNK = 1024 * 1024
 
 
@@ -52,6 +67,33 @@ def _die_with_parent() -> None:
     ctypes.CDLL("libc.so.6", use_errno=True).prctl(pr_set_pdeathsig, signal.SIGTERM)
 
 
+def _download_url() -> str:
+    machine = platform.machine().lower()
+    arch = {"x86_64": "amd64", "amd64": "amd64", "aarch64": "arm64", "arm64": "arm64"}.get(machine)
+    if sys.platform == "darwin":
+        return "https://ollama.com/download/ollama-darwin.tgz"  # universal binary
+    if not arch:
+        raise RuntimeError(f"Architecture non prise en charge : {platform.machine()}")
+    if sys.platform == "win32":
+        return f"https://ollama.com/download/ollama-windows-{arch}.zip"
+    return f"https://ollama.com/download/ollama-linux-{arch}.tar.zst"
+
+
+def _extract(archive: Path, target: Path) -> None:
+    """Extract a .tar.zst, .tgz or .zip archive (pure Python: no zstd/tar tools needed)."""
+    if archive.name.endswith(".zip"):
+        with zipfile.ZipFile(archive) as zipped:
+            zipped.extractall(target)
+    elif archive.name.endswith(".tar.zst"):
+        with archive.open("rb") as raw:
+            stream = zstandard.ZstdDecompressor().stream_reader(raw)
+            with tarfile.open(fileobj=stream, mode="r|") as tar:
+                tar.extractall(target, filter="data")
+    else:
+        with tarfile.open(archive, "r:gz") as tar:
+            tar.extractall(target, filter="data")
+
+
 def _download_client() -> httpx.AsyncClient:
     # trust_env=True: model and software downloads go through the configured proxy.
     return httpx.AsyncClient(timeout=httpx.Timeout(60, read=300), follow_redirects=True)
@@ -61,7 +103,7 @@ class OllamaProvisioner:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.steps: dict[str, SetupStep] = {}
-        self._process: asyncio.subprocess.Process | None = None
+        self._process: subprocess.Popen | None = None
 
     # Public
 
@@ -79,9 +121,9 @@ class OllamaProvisioner:
                     step.error = str(exc) or type(exc).__name__
 
     async def stop(self) -> None:
-        if self._process and self._process.returncode is None:
+        if self._process and self._process.poll() is None:
             self._process.terminate()
-            await self._process.wait()
+            await asyncio.to_thread(self._process.wait)
 
     # Binary
 
@@ -89,40 +131,32 @@ class OllamaProvisioner:
         candidates = [
             self.settings.ollama_bin,
             shutil.which("ollama"),
-            str(LOCAL_OLLAMA_DIR / "bin" / "ollama"),
+            *map(str, KNOWN_INSTALLS),
+            *map(str, sorted(LOCAL_OLLAMA_DIR.rglob(BINARY_NAME))),
         ]
-        return next((c for c in candidates if c and Path(c).is_file()), None)
+        return next((c for c in candidates if c and Path(c).expanduser().is_file()), None)
 
     async def _install_binary(self) -> str:
         step = self.steps.setdefault("ollama", SetupStep("Installation d'Ollama"))
-        if not shutil.which("zstd"):
-            raise RuntimeError("zstd est requis pour installer Ollama : sudo apt install zstd")
-        arch = {"x86_64": "amd64", "aarch64": "arm64"}.get(platform.machine())
-        if not arch:
-            raise RuntimeError(f"Architecture non prise en charge : {platform.machine()}")
-        url = f"https://ollama.com/download/ollama-linux-{arch}.tar.zst"
-        archive = LOCAL_OLLAMA_DIR.with_name("ollama-download.tar.zst")
+        url = _download_url()
+        archive = LOCAL_OLLAMA_DIR.with_name("ollama-download-" + url.rsplit("/", 1)[1])
         archive.parent.mkdir(parents=True, exist_ok=True)
         logger.info("Downloading Ollama from %s", url)
         await self._download(url, archive, step)
         step.label, step.progress = "Installation d'Ollama (extraction)", None
-        await asyncio.to_thread(self._extract, archive)
+        partial = LOCAL_OLLAMA_DIR.with_name("ollama.partial")
+        shutil.rmtree(partial, ignore_errors=True)
+        await asyncio.to_thread(_extract, archive, partial)
         archive.unlink(missing_ok=True)
-        step.done = True
-        return str(LOCAL_OLLAMA_DIR / "bin" / "ollama")
-
-    @staticmethod
-    def _extract(archive: Path) -> None:
-        target = LOCAL_OLLAMA_DIR.with_name("ollama.partial")
-        shutil.rmtree(target, ignore_errors=True)
-        target.mkdir(parents=True)
-        tar_path = archive.with_suffix("")
-        subprocess.run(["zstd", "-q", "-d", "-f", str(archive), "-o", str(tar_path)], check=True)
-        with tarfile.open(tar_path) as tar:
-            tar.extractall(target, filter="data")
-        tar_path.unlink(missing_ok=True)
         shutil.rmtree(LOCAL_OLLAMA_DIR, ignore_errors=True)
-        target.rename(LOCAL_OLLAMA_DIR)
+        partial.rename(LOCAL_OLLAMA_DIR)
+        binary = self._find_binary()
+        if not binary:
+            raise RuntimeError(f"{BINARY_NAME} introuvable dans l'archive Ollama")
+        if sys.platform != "win32":
+            Path(binary).chmod(0o755)
+        step.done = True
+        return binary
 
     # Process
 
@@ -132,14 +166,15 @@ class OllamaProvisioner:
         logger.info("Starting %s serve (log: %s)", binary, log)
         url = urlparse(self.settings.ollama_url)
         env = {**os.environ, "OLLAMA_HOST": f"{url.hostname}:{url.port or 11434}"}
+        # Plain Popen: asyncio subprocesses depend on the event loop type on Windows.
         with log.open("ab") as output:
-            self._process = await asyncio.create_subprocess_exec(
-                binary,
-                "serve",
+            self._process = subprocess.Popen(
+                [binary, "serve"],
                 stdout=output,
-                stderr=asyncio.subprocess.STDOUT,
+                stderr=subprocess.STDOUT,
                 env=env,
-                preexec_fn=_die_with_parent,
+                # Linux only; elsewhere Ollama is stopped by `stop()` on shutdown.
+                preexec_fn=_die_with_parent if sys.platform.startswith("linux") else None,
             )
         for _ in range(100):
             if await self._reachable():

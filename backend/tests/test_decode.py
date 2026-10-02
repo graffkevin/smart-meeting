@@ -7,10 +7,10 @@ import pytest
 
 from smart_meeting.audio.decode import decode_audio, probe_duration
 
-pytestmark = pytest.mark.skipif(not shutil.which("ffmpeg"), reason="ffmpeg required")
-
 
 def test_decodes_video_audio_track(tmp_path):
+    if not shutil.which("ffmpeg"):
+        pytest.skip("ffmpeg CLI needed to generate the test video")
     video = tmp_path / "clip.mp4"
     subprocess.run(
         [
@@ -53,5 +53,5 @@ def test_rejects_non_media(tmp_path):
             async for _ in stream:
                 pass
 
-    with pytest.raises(RuntimeError, match="Décodage impossible"):
+    with pytest.raises(RuntimeError, match="Décodage impossible|Aucune piste audio"):
         asyncio.run(run())

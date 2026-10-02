@@ -1,4 +1,4 @@
-from smart_meeting.audio.devices import parse_pw_dump
+from smart_meeting.audio.pipewire_devices import parse_pw_dump
 
 
 def node(name, description, media_class):
@@ -74,7 +74,7 @@ DEFAULTS = {
 
 
 def test_resolve_in_use_follows_application_streams():
-    from smart_meeting.audio.devices import resolve_in_use
+    from smart_meeting.audio.pipewire_devices import resolve_in_use
 
     dump = [
         DEFAULTS,
@@ -95,7 +95,7 @@ def test_resolve_in_use_follows_application_streams():
 
 
 def test_resolve_in_use_falls_back_to_defaults():
-    from smart_meeting.audio.devices import resolve_in_use
+    from smart_meeting.audio.pipewire_devices import resolve_in_use
 
     dump = [
         DEFAULTS,
@@ -106,7 +106,7 @@ def test_resolve_in_use_falls_back_to_defaults():
 
 
 def test_resolve_in_use_prefers_the_call_output_and_can_skip_defaults():
-    from smart_meeting.audio.devices import resolve_in_use
+    from smart_meeting.audio.pipewire_devices import resolve_in_use
 
     dump = [
         DEFAULTS,

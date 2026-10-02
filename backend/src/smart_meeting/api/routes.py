@@ -1,8 +1,6 @@
 import asyncio
 import contextlib
-import os
 import shutil
-import signal
 import uuid
 from pathlib import Path
 
@@ -18,7 +16,6 @@ from fastapi import (
 )
 from fastapi.responses import PlainTextResponse
 
-from smart_meeting.audio.devices import list_devices
 from smart_meeting.meeting.report import build_markdown
 from smart_meeting.meeting.service import ConflictError, MeetingService
 from smart_meeting.models import (
@@ -78,16 +75,16 @@ async def shutdown(request: Request, background: BackgroundTasks) -> None:
     """Quit button: finish the current recording's transcription, then stop the server
     (the launcher then stops the Ollama it started)."""
     await service(request).quit()
-    # After the response is sent: same graceful path as Ctrl+C.
-    background.add_task(os.kill, os.getpid(), signal.SIGINT)
+    # After the response is sent: graceful shutdown, like Ctrl+C.
+    background.add_task(request.app.state.request_exit)
 
 
 @router.get("/audio/devices")
-async def audio_devices() -> AudioDevices:
+async def audio_devices(request: Request) -> AudioDevices:
     try:
-        return await list_devices()
+        return await service(request).audio.list_devices()
     except (OSError, RuntimeError) as exc:
-        raise HTTPException(503, f"PipeWire indisponible : {exc}") from exc
+        raise HTTPException(503, f"Audio indisponible : {exc}") from exc
 
 
 @router.get("/meetings")
@@ -105,8 +102,6 @@ async def start_meeting(request: Request, body: StartMeetingRequest) -> Meeting:
 @router.post("/meetings/import", status_code=201)
 async def import_meeting(request: Request, file: UploadFile, title: str = Form("")) -> Meeting:
     """Upload an audio or video file to transcribe and analyze. It is deleted once decoded."""
-    if not shutil.which("ffmpeg"):
-        raise HTTPException(503, "ffmpeg est requis pour importer un fichier")
     svc = service(request)
     filename = Path(file.filename or "fichier").name
     uploads = svc.settings.data_dir / "uploads"

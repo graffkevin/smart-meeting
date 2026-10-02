@@ -1,13 +1,17 @@
-"""`smart-meeting` command: start everything locally and open the app window."""
+"""`smart-meeting` command: check the system, build the UI if needed, start the local server
+and open the app. Same behavior on Linux, macOS and Windows."""
 
 import argparse
 import logging
 import os
+import platform
 import shutil
 import subprocess
+import sys
 import threading
 import time
 import webbrowser
+from pathlib import Path
 
 import httpx
 
@@ -47,6 +51,49 @@ def open_window(url: str) -> None:
     webbrowser.open_new(url)
 
 
+def check_system() -> None:
+    """Fail early, with the fix, when the OS lacks something we cannot install ourselves."""
+    if sys.platform.startswith("linux"):
+        missing = [tool for tool in ("pw-record", "pw-dump") if not shutil.which(tool)]
+        if missing:
+            fail(
+                "PipeWire est requis (Ubuntu 22.10+). Installez-le : sudo apt install pipewire-bin"
+            )
+    elif sys.platform == "darwin":
+        version = tuple(int(x) for x in (platform.mac_ver()[0] or "0").split(".")[:1])
+        if version < (13,):
+            fail("macOS 13 (Ventura) ou plus récent est requis pour capturer l'audio système.")
+
+
+def build_frontend_if_needed(frontend: Path) -> None:
+    """Build the UI on first run and whenever its sources changed since the last build."""
+    index = frontend / "dist" / "index.html"
+    sources = [frontend / "package.json", *(frontend / "src").rglob("*")]
+    if index.exists() and all(p.stat().st_mtime <= index.stat().st_mtime for p in sources):
+        return
+    npm = shutil.which("npm")
+    if not npm:
+        fail(f"Node.js est requis pour construire l'interface : {NODE_HINTS.get(sys.platform, '')}")
+    logger.info("Building the interface…")
+    for command in ([npm, "ci", "--no-audit", "--no-fund"], [npm, "run", "build"]):
+        if subprocess.run(command, cwd=frontend).returncode != 0:
+            fail("Construction de l'interface impossible (voir les messages ci-dessus).")
+
+
+NODE_HINTS = {
+    "linux": "sudo apt install nodejs npm",
+    "darwin": "brew install node (ou https://nodejs.org)",
+    "win32": "winget install OpenJS.NodeJS.LTS (ou https://nodejs.org)",
+}
+
+
+def fail(message: str) -> None:
+    """Report an error visibly, even when started from a desktop shortcut without a terminal."""
+    if sys.platform.startswith("linux") and shutil.which("notify-send"):
+        subprocess.run(["notify-send", "-i", "dialog-error", "Smart Meeting", message])
+    raise SystemExit(f"Smart Meeting : {message}")
+
+
 def run() -> None:
     parser = argparse.ArgumentParser(description="Local meeting transcription and analysis")
     parser.add_argument("--port", type=int, default=get_settings().port)
@@ -69,8 +116,8 @@ def run() -> None:
 
     from smart_meeting.main import FRONTEND_DIST
 
-    if not FRONTEND_DIST.is_dir():
-        raise SystemExit("Frontend not built: run ./smart-meeting (or `make build`).")
+    check_system()
+    build_frontend_if_needed(FRONTEND_DIST.parent)
 
     def open_when_ready() -> None:
         for _ in range(100):
@@ -84,6 +131,11 @@ def run() -> None:
 
     import uvicorn
 
+    from smart_meeting.main import app
+
     os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
     # Loopback only: the API exposes meeting content.
-    uvicorn.run("smart_meeting.main:app", host="127.0.0.1", port=args.port)
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=args.port))
+    # Quit button: on Windows a signal would kill the process without a graceful shutdown.
+    app.state.request_exit = lambda: setattr(server, "should_exit", True)
+    server.run()

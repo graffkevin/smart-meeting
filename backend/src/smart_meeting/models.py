@@ -103,6 +103,7 @@ class UpdateMeetingRequest(BaseModel):
 class CapturedDevice(BaseModel):
     device: str | None
     auto: bool
+    error: str | None = None  # capture failed for this source
 
 
 class MeetingDetail(BaseModel):

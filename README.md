@@ -11,33 +11,53 @@ Architecture et choix techniques : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Installation
 
-Rien à installer à la main : cloner le dépôt et lancer.
+Linux, macOS et Windows : cloner le dépôt, puis `make run`. Le premier lancement installe tout le reste.
+
+| Système | À installer une fois | Lancer |
+|---|---|---|
+| **Ubuntu** (22.10+, PipeWire) | `sudo apt install git make nodejs npm` (souvent déjà présents) | `make run`, `./smart-meeting` ou le menu (`make desktop`) |
+| **macOS** (13 Ventura+) | `xcode-select --install` (git, make) et [Node.js](https://nodejs.org) | `make run` |
+| **Windows** 10/11 | `winget install Git.Git ezwinports.make OpenJS.NodeJS.LTS` | `make run` |
 
 ```bash
-git clone https://gitlab.ign.fr/kgraff/smart-meeting.git && cd smart-meeting
-./smart-meeting     # premier lancement : installe ce qui manque, puis ouvre l'application
-make desktop        # optionnel : ajoute « Smart Meeting » au menu des applications GNOME
+git clone https://gitlab.ign.fr/kgraff/smart-meeting.git
+cd smart-meeting
+make run
 ```
 
-Au premier lancement, sans sudo :
+`make run` détecte le système et installe sans droits administrateur :
 
 | Élément | Installation |
 |---|---|
 | uv, dépendances Python | automatique (bibliothèques CUDA seulement si un GPU NVIDIA est présent) |
 | Interface web | construite au premier lancement et après chaque mise à jour du code |
-| Ollama | téléchargé dans `~/.local/opt/ollama` s'il n'est pas déjà installé, démarré et arrêté avec l'application |
+| Ollama | réutilisé s'il est déjà installé, sinon téléchargé dans le dossier utilisateur ; démarré et arrêté avec l'application |
 | Modèle IA (`qwen2.5:7b`, 4,7 Go) | téléchargé en arrière-plan, progression affichée dans l'interface |
-| Modèle de transcription (1,6 Go) | téléchargé au premier chargement |
+| Modèle de transcription | `large-v3-turbo` avec GPU NVIDIA, `small` sinon (Mac, PC sans GPU) |
 
-L'application est utilisable pendant les téléchargements : l'enregistrement fonctionne, l'analyse IA arrive à la
-fin. Seuls quelques paquets système nécessitent sudo ; s'il en manque, le lanceur affiche la commande exacte
-(`sudo apt install pipewire-bin ffmpeg zstd nodejs npm`, déjà présents sur un Ubuntu 24.04 de développement).
+> **Le premier lancement peut être long** : jusqu'à environ 8 Go à télécharger (Ollama 1,4 Go, modèle IA 4,7 Go,
+> modèle de transcription 1,6 Go), soit de 10 à 30 minutes selon la connexion. Les lancements suivants prennent
+> quelques secondes. Si Ollama est déjà installé avec le modèle, rien de tout cela n'est retéléchargé.
 
-Sans GPU NVIDIA, Whisper tourne sur CPU : choisir alors un modèle plus léger (`SM_WHISPER_MODEL=small`).
+L'application est utilisable pendant les téléchargements : l'enregistrement fonctionne, l'analyse IA arrive à la fin.
+`make info` affiche ce qui a été détecté.
+
+### Capture audio selon le système
+
+| Système | Ce que j'entends | Mon micro | État |
+|---|---|---|---|
+| Linux | monitor PipeWire de la sortie (suit l'appel en mode automatique) | PipeWire | testé |
+| Windows | WASAPI loopback de la sortie choisie | WASAPI | **non testé** |
+| macOS | ScreenCaptureKit (audio de tout le système) | CoreAudio | **non testé** |
+
+Sur **macOS**, au premier enregistrement, le système demande l'autorisation « Enregistrement de l'écran et de l'audio
+système » pour le terminal qui lance Smart Meeting : l'accorder dans Réglages Système > Confidentialité et sécurité,
+puis relancer. Si une des deux sources ne peut pas être capturée, la réunion continue avec l'autre et l'interface
+indique pourquoi ; l'import de fichiers fonctionne dans tous les cas.
 
 ## Utilisation
 
-Lancer **Smart Meeting** depuis le menu, ou `./smart-meeting` (interface sur http://127.0.0.1:8417). Le serveur local démarre, ainsi qu'Ollama s'il ne
+Lancer `make run` (ou, sous Linux, **Smart Meeting** depuis le menu). L'interface s'ouvre sur http://127.0.0.1:8417. Le serveur local démarre, ainsi qu'Ollama s'il ne
 tourne pas déjà, et l'application s'ouvre dans une fenêtre.
 
 1. Titre (facultatif), puis **Démarrer l'enregistrement**. Par défaut, les périphériques sont en mode automatique :
@@ -54,13 +74,15 @@ Une vidéo jouée dans le casque pendant un enregistrement fonctionne aussi.
 
 ## Configuration
 
-Variables `SM_*`, dans `~/.config/smart-meeting/config.env` (ou `backend/.env` en développement) :
+Variables `SM_*`, dans `config.env` du dossier de configuration (Linux : `~/.config/smart-meeting/`, macOS :
+`~/Library/Application Support/smart-meeting/`, Windows : `%LOCALAPPDATA%\smart-meeting\`), ou `backend/.env` en
+développement :
 
 ```bash
 SM_USER_NAME=Kevin                  # libellé de mon micro dans la transcription et les actions
 SM_REMOTE_NAME=Interlocuteur
 SM_WHISPER_GLOSSARY="Réunion JUNN, Géoplateforme, IGN, API, 3D Tiles, IGN-MUT."  # vocabulaire métier
-SM_WHISPER_MODEL=large-v3-turbo     # ou small / medium sur CPU
+SM_WHISPER_MODEL=auto               # ou large-v3-turbo / medium / small
 SM_OLLAMA_MODEL=qwen2.5:7b
 SM_OLLAMA_BIN=/chemin/vers/ollama   # si Ollama n'est pas dans le PATH
 SM_DATA_DIR=~/.local/share/smart-meeting

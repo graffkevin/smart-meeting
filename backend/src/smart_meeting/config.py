@@ -2,10 +2,15 @@ from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlparse
 
+from platformdirs import user_config_path, user_data_path
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+APP_NAME = "smart-meeting"
+# Linux: ~/.config/smart-meeting/config.env ; macOS: ~/Library/Application Support/... ;
+# Windows: %LOCALAPPDATA%\smart-meeting\...
+CONFIG_FILE = user_config_path(APP_NAME, appauthor=False) / "config.env"
 
 
 class Settings(BaseSettings):
@@ -14,11 +19,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="SM_",
         # User config, then a local .env for development (later files win).
-        env_file=(Path.home() / ".config" / "smart-meeting" / "config.env", ".env"),
+        env_file=(CONFIG_FILE, ".env"),
         extra="ignore",
     )
 
-    data_dir: Path = Path.home() / ".local" / "share" / "smart-meeting"
+    data_dir: Path = user_data_path(APP_NAME, appauthor=False)
     # Unusual default: 8000 is often taken by other FastAPI projects.
     port: int = 8417
 
@@ -37,7 +42,9 @@ class Settings(BaseSettings):
     vad_max_utterance_s: float = 20.0
 
     # Whisper
-    whisper_model: str = "large-v3-turbo"
+    # auto: large-v3-turbo with an NVIDIA GPU, small on CPU (Mac, PC without GPU) to keep up
+    # with live meetings.
+    whisper_model: str = "auto"
     whisper_device: str = "auto"  # auto | cuda | cpu
     whisper_compute_type: str = "auto"  # auto | int8_float16 | int8 | float16 ...
     whisper_language: str = "fr"

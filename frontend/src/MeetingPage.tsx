@@ -138,6 +138,16 @@ export function MeetingPage({ id, onBack }: { id: number; onBack: () => void }) 
             {captured.remote.auto && " (auto)"}
           </p>
         )}
+        {status === "recording" &&
+          captured &&
+          (["mic", "remote"] as const)
+            .filter((source) => captured[source].error)
+            .map((source) => (
+              <p key={source} className="error">
+                {source === "mic" ? "Micro" : "Son entendu"} non capturé :{" "}
+                {captured[source].error}
+              </p>
+            ))}
         {meeting.source_file && (
           <p className="muted hint">
             Fichier importé : <code>{meeting.source_file}</code>

@@ -75,6 +75,7 @@ export interface AudioDevices {
 export interface CapturedDevice {
   device: string | null;
   auto: boolean;
+  error: string | null;
 }
 
 export interface SetupStep {

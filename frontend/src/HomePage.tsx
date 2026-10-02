@@ -242,8 +242,9 @@ function HealthBar({ health }: { health: Health | null | undefined }) {
       ))}
       {settingUp && (
         <div className="muted hint">
-          Premier lancement : vous pouvez déjà enregistrer, l'analyse IA sera disponible à la fin du
-          téléchargement.
+          Premier lancement : cela peut prendre de 10 à 30 minutes selon la connexion (Ollama et le
+          modèle IA, environ 6 Go). Vous pouvez déjà enregistrer ; l'analyse IA sera disponible à la
+          fin du téléchargement.
         </div>
       )}
     </div>
