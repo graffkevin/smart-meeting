@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Smart Meeting</title>
+  <defs>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4c6ef5"/>
+      <stop offset="1" stop-color="#15aabf"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#brand)"/>
+  <g transform="translate(12 11) scale(1.667)" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 5a3 3 0 0 1 6 0v5a3 3 0 0 1 -6 0z"/>
+    <path d="M5 10a7 7 0 0 0 14 0"/>
+    <path d="M8 21h8"/>
+    <path d="M12 17v4"/>
+  </g>
+  <circle cx="49" cy="15" r="6" fill="#fa5252" stroke="#fff" stroke-width="2.5"/>
+</svg>

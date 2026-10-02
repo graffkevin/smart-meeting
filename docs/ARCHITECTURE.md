@@ -38,7 +38,8 @@ Choix par rapport à la proposition initiale :
   dépendance C à compiler. `sounddevice`/PortAudio ne voit pas proprement les monitors. FFmpeg n'apporte rien ici.
 - **Segmentation par pauses (VAD)** plutôt que des chunks fixes (voir §4).
 - **SQLite via `sqlite3`** (sans ORM) : 4 tables, requêtes simples.
-- **Pas de routeur ni de librairie d'état côté React** : deux écrans.
+- **Front aux règles de junn-apps** : design system JUNN, TanStack Query/Form, i18next, client Orval généré, routeur
+  par hash (le backend sert une seule page).
 
 ## 3. Capturer le micro et ce que j'entends dans le casque
 
@@ -110,8 +111,17 @@ smart-meeting/
 │   │   ├── llm/analysis.py       # Ollama, prompt, garde-fous
 │   │   └── meeting/              # service.py (orchestration), events.py, report.py (Markdown)
 │   └── tests/
-└── frontend/                     # React 19 + TypeScript + Vite
-    └── src/  api.ts, App.tsx, HomePage.tsx, MeetingPage.tsx, format.ts, styles.css
+└── frontend/                     # React 19 + TypeScript + Vite + Bun, règles de junn-apps
+    ├── openapi/                  # schéma OpenAPI exporté du backend (make api)
+    ├── scripts/                  # contrôles des règles (check:rules)
+    └── src/
+        ├── App/                  # fournisseurs (Mantine, Query, routeur) et mise en page
+        ├── pages/                # une page par route, sans logique
+        ├── features/             # home, history, meeting (+ useMeetingEvents), shell (présence, quitter)
+        ├── components/           # briques sans logique : MeetingCard, MeetingReport, Transcript, ConfirmDialog
+        ├── services/             # fabriques *QueryOptions (TanStack Query)
+        ├── api/                  # client Orval généré + fonction de requête
+        ├── types/, constants/, utils/, locales/, tests/
 ```
 
 ## 6. Données et API
@@ -172,7 +182,11 @@ deux WAV 16 kHz sont écrits dans `~/.local/share/smart-meeting/audio/<id>/`, su
    ffmpeg système), archives Ollama extraites en Python (zip, tgz, tar.zst).
 8. ✅ Import de fichiers audio/vidéo : PyAV décode en flux vers le même découpage VAD + Whisper (une file bornée
    met le décodage en pause pendant que Whisper travaille). `meetings.source_file` est renseigné ; horodatage relatif au fichier.
-9. À venir, une fois la chaîne validée en réunion réelle :
+9. ✅ Langue de transcription au choix (auto, fr, en…) ; en automatique, langue « collante » par source
+   (`transcription/language.py`) : un énoncé détecté avec confiance est transcrit dans sa langue (pas de traduction
+   involontaire), un énoncé incertain dans la langue courante, qui ne change qu'après 2 énoncés confiants consécutifs.
+10. ✅ Interface refaite avec le design system JUNN et les règles du front de junn-apps.
+11. À venir, une fois la chaîne validée en réunion réelle :
    - réglage du VAD et du glossaire sur de vraies réunions ;
    - découpage map-reduce pour les réunions qui dépassent le contexte du LLM ;
    - diarisation pyannote du flux distant ;

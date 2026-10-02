@@ -73,26 +73,44 @@ def check_system() -> None:
             fail("macOS 13 (Ventura) ou plus récent est requis pour capturer l'audio système.")
 
 
+BUN_INSTALLERS = {
+    "win32": ["powershell", "-NoProfile", "-c", "irm bun.sh/install.ps1 | iex"],
+    "default": ["bash", "-c", "curl -fsSL https://bun.sh/install | bash"],
+}
+
+
+def ensure_bun() -> str:
+    """Bun builds the interface; installed for the user (no admin rights) when missing."""
+    local = Path.home() / ".bun" / "bin" / ("bun.exe" if sys.platform == "win32" else "bun")
+    found = shutil.which("bun") or (str(local) if local.exists() else None)
+    if found:
+        return found
+    logger.info("Installing Bun…")
+    installer = BUN_INSTALLERS.get(sys.platform, BUN_INSTALLERS["default"])
+    if subprocess.run(installer).returncode != 0 or not local.exists():
+        fail("Installation de Bun impossible : voir https://bun.sh")
+    return str(local)
+
+
 def build_frontend_if_needed(frontend: Path) -> None:
     """Build the UI on first run and whenever its sources changed since the last build."""
     index = frontend / "dist" / "index.html"
-    sources = [frontend / "package.json", *(frontend / "src").rglob("*")]
+    sources = [
+        frontend / "package.json",
+        frontend / "bun.lock",
+        frontend / "index.html",
+        *(frontend / "src").rglob("*"),
+        *(frontend / "public").rglob("*"),
+    ]
     if index.exists() and all(p.stat().st_mtime <= index.stat().st_mtime for p in sources):
         return
-    npm = shutil.which("npm")
-    if not npm:
-        fail(f"Node.js est requis pour construire l'interface : {NODE_HINTS.get(sys.platform, '')}")
+    bun = ensure_bun()
+    # The package scripts call `bun` by name: a freshly installed one is not on the PATH yet.
+    env = {**os.environ, "PATH": str(Path(bun).parent) + os.pathsep + os.environ.get("PATH", "")}
     logger.info("Building the interface…")
-    for command in ([npm, "ci", "--no-audit", "--no-fund"], [npm, "run", "build"]):
-        if subprocess.run(command, cwd=frontend).returncode != 0:
+    for command in ([bun, "install", "--frozen-lockfile"], [bun, "run", "build"]):
+        if subprocess.run(command, cwd=frontend, env=env).returncode != 0:
             fail("Construction de l'interface impossible (voir les messages ci-dessus).")
-
-
-NODE_HINTS = {
-    "linux": "sudo apt install nodejs npm",
-    "darwin": "brew install node (ou https://nodejs.org)",
-    "win32": "winget install OpenJS.NodeJS.LTS (ou https://nodejs.org)",
-}
 
 
 def fail(message: str) -> None:

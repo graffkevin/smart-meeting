@@ -38,6 +38,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Smart Meeting",
     lifespan=lifespan,
+    # Operation ids = route function names: readable names in the generated frontend client.
+    generate_unique_id_function=lambda route: route.name,
     telemetry={"tracing": False, "metrics": False, "logs": False, "auto_configure": False},
 )
 app.include_router(router)
@@ -46,6 +48,6 @@ app.state.request_exit = lambda: os.kill(os.getpid(), signal.SIGINT)
 # Set by the launcher only: in development, closing the page must not stop the server.
 app.state.stop_when_unused = None
 
-# Production-like mode: serve the built frontend from the same origin.
-if FRONTEND_DIST.is_dir():
-    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
+# The built interface, from the same origin. Not checked at import: the launcher builds it after
+# importing this module (first run, or sources changed).
+app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True, check_dir=False), name="frontend")

@@ -4,19 +4,42 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "typecheck": "tsc -b"
+    "dev": "bun --bun vite",
+    "build": "bun --bun tsc -b && bun --bun vite build",
+    "typecheck": "bun --bun tsc -b",
+    "lint": "biome lint",
+    "format": "biome format --write",
+    "check": "biome check --write",
+    "test": "bun --bun vitest run",
+    "check:rules": "bun scripts/checkRules.ts && bun scripts/blankLineBeforeReturn.ts && bun scripts/declarationOrder.ts && bun scripts/designSystemComponents.ts",
+    "fix:rules": "bun scripts/blankLineBeforeReturn.ts --fix",
+    "api:generate": "bun --bun orval"
   },
   "dependencies": {
+    "@ign-junn/design-system": "^0.15.1",
+    "@mantine/core": "^9.6.2",
+    "@mantine/hooks": "^9.6.2",
+    "@tabler/icons-react": "^3.48.0",
+    "@tanstack/react-form": "^1.33.5",
+    "@tanstack/react-query": "^5.104.1",
+    "i18next": "^26.4.2",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "react-i18next": "^17.0.15",
+    "react-router": "^8.4.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "@types/bun": "^1.4.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^4.7.0",
-    "typescript": "^5.9.3",
-    "vite": "^6.4.3"
+    "@vitejs/plugin-react": "^6.1.1",
+    "happy-dom": "^20.14.5",
+    "orval": "^8.38.0",
+    "postcss": "^8.5.28",
+    "postcss-preset-mantine": "^1.18.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1"
   }
 }

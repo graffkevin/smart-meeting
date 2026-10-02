@@ -15,9 +15,9 @@ Linux, macOS et Windows : cloner le dépôt, puis `make run`. Le premier lanceme
 
 | Système | À installer une fois | Lancer |
 |---|---|---|
-| **Ubuntu** (22.10+, PipeWire) | `sudo apt install git make nodejs npm` (souvent déjà présents) | `make run`, `./smart-meeting` ou le menu (`make desktop`) |
-| **macOS** (13 Ventura+) | `xcode-select --install` (git, make) et [Node.js](https://nodejs.org) | `make run` |
-| **Windows** 10/11 | `winget install Git.Git ezwinports.make OpenJS.NodeJS.LTS` | `make run` |
+| **Ubuntu** (22.10+, PipeWire) | `sudo apt install git make` (souvent déjà présents) | `make run`, `./smart-meeting` ou le menu (`make desktop`) |
+| **macOS** (13 Ventura+) | `xcode-select --install` (git, make) | `make run` |
+| **Windows** 10/11 | `winget install Git.Git ezwinports.make` | `make run` |
 
 ```bash
 git clone https://gitlab.ign.fr/kgraff/smart-meeting.git
@@ -30,7 +30,7 @@ make run
 | Élément | Installation |
 |---|---|
 | uv, dépendances Python | automatique (bibliothèques CUDA seulement si un GPU NVIDIA est présent) |
-| Interface web | construite au premier lancement et après chaque mise à jour du code |
+| Bun, interface web | Bun installé pour l'utilisateur ; interface construite au premier lancement et après chaque mise à jour |
 | Ollama | réutilisé s'il est déjà installé, sinon téléchargé dans le dossier utilisateur ; démarré et arrêté avec l'application |
 | Modèle IA (`qwen2.5:7b`, 4,7 Go) | téléchargé en arrière-plan, progression affichée dans l'interface |
 | Modèle de transcription | `large-v3-turbo` avec GPU NVIDIA, `small` sinon (Mac, PC sans GPU) |
@@ -133,9 +133,22 @@ devient « jeu Petform ».
 
 ```bash
 make dev     # backend avec rechargement (port 8417) + Vite (http://127.0.0.1:5173)
-make test    # tests backend + vérification TypeScript
-make lint
+make check   # tout ce qui doit passer avant un commit (lint + tests)
+make api     # régénère le client du front depuis le schéma OpenAPI du backend
 ```
+
+Le front suit les règles de **junn-apps** (`frontend/`) :
+
+- **Bun** (jamais npm), **Biome**, **Vitest** ; `bun run check:rules` vérifie les règles ci-dessous
+  (`frontend/scripts/`, en Bun pour tourner aussi sous Windows) ;
+- design system **`@ign-junn/design-system`** (Mantine) : ses composants plutôt que ceux de Mantine, textes uniquement
+  via `Typography`, tokens plutôt que des valeurs, aucun fichier CSS ;
+- **i18next** : aucun texte en dur, tout dans `src/locales/fr.ts` ;
+- **TanStack Query** (fabriques `services/*QueryOptions.ts`) et **TanStack Form** ; client de l'API **généré par
+  Orval** depuis l'OpenAPI de FastAPI (`src/api/generated/`, jamais modifié à la main) ;
+- dossiers à rôle unique (`pages/`, `features/`, `components/`, `services/`, `types/`, `constants/`, `utils/`,
+  `tests/`), une exportation par défaut par fichier, fonctions fléchées, pas de `let` ni de boucle, imports `@/…`,
+  tous les types dans `types/`, données externes vérifiées par des type guards, pas de balise HTML en JSX.
 
 ## Confidentialité
 
