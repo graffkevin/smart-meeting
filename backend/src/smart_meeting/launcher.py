@@ -28,6 +28,19 @@ def _reachable(url: str) -> bool:
         return False
 
 
+def _port_owner(url: str) -> str | None:
+    """'smart-meeting' if our server answers at url, 'other' if something else does."""
+    try:
+        response = httpx.get(f"{url}api/health", timeout=1, trust_env=False)
+    except httpx.HTTPError:
+        return None
+    try:
+        is_ours = "whisper" in response.json() and "ollama_model" in response.json()
+    except ValueError:
+        is_ours = False
+    return "smart-meeting" if is_ours else "other"
+
+
 def open_window(url: str) -> None:
     """A dedicated app window when a Chromium-based browser exists, else a browser tab."""
     for browser in APP_MODE_BROWSERS:
@@ -73,17 +86,23 @@ def start_ollama_if_needed() -> subprocess.Popen | None:
 
 def run() -> None:
     parser = argparse.ArgumentParser(description="Local meeting transcription and analysis")
-    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--port", type=int, default=get_settings().port)
     parser.add_argument("--no-window", action="store_true", help="do not open the app window")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
     url = f"http://127.0.0.1:{args.port}/"
-    if _reachable(f"{url}api/health"):
+    owner = _port_owner(url)
+    if owner == "smart-meeting":
         logger.info("Already running: opening %s", url)
         if not args.no_window:
             open_window(url)
         return
+    if owner == "other":
+        raise SystemExit(
+            f"Port {args.port} is used by another application. "
+            "Choose another one with --port or SM_PORT."
+        )
 
     from smart_meeting.main import FRONTEND_DIST
 
@@ -94,7 +113,7 @@ def run() -> None:
 
     def open_when_ready() -> None:
         for _ in range(100):
-            if _reachable(f"{url}api/health"):
+            if _port_owner(url) == "smart-meeting":
                 open_window(url)
                 return
             time.sleep(0.2)

@@ -18,7 +18,7 @@ dev: ## Development: backend with auto-reload + Vite dev server (http://127.0.0.
 	$(MAKE) -j2 dev-backend dev-frontend
 
 dev-backend:
-	cd backend && uv run --extra cuda uvicorn smart_meeting.main:app --host 127.0.0.1 --port 8000 --reload
+	cd backend && uv run --extra cuda uvicorn smart_meeting.main:app --host 127.0.0.1 --port 8417 --reload
 
 dev-frontend:
 	cd frontend && npm run dev

@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     )
 
     data_dir: Path = Path.home() / ".local" / "share" / "smart-meeting"
+    # Unusual default: 8000 is often taken by other FastAPI projects.
+    port: int = 8417
 
     # Speaker labels. Mic and remote audio are captured separately, which gives
     # a free two-way diarization: "me" vs "the others".

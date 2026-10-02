@@ -27,7 +27,7 @@ Au premier lancement, le modèle Whisper (~1,6 Go) est téléchargé une fois de
 
 ## Utilisation
 
-Lancer **Smart Meeting** depuis le menu, ou `./smart-meeting`. Le serveur local démarre, ainsi qu'Ollama s'il ne
+Lancer **Smart Meeting** depuis le menu, ou `./smart-meeting` (interface sur http://127.0.0.1:8417). Le serveur local démarre, ainsi qu'Ollama s'il ne
 tourne pas déjà, et l'application s'ouvre dans une fenêtre.
 
 1. Titre (facultatif), puis **Démarrer l'enregistrement**. Par défaut, les périphériques sont en mode automatique :
@@ -52,6 +52,7 @@ SM_WHISPER_MODEL=large-v3-turbo     # ou small / medium sur CPU
 SM_OLLAMA_MODEL=qwen2.5:7b
 SM_OLLAMA_BIN=/chemin/vers/ollama   # si Ollama n'est pas dans le PATH
 SM_DATA_DIR=~/.local/share/smart-meeting
+SM_PORT=8417                        # port local de l'interface
 ```
 
 Le glossaire améliore nettement les termes techniques : sans lui, « JUNN » devient « June » et « Géoplateforme »
@@ -60,7 +61,7 @@ devient « jeu Petform ».
 ## Développement
 
 ```bash
-make dev     # backend avec rechargement (port 8000) + Vite (http://127.0.0.1:5173)
+make dev     # backend avec rechargement (port 8417) + Vite (http://127.0.0.1:5173)
 make test    # tests backend + vérification TypeScript
 make lint
 ```
