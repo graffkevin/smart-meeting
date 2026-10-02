@@ -130,3 +130,4 @@ code { font-size: 0.8rem; overflow-wrap: anywhere; }
 .progress { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
 .meter.wide { width: 240px; max-width: 50vw; }
 input[type="file"] { padding: 4px 0; }
+.setup-step { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }

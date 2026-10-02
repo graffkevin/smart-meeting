@@ -99,6 +99,7 @@ smart-meeting/
 │   ├── src/smart_meeting/
 │   │   ├── main.py               # app FastAPI, lifespan
 │   │   ├── launcher.py           # commande `smart-meeting`
+│   │   ├── provision.py          # installation d'Ollama et du modèle au premier lancement
 │   │   ├── config.py             # réglages SM_*
 │   │   ├── models.py             # modèles Pydantic (API + LLM)
 │   │   ├── db.py                 # SQLite
@@ -159,9 +160,12 @@ deux WAV 16 kHz sont écrits dans `~/.local/share/smart-meeting/audio/<id>/`, su
 3. ✅ Analyse Ollama avec JSON Schema et garde-fous.
 4. ✅ Interface : démarrer, durée, stop, vumètres, transcription en direct, compte rendu.
 5. ✅ Lanceur unique, entrée de menu GNOME, mode périphériques automatique.
-6. ✅ Import de fichiers audio/vidéo : ffmpeg décode en flux vers le même découpage VAD + Whisper (le pipe régule
+6. ✅ Installation « plug & play » : `./smart-meeting` installe uv, les dépendances et l'interface ; l'application
+   provisionne Ollama (`provision.py` : binaire dans `~/.local/opt/ollama`, modèle téléchargé depuis le registre
+   Ollama avec reprise et vérification sha256, compatible proxy) et affiche la progression dans `/api/health`.
+7. ✅ Import de fichiers audio/vidéo : ffmpeg décode en flux vers le même découpage VAD + Whisper (le pipe régule
    ffmpeg pendant que Whisper travaille). `meetings.source_file` est renseigné ; horodatage relatif au fichier.
-7. À venir, une fois la chaîne validée en réunion réelle :
+8. À venir, une fois la chaîne validée en réunion réelle :
    - réglage du VAD et du glossaire sur de vraies réunions ;
    - découpage map-reduce pour les réunions qui dépassent le contexte du LLM ;
    - diarisation pyannote du flux distant ;

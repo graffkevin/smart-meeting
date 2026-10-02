@@ -9,21 +9,31 @@ compte rendu : résumé, décisions, actions, questions, risques. Le compte rend
 
 Architecture et choix techniques : [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Prérequis
-
-- Ubuntu 24.04 avec PipeWire (`pw-record`, `pw-dump` : paquet `pipewire-bin`, installé par défaut)
-- [uv](https://docs.astral.sh/uv/), Node.js ≥ 18 et ffmpeg (import de fichiers)
-- [Ollama](https://ollama.com) et un modèle : `ollama pull qwen2.5:7b`
-- Optionnel : GPU NVIDIA. Les bibliothèques CUDA sont installées par `make install` ; sans GPU, Whisper tourne sur CPU.
-
 ## Installation
 
+Rien à installer à la main : cloner le dépôt et lancer.
+
 ```bash
-make install        # dépendances backend + frontend, build de l'interface
-make desktop        # ajoute « Smart Meeting » au menu des applications GNOME
+git clone https://gitlab.ign.fr/kgraff/smart-meeting.git && cd smart-meeting
+./smart-meeting     # premier lancement : installe ce qui manque, puis ouvre l'application
+make desktop        # optionnel : ajoute « Smart Meeting » au menu des applications GNOME
 ```
 
-Au premier lancement, le modèle Whisper (~1,6 Go) est téléchargé une fois depuis Hugging Face.
+Au premier lancement, sans sudo :
+
+| Élément | Installation |
+|---|---|
+| uv, dépendances Python | automatique (bibliothèques CUDA seulement si un GPU NVIDIA est présent) |
+| Interface web | construite au premier lancement et après chaque mise à jour du code |
+| Ollama | téléchargé dans `~/.local/opt/ollama` s'il n'est pas déjà installé, démarré et arrêté avec l'application |
+| Modèle IA (`qwen2.5:7b`, 4,7 Go) | téléchargé en arrière-plan, progression affichée dans l'interface |
+| Modèle de transcription (1,6 Go) | téléchargé au premier chargement |
+
+L'application est utilisable pendant les téléchargements : l'enregistrement fonctionne, l'analyse IA arrive à la
+fin. Seuls quelques paquets système nécessitent sudo ; s'il en manque, le lanceur affiche la commande exacte
+(`sudo apt install pipewire-bin ffmpeg zstd nodejs npm`, déjà présents sur un Ubuntu 24.04 de développement).
+
+Sans GPU NVIDIA, Whisper tourne sur CPU : choisir alors un modèle plus léger (`SM_WHISPER_MODEL=small`).
 
 ## Utilisation
 

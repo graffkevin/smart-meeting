@@ -77,6 +77,13 @@ export interface CapturedDevice {
   auto: boolean;
 }
 
+export interface SetupStep {
+  label: string;
+  progress: number | null;
+  error: string | null;
+  done: boolean;
+}
+
 export interface Health {
   whisper: "loading" | "ready" | "error";
   whisper_detail: string | null;
@@ -84,6 +91,7 @@ export interface Health {
   ollama_model: string;
   ollama_model_available: boolean;
   active_meeting_id: number | null;
+  setup: SetupStep[];
 }
 
 export interface StartMeetingRequest {

@@ -25,7 +25,7 @@ export function HomePage({ onOpen }: { onOpen: (id: number) => void }) {
     refreshDevices();
     const poll = () => api.health().then(setHealth).catch(() => setHealth(null));
     poll();
-    const timer = setInterval(poll, 5000);
+    const timer = setInterval(poll, 2000);
     return () => clearInterval(timer);
   }, []);
 
@@ -197,24 +197,55 @@ function ImportCard({
 
 function HealthBar({ health }: { health: Health | null | undefined }) {
   if (health === undefined) return null;
-  if (health === null) return <p className="banner error">Backend injoignable.</p>;
+  if (health === null) return <p className="banner error">Smart Meeting ne répond pas.</p>;
+
   const problems: string[] = [];
-  if (health.whisper === "loading") problems.push("Chargement du modèle Whisper…");
-  if (health.whisper === "error") problems.push(`Whisper en erreur : ${health.whisper_detail}`);
-  if (!health.ollama) problems.push("Ollama ne répond pas : l'analyse IA sera indisponible.");
-  else if (!health.ollama_model_available)
-    problems.push(`Modèle Ollama absent : ollama pull ${health.ollama_model}`);
-  if (problems.length === 0)
+  if (health.whisper === "loading")
+    problems.push("Chargement du modèle de transcription (téléchargement de 1,6 Go au premier lancement)…");
+  if (health.whisper === "error") problems.push(`Transcription en erreur : ${health.whisper_detail}`);
+  const settingUp = health.setup.length > 0;
+  if (!settingUp && !health.ollama) problems.push("Ollama ne répond pas : l'analyse IA est indisponible.");
+  else if (!settingUp && !health.ollama_model_available)
+    problems.push(`Modèle IA ${health.ollama_model} absent.`);
+
+  if (problems.length === 0 && !settingUp)
     return (
       <p className="banner ok">
         Whisper {health.whisper_detail} · Ollama {health.ollama_model} · 100 % local
       </p>
     );
   return (
-    <div className="banner warn">
+    <div className={`banner ${health.setup.some((s) => s.error) ? "error" : "warn"}`}>
+      {health.setup.map((step) => (
+        <div key={step.label} className="setup-step">
+          {step.error ? (
+            <span>
+              {step.label} : échec. {step.error}
+            </span>
+          ) : (
+            <>
+              <span>{step.label}…</span>
+              {step.progress !== null && (
+                <>
+                  <span className="meter wide">
+                    <span style={{ width: `${step.progress * 100}%` }} />
+                  </span>
+                  <span>{Math.floor(step.progress * 100)} %</span>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      ))}
       {problems.map((p) => (
         <div key={p}>{p}</div>
       ))}
+      {settingUp && (
+        <div className="muted hint">
+          Premier lancement : vous pouvez déjà enregistrer, l'analyse IA sera disponible à la fin du
+          téléchargement.
+        </div>
+      )}
     </div>
   );
 }

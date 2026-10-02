@@ -27,6 +27,7 @@ from smart_meeting.models import (
     Meeting,
     MeetingDetail,
     MeetingListItem,
+    SetupStepInfo,
     StartMeetingRequest,
     UpdateMeetingRequest,
 )
@@ -66,6 +67,9 @@ async def health(request: Request) -> Health:
         ollama_model_available=bool(models)
         and any(m == wanted or m == f"{wanted}:latest" for m in models),
         active_meeting_id=svc.active.meeting_id if svc.active else None,
+        setup=[
+            SetupStepInfo(**vars(step)) for step in svc.provisioner.steps.values() if not step.done
+        ],
     )
 
 

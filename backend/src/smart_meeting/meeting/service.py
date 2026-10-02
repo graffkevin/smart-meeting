@@ -32,6 +32,7 @@ from smart_meeting.models import (
     Source,
     StartMeetingRequest,
 )
+from smart_meeting.provision import OllamaProvisioner
 from smart_meeting.transcription.whisper import WhisperTranscriber
 
 logger = logging.getLogger(__name__)
@@ -80,6 +81,7 @@ class MeetingService:
         self.hub = hub
         self.transcriber = WhisperTranscriber(settings)
         self.ollama = OllamaClient(settings)
+        self.provisioner = OllamaProvisioner(settings)
         self.whisper_state: Literal["loading", "ready", "error"] = "loading"
         self.whisper_detail: str | None = None
         self.active: Recording | None = None
@@ -93,8 +95,10 @@ class MeetingService:
     # Lifecycle
 
     def startup(self) -> None:
-        """Load Whisper in the background: the API is usable while the model loads."""
+        """Load Whisper and provision Ollama in the background: the UI is usable meanwhile
+        and shows their progress."""
         self._spawn(self._load_whisper())
+        self._spawn(self.provisioner.run())
 
     async def _load_whisper(self) -> None:
         try:
@@ -123,6 +127,7 @@ class MeetingService:
             if task:
                 task.cancel()
         self._executor.shutdown(wait=False, cancel_futures=True)
+        await self.provisioner.stop()
 
     def _spawn(self, coro) -> None:
         task = asyncio.create_task(coro)

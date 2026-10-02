@@ -3,7 +3,7 @@
 ROOT := $(abspath .)
 DESKTOP_FILE := $(HOME)/.local/share/applications/smart-meeting.desktop
 
-install: ## Install backend (with CUDA libs) and frontend dependencies, then build the UI
+install: ## Optional: ./smart-meeting installs everything on first run
 	cd backend && uv sync --extra cuda
 	cd frontend && npm ci
 	$(MAKE) build

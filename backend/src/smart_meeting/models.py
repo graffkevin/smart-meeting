@@ -114,6 +114,13 @@ class MeetingDetail(BaseModel):
     captured: dict[Source, CapturedDevice] | None = None
 
 
+class SetupStepInfo(BaseModel):
+    label: str
+    progress: float | None
+    error: str | None
+    done: bool
+
+
 class Health(BaseModel):
     whisper: Literal["loading", "ready", "error"]
     whisper_detail: str | None
@@ -121,3 +128,5 @@ class Health(BaseModel):
     ollama_model: str
     ollama_model_available: bool
     active_meeting_id: int | None
+    # First-run installs and downloads still running or failed (Ollama, model).
+    setup: list[SetupStepInfo] = []
