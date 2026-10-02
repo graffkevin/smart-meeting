@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Launches Smart Meeting: local server + app window. Ctrl+C (or closing the terminal) stops it.
+set -euo pipefail
+cd "$(dirname "$(readlink -f "$0")")/backend"
+exec uv run --quiet --extra cuda smart-meeting "$@"

@@ -1,0 +1,43 @@
+[project]
+name = "smart-meeting"
+version = "0.1.0"
+description = "Local meeting capture, transcription (faster-whisper) and analysis (Ollama)"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.142.2",
+    "faster-whisper>=1.2.1",
+    "httpx>=0.28.1",
+    "numpy>=2.5.3",
+    "pydantic-settings>=2.15.0",
+    "python-multipart>=0.0.32",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.optional-dependencies]
+# CUDA 12 runtime libraries required by CTranslate2 on GPU, preloaded at startup.
+cuda = [
+    "nvidia-cublas-cu12>=12.9.2.10",
+    "nvidia-cudnn-cu12>=9,<10",
+]
+
+[project.scripts]
+smart-meeting = "smart_meeting.launcher:run"
+
+[build-system]
+requires = ["uv_build>=0.12.18,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.10",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

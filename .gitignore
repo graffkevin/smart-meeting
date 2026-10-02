@@ -1,0 +1,18 @@
+# IDE
+.idea/*
+!.idea/.gitignore
+.vscode/
+
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+.ruff_cache/
+.pytest_cache/
+.env
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+*.tsbuildinfo
+

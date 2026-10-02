@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Smart Meeting
+Comment=Transcription et compte rendu de réunions, 100 % local
+# Login shell: gets PATH (uv) and the proxy settings from the user profile.
+Exec=/bin/bash -lc '@ROOT@/smart-meeting'
+Icon=audio-input-microphone
+Terminal=false
+Categories=AudioVideo;Office;
