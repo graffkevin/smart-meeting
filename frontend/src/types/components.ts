@@ -36,6 +36,8 @@ export interface AskPanelProps {
   meetingId: number;
   /** Nothing transcribed yet: questions cannot be asked */
   disabled: boolean;
+  /** Expected duration of an answer, in seconds */
+  estimateS: number;
 }
 
 /** Confirmation of an action that cannot be undone */
@@ -113,4 +115,13 @@ export interface TabsState {
 
 export interface TabsProviderProps {
   children: ReactNode;
+}
+
+/** Progress of a task of known expected duration (the local AI): a horizontal bar and the time left */
+export interface EstimatedProgressProps {
+  label: string;
+  /** Expected duration, in seconds */
+  estimateS: number;
+  /** When the task started (milliseconds since the epoch) */
+  startedAt: number;
 }

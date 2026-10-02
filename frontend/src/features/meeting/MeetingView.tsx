@@ -45,9 +45,10 @@ import {
 } from '@/api/generated/smartMeetingApi';
 import AiStatus from '@/components/AiStatus';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import EstimatedProgress from '@/components/EstimatedProgress';
 import MeetingReport from '@/components/MeetingReport';
 import Transcript from '@/components/Transcript';
-import { LEVEL_FLOOR_DB } from '@/constants/app';
+import { DEFAULT_ESTIMATE_S, LEVEL_FLOOR_DB } from '@/constants/app';
 import { LIVE_STATUSES, QUICK_QUESTIONS, STATUS_TONES, TRANSCRIPT_PANEL_HEIGHT } from '@/constants/meeting';
 import { ROUTES } from '@/constants/routes';
 import useMeetingEvents from '@/features/meeting/useMeetingEvents';
@@ -146,7 +147,7 @@ const LivePanel = ({ startedAt, live, captured, onStop, stopping }: LivePanelPro
  * Questions about the meeting, answered by the local AI from the transcript, during or after the meeting: one-click
  * questions (summary, my actions, decisions) or a free question; the answers follow, newest last.
  */
-const AskPanel = ({ meetingId, disabled }: AskPanelProps) => {
+const AskPanel = ({ meetingId, disabled, estimateS }: AskPanelProps) => {
   const [answers, setAnswers] = useState<AnswerEntry[]>([]);
   const { t } = useTranslation();
   const ask = useMutation({
@@ -223,7 +224,9 @@ const AskPanel = ({ meetingId, disabled }: AskPanelProps) => {
             </Stack>
           </Card>
         ))}
-        {ask.isPending && <Spinner label={t('ask.thinking')} />}
+        {ask.isPending && (
+          <EstimatedProgress label={t('ask.thinking')} estimateS={estimateS} startedAt={ask.submittedAt} />
+        )}
         {ask.isError && <Alert tone="warning">{t('ask.error', { error: ask.error.message })}</Alert>}
       </Stack>
     </Card>
@@ -234,9 +237,9 @@ const AskPanel = ({ meetingId, disabled }: AskPanelProps) => {
 const MeetingView = ({ meetingId }: MeetingViewProps) => {
   const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
-  const { data: detail, error } = useQuery(meetingQueryOptions(meetingId));
+  const { data: detail, error, dataUpdatedAt } = useQuery(meetingQueryOptions(meetingId));
   const { data: report } = useQuery({
     ...meetingReportQueryOptions(meetingId),
     enabled: isDefined(detail) && !LIVE_STATUSES.includes(detail.meeting.status),
@@ -329,9 +332,11 @@ const MeetingView = ({ meetingId }: MeetingViewProps) => {
                   <Alert tone="primary">{t('meeting.transcribing')}</Alert>
                 )}
                 {status === 'analyzing' && (
-                  <Alert tone="primary" title={t('meeting.analyzing')}>
-                    {t('meeting.analyzingHint')}
-                  </Alert>
+                  <EstimatedProgress
+                    label={t('meeting.analyzing')}
+                    estimateS={detail.estimates?.analysis_s ?? DEFAULT_ESTIMATE_S}
+                    startedAt={dataUpdatedAt - (detail.analysis_elapsed_s ?? 0) * 1000}
+                  />
                 )}
                 {errors.map((message) => (
                   <Alert key={message} tone="warning">
@@ -377,7 +382,11 @@ const MeetingView = ({ meetingId }: MeetingViewProps) => {
               </Stack>
             </Card>
 
-            <AskPanel meetingId={meetingId} disabled={segments.length === 0} />
+            <AskPanel
+              meetingId={meetingId}
+              disabled={segments.length === 0}
+              estimateS={detail.estimates?.ask_s ?? DEFAULT_ESTIMATE_S}
+            />
 
             {isDefined(analysis) && <MeetingReport analysis={analysis} />}
           </Stack>
@@ -388,7 +397,19 @@ const MeetingView = ({ meetingId }: MeetingViewProps) => {
           <Box pos="sticky" top="md">
             <Card padding="md">
               <Stack gap="sm">
-                <Typography variant="h5">{t('transcript.title')}</Typography>
+                <Stack direction="row" align="center" justify="space-between">
+                  <Typography variant="h5">{t('transcript.title')}</Typography>
+                  {segments.length > 0 && (
+                    <CopyButton
+                      value={format.transcript(segments, (offset) =>
+                        isDefined(meeting.source_file)
+                          ? format.duration(offset)
+                          : format.clock(meeting.started_at, offset, i18n.language),
+                      )}
+                      labels={{ copy: t('transcript.copy'), copied: t('transcript.copied') }}
+                    />
+                  )}
+                </Stack>
                 <Transcript
                   segments={segments}
                   startedAt={isDefined(meeting.source_file) ? null : meeting.started_at}

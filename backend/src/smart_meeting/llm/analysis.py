@@ -123,9 +123,41 @@ def ground_analysis(analysis: MeetingAnalysis, transcript: str, user_name: str) 
     return analysis.model_copy(update={"actions": actions})
 
 
+# Duration estimates of the local AI, refined after each call with the speeds Ollama reports.
+CHARS_PER_TOKEN = 3.5  # French text
+PROMPT_OVERHEAD_TOKENS = 600  # instructions and JSON schema
+EXPECTED_OUTPUT_TOKENS = {"ask": 200, "analysis": 700}
+LOAD_ESTIMATE_S = 4.0  # model loaded into memory before the first answer
+SPEED_SMOOTHING = 0.5  # weight of the last measure in the running speeds
+
+
 class OllamaClient:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
+        # Tokens per second, starting from a modest laptop GPU, then measured.
+        self.prompt_rate = 400.0
+        self.eval_rate = 12.0
+
+    def estimate_s(self, transcript_chars: int, kind: str) -> float:
+        """Expected duration of a question ("ask") or a report ("analysis"), in seconds."""
+        prompt_tokens = transcript_chars / CHARS_PER_TOKEN + PROMPT_OVERHEAD_TOKENS
+        return (
+            LOAD_ESTIMATE_S
+            + prompt_tokens / self.prompt_rate
+            + EXPECTED_OUTPUT_TOKENS[kind] / self.eval_rate
+        )
+
+    def _measure(self, metrics: dict) -> None:
+        """Running speeds from the counters of an Ollama answer (durations in nanoseconds)."""
+        for count, duration, attribute in (
+            ("prompt_eval_count", "prompt_eval_duration", "prompt_rate"),
+            ("eval_count", "eval_duration", "eval_rate"),
+        ):
+            tokens, nanoseconds = metrics.get(count), metrics.get(duration)
+            if tokens and nanoseconds and tokens > 20:
+                measured = tokens / (nanoseconds / 1e9)
+                current = getattr(self, attribute)
+                setattr(self, attribute, current + SPEED_SMOOTHING * (measured - current))
 
     def _client(self, timeout: float) -> httpx.AsyncClient:
         # trust_env=False: never route transcripts through the HTTP proxy from the environment.
@@ -163,7 +195,9 @@ class OllamaClient:
             except (ValueError, KeyError):
                 detail = response.text
             raise RuntimeError(f"Ollama ({response.status_code}) : {detail}")
-        return response.json()["message"]["content"]
+        body = response.json()
+        self._measure(body)
+        return body["message"]["content"]
 
     def _names(self) -> dict[str, str]:
         return {"user_name": self.settings.user_name, "remote_name": self.settings.remote_name}

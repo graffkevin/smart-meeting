@@ -8,6 +8,7 @@ import asyncio
 import logging
 import math
 import shutil
+import time
 import wave
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -26,6 +27,7 @@ from smart_meeting.db import Database, now_iso
 from smart_meeting.llm.analysis import OllamaClient, format_transcript
 from smart_meeting.meeting.events import EventHub
 from smart_meeting.models import (
+    AiEstimates,
     CapturedDevice,
     Meeting,
     MeetingStatus,
@@ -127,6 +129,7 @@ class MeetingService:
         self._ask_lock = asyncio.Lock()
         self.ui_connections = 0  # open browser pages (presence WebSockets)
         self._analyses = 0
+        self.analysis_started: dict[int, float] = {}  # meeting id -> monotonic start
         self._import_task: asyncio.Task[None] | None = None
         self._import_meeting_id: int | None = None
 
@@ -626,10 +629,23 @@ class MeetingService:
 
     async def analyze(self, meeting_id: int) -> None:
         self._analyses += 1
+        self.analysis_started[meeting_id] = time.monotonic()
         try:
             await self._analyze(meeting_id)
         finally:
             self._analyses -= 1
+            self.analysis_started.pop(meeting_id, None)
+
+    def estimates(self, segments: list[Segment]) -> AiEstimates:
+        chars = len(format_transcript(segments))
+        return AiEstimates(
+            ask_s=round(self.ollama.estimate_s(chars, "ask"), 1),
+            analysis_s=round(self.ollama.estimate_s(chars, "analysis"), 1),
+        )
+
+    def analysis_elapsed_s(self, meeting_id: int) -> float | None:
+        started = self.analysis_started.get(meeting_id)
+        return None if started is None else round(time.monotonic() - started, 1)
 
     async def _analyze(self, meeting_id: int) -> None:
         meeting = self.db.get_meeting(meeting_id)

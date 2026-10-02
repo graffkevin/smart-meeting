@@ -20,6 +20,9 @@ const format = {
     new Date(iso).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }),
   /** File name without its extension, as a default title */
   fileTitle: (name: string) => name.replace(/\.[^.]+$/, ''),
+  /** Whole transcript as text, one `[time] Speaker : text` line per sentence (for the clipboard) */
+  transcript: (lines: { speaker?: string | null; start_s: number; text: string }[], time: (s: number) => string) =>
+    lines.map((line) => `[${time(line.start_s)}] ${line.speaker ?? ''} : ${line.text}`).join('\n'),
   /** Audio level in dBFS as a 0–100 meter value, from `floor` (silence) to 0 dBFS */
   level: (db: number, floor: number) => Math.min(100, Math.max(0, ((db - floor) / -floor) * 100)),
 };

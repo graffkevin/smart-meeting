@@ -129,6 +129,11 @@ class CapturedDevice(BaseModel):
     error: str | None = None  # capture failed for this source
 
 
+class AiEstimates(BaseModel):
+    ask_s: float
+    analysis_s: float
+
+
 class MeetingDetail(BaseModel):
     meeting: Meeting
     segments: list[Segment]
@@ -136,6 +141,10 @@ class MeetingDetail(BaseModel):
     has_audio: bool
     # Devices being captured, while recording.
     captured: dict[Source, CapturedDevice] | None = None
+    # Expected durations of the local AI on this transcript, in seconds (progress bars).
+    estimates: AiEstimates | None = None
+    # Seconds since the report started, while it is being written.
+    analysis_elapsed_s: float | None = None
 
 
 class SetupStepInfo(BaseModel):

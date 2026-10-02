@@ -16,6 +16,12 @@ export const meetingEventsPath = (meetingId: number) => `/api/meetings/${meeting
 /** Audio level shown as silence (dBFS): the meters go from this floor to 0 dBFS */
 export const LEVEL_FLOOR_DB = -60;
 
+/** Expected duration of a local AI task before the server tells it (seconds) */
+export const DEFAULT_ESTIMATE_S = 30;
+
+/** A progress bar never shows a task done before it is (its estimate may be short) */
+export const PROGRESS_MAX_BEFORE_DONE = 95;
+
 /** Value of the device selects meaning "follow the devices the applications use" */
 export const AUTO_DEVICE = 'auto';
 

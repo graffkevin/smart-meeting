@@ -147,12 +147,15 @@ async def import_meeting(
 def get_meeting(request: Request, meeting_id: int) -> MeetingDetail:
     svc = service(request)
     meeting = get_meeting_or_404(svc, meeting_id)
+    segments = svc.db.list_segments(meeting_id)
     return MeetingDetail(
         meeting=meeting,
-        segments=svc.db.list_segments(meeting_id),
+        segments=segments,
         analysis=svc.db.get_analysis(meeting_id),
         has_audio=svc.audio_path(meeting_id).exists(),
         captured=svc.captured_devices(meeting_id),
+        estimates=svc.estimates(segments),
+        analysis_elapsed_s=svc.analysis_elapsed_s(meeting_id),
     )
 
 

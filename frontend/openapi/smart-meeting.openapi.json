@@ -624,6 +624,24 @@
         ],
         "title": "ActionItem"
       },
+      "AiEstimates": {
+        "properties": {
+          "ask_s": {
+            "type": "number",
+            "title": "Ask S"
+          },
+          "analysis_s": {
+            "type": "number",
+            "title": "Analysis S"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ask_s",
+          "analysis_s"
+        ],
+        "title": "AiEstimates"
+      },
       "AskAnswer": {
         "properties": {
           "question": {
@@ -1075,6 +1093,27 @@
               }
             ],
             "title": "Captured"
+          },
+          "estimates": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AiEstimates"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "analysis_elapsed_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis Elapsed S"
           }
         },
         "type": "object",

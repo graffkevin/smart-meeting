@@ -206,11 +206,19 @@ const fr = {
     risks: 'Points de vigilance',
     nothing: 'Rien de particulier.',
   },
+  progress: {
+    remaining: '{{label}} · encore environ {{time}}',
+    almost: '{{label}} · presque terminé…',
+    seconds: '{{count}} s',
+    minutes: '{{minutes}} min {{seconds}} s',
+  },
   transcript: {
     title: 'Transcription',
     listening: 'Smart Meeting écoute… les phrases apparaîtront ici au fil de la réunion.',
     empty: 'Aucune parole détectée.',
     partial: '{{text}}…',
+    copy: 'Copier toute la transcription',
+    copied: 'Transcription copiée',
   },
 };
 

@@ -4,6 +4,7 @@
  */
 
 export * from './actionItem';
+export * from './aiEstimates';
 export * from './askAnswer';
 export * from './askRequest';
 export * from './audioDevice';

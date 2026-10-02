@@ -91,3 +91,23 @@ def test_hallucination_filter():
     assert is_hallucination("  ", 0.0, 0.0)
     assert is_hallucination("Merci.", 0.9, -1.5)
     assert not is_hallucination("Merci.", 0.1, -0.3)
+
+
+def test_estimates_grow_with_the_transcript_and_learn_the_speed():
+    from smart_meeting.config import Settings
+    from smart_meeting.llm.analysis import OllamaClient
+
+    client = OllamaClient(Settings())
+    short, long = client.estimate_s(1_000, "ask"), client.estimate_s(50_000, "ask")
+    assert long > short > 0
+    assert client.estimate_s(1_000, "analysis") > short
+    # A faster machine measured: estimates go down
+    client._measure(
+        {
+            "prompt_eval_count": 4000,
+            "prompt_eval_duration": 2e9,
+            "eval_count": 300,
+            "eval_duration": 5e9,
+        }
+    )
+    assert client.estimate_s(50_000, "ask") < long
