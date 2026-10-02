@@ -8,13 +8,22 @@ export type AudioSource = 'mic' | 'remote';
 
 export type AudioLevels = Record<AudioSource, number>;
 
+/** Provisional text of the sentence being spoken: shown live, replaced by its final transcription */
+export interface PartialText {
+  source: AudioSource;
+  speaker: string;
+  start_s: number;
+  text: string;
+}
+
 /** Live events of a meeting WebSocket (backend `EventHub`) */
 export type MeetingEvent =
   | { type: 'segment'; segment: Segment }
   | { type: 'status'; status: MeetingStatus; error: string | null }
   | { type: 'levels'; levels: AudioLevels; queue: number }
   | { type: 'devices'; devices: Partial<Record<AudioSource, CapturedDevice>> }
-  | { type: 'progress'; done_s: number; total_s: number | null };
+  | { type: 'progress'; done_s: number; total_s: number | null }
+  | ({ type: 'partial' } & PartialText);
 
 const isMeetingStatus = (value: unknown): value is MeetingStatus =>
   Object.values(MeetingStatus).some((status) => status === value);
@@ -35,6 +44,13 @@ export const isMeetingEvent = (value: unknown): value is MeetingEvent => {
   if (value.type === 'status') return isMeetingStatus(value.status);
   if (value.type === 'levels') return isLevels(value.levels) && isFiniteNumber(value.queue);
   if (value.type === 'devices') return isRecord(value.devices);
+  if (value.type === 'partial')
+    return (
+      (value.source === 'mic' || value.source === 'remote') &&
+      isString(value.speaker) &&
+      isFiniteNumber(value.start_s) &&
+      isString(value.text)
+    );
 
   return (
     value.type === 'progress' &&
@@ -49,4 +65,6 @@ export interface LiveState {
   queue: number;
   devices: Partial<Record<AudioSource, CapturedDevice>> | null;
   progress: { done: number; total: number | null } | null;
+  /** Sentence being spoken, per source */
+  partials: Partial<Record<AudioSource, PartialText>>;
 }

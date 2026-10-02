@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     whisper_model: str = "auto"
     whisper_device: str = "auto"  # auto | cuda | cpu
     whisper_compute_type: str = "auto"  # auto | int8_float16 | int8 | float16 ...
+    # Live provisional text (the sentence being spoken): auto = "small" next to a larger model on
+    # GPU (fast drafts), the main model otherwise; "none" disables it.
+    whisper_partial_model: str = "auto"
     # Transcription language offered by default: "auto" (sticky detection) or a code (fr, en…).
     whisper_language: str = "auto"
     # Automatic mode: language assumed until a first clear detection.

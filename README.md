@@ -85,7 +85,9 @@ tout comme `Ctrl+C` dans le terminal.
 
 1. Titre (facultatif), puis **Démarrer l'enregistrement**. Par défaut, les périphériques sont en mode automatique :
    le micro et la sortie réellement utilisés par vos applications sont suivis, même si l'appel démarre après.
-2. La transcription s'affiche en direct, avec la durée et un vumètre par source.
+2. La transcription s'affiche en direct, mot à mot : la phrase en cours apparaît en grisé (brouillon rapide, mis à
+   jour environ toutes les 1,5 s), puis sa version définitive, plus précise, la remplace à la pause. Durée et
+   vumètres par source.
 3. **Stop** : la transcription se termine, puis l'analyse IA démarre.
 4. **Copier le compte rendu (Markdown)**.
 
@@ -120,6 +122,7 @@ SM_USER_NAME=Kevin                  # libellé de mon micro dans la transcriptio
 SM_REMOTE_NAME=Interlocuteur
 SM_WHISPER_GLOSSARY="Réunion JUNN, Géoplateforme, IGN, API, 3D Tiles, IGN-MUT."  # vocabulaire métier
 SM_WHISPER_MODEL=auto               # ou large-v3-turbo / medium / small
+SM_WHISPER_PARTIAL_MODEL=auto       # brouillon en direct : small à côté du modèle principal sur GPU, none pour désactiver
 SM_OLLAMA_MODEL=qwen2.5:7b
 SM_OLLAMA_BIN=/chemin/vers/ollama   # si Ollama n'est pas dans le PATH
 SM_DATA_DIR=~/.local/share/smart-meeting

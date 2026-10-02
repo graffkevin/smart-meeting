@@ -186,7 +186,12 @@ deux WAV 16 kHz sont écrits dans `~/.local/share/smart-meeting/audio/<id>/`, su
    (`transcription/language.py`) : un énoncé détecté avec confiance est transcrit dans sa langue (pas de traduction
    involontaire), un énoncé incertain dans la langue courante, qui ne change qu'après 2 énoncés confiants consécutifs.
 10. ✅ Interface refaite avec le design system JUNN et les règles du front de junn-apps.
-11. À venir, une fois la chaîne validée en réunion réelle :
+11. ✅ Texte en direct mot à mot : pendant qu'une phrase est prononcée, un brouillon est recalculé (modèle `small`
+    à côté du modèle principal sur GPU, décodage glouton, sans détection de langue) et envoyé en événement `partial`,
+    jamais stocké. Les phrases finales passent en priorité : pas de brouillon si la file n'est pas vide ou si une
+    pause commence (la phrase va se terminer), cadence adaptée au temps de calcul. Mesuré sur T600 : premier
+    brouillon 2,6 s après le début de la phrase, mise à jour toutes les 1,6 s, phrase finale ~5 s après la fin.
+12. À venir, une fois la chaîne validée en réunion réelle :
    - réglage du VAD et du glossaire sur de vraies réunions ;
    - découpage map-reduce pour les réunions qui dépassent le contexte du LLM ;
    - diarisation pyannote du flux distant ;

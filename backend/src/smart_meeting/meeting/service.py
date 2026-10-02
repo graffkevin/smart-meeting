@@ -39,6 +39,13 @@ from smart_meeting.transcription.whisper import WhisperTranscriber
 logger = logging.getLogger(__name__)
 
 DEVICE_POLL_S = 2.0
+# Provisional text of the sentence being spoken: refreshed at most this often, once it is this long.
+PARTIAL_INTERVAL_S = 1.0
+PARTIAL_MIN_S = 1.0
+# A pause this long may end the sentence: its final transcription gets Whisper first.
+PARTIAL_PAUSE_S = 0.2
+# Time between two provisional texts, as a multiple of the last one's computing time (GPU load).
+PARTIAL_LOAD_FACTOR = 1.5
 # Without any open page for this long (time to reload a page), the app stops once idle.
 UNUSED_GRACE_S = 10
 
@@ -254,6 +261,7 @@ class MeetingService:
             asyncio.create_task(self._transcription_worker(recording), name="transcription"),
             asyncio.create_task(self._publish_levels(recording), name="levels"),
             asyncio.create_task(self._follow_devices(recording), name="devices"),
+            asyncio.create_task(self._publish_partials(recording), name="partials"),
         ]
         self._publish_devices(recording)
         return meeting
@@ -373,6 +381,56 @@ class MeetingService:
                 recording.meeting_id,
                 {"type": "levels", "levels": levels, "queue": recording.queue.qsize()},
             )
+
+    async def _publish_partials(self, recording: Recording) -> None:
+        """Live provisional text of the sentence being spoken, word after word. Final sentences
+        come first: a provisional text is only computed while Whisper has nothing else to do."""
+        await self._whisper_ready.wait()
+        loop = asyncio.get_running_loop()
+        sample_rate = self.settings.sample_rate
+        shown: dict[Source, int] = {}  # source -> length of the audio last transcribed
+        delay = PARTIAL_INTERVAL_S
+        while not recording.stopping:
+            await asyncio.sleep(delay)
+            delay = PARTIAL_INTERVAL_S
+            for source, stream in recording.streams.items():
+                ongoing = stream.segmenter.ongoing()
+                if ongoing is None or len(ongoing.audio) < PARTIAL_MIN_S * sample_rate:
+                    shown.pop(source, None)
+                    continue
+                if (
+                    not recording.queue.empty()
+                    or stream.segmenter.trailing_silence_s >= PARTIAL_PAUSE_S
+                    or shown.get(source) == len(ongoing.audio)
+                ):
+                    continue
+                shown[source] = len(ongoing.audio)
+                started = loop.time()
+                try:
+                    text = await loop.run_in_executor(
+                        self._executor,
+                        self.transcriber.transcribe_partial,
+                        ongoing.audio,
+                        stream.language.language,
+                        stream.previous_text,
+                    )
+                except Exception:
+                    logger.exception("Provisional transcription failed")
+                    continue
+                delay = max(delay, (loop.time() - started) * PARTIAL_LOAD_FACTOR)
+                if text:
+                    self.hub.publish(
+                        recording.meeting_id,
+                        {
+                            "type": "partial",
+                            "source": source,
+                            "speaker": stream.speaker,
+                            "start_s": round(
+                                (stream.offset_s or 0.0) + ongoing.start_s(sample_rate), 2
+                            ),
+                            "text": text,
+                        },
+                    )
 
     async def _transcription_worker(self, recording: Recording) -> None:
         await self._whisper_ready.wait()

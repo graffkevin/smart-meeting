@@ -78,6 +78,7 @@ class WhisperTranscriber:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._model = None
+        self._partial_model = None  # fast model for the live provisional text
         self.model_name: str | None = None
         self.device: str | None = None
 
@@ -98,11 +99,22 @@ class WhisperTranscriber:
         name = self.settings.whisper_model
         if name == "auto":
             name = "large-v3-turbo" if device == "cuda" else "small"
-        logger.info("Loading Whisper %s on %s (%s)", name, device, compute_type)
-        model = WhisperModel(name, device=device, compute_type=compute_type)
-        # Warm-up so the first real utterance is not delayed (and CUDA errors surface now).
-        list(model.transcribe(np.zeros(16000, dtype=np.float32), language="fr")[0])
-        self._model = model
+
+        def load_model(model_name: str):
+            logger.info("Loading Whisper %s on %s (%s)", model_name, device, compute_type)
+            model = WhisperModel(model_name, device=device, compute_type=compute_type)
+            # Warm-up so the first utterance is not delayed (and CUDA errors surface now).
+            list(model.transcribe(np.zeros(16000, dtype=np.float32), language="fr")[0])
+            return model
+
+        self._model = load_model(name)
+        partial = self.settings.whisper_partial_model
+        if partial == "auto":
+            partial = "small" if device == "cuda" and name != "small" else name
+        if partial == "none":
+            self._partial_model = None
+        else:
+            self._partial_model = self._model if partial == name else load_model(partial)
         self.model_name = name
         self.device = f"{device}/{compute_type}"
 
@@ -132,3 +144,24 @@ class WhisperTranscriber:
             for s in segments
             if not is_hallucination(s.text, s.no_speech_prob, s.avg_logprob)
         ]
+
+    def transcribe_partial(self, audio: np.ndarray, language: str, previous_text: str = "") -> str:
+        """Fast provisional text of an utterance still being spoken: small model, greedy decoding,
+        no language detection. Only shown live, replaced by the final transcription."""
+        if self._partial_model is None:
+            return ""
+        prompt = " ".join(p for p in (self.settings.whisper_glossary, previous_text[-200:]) if p)
+        segments, _ = self._partial_model.transcribe(
+            audio,
+            language=language,
+            beam_size=1,
+            initial_prompt=prompt or None,
+            vad_filter=False,
+            condition_on_previous_text=False,
+            without_timestamps=True,
+        )
+        return " ".join(
+            s.text.strip()
+            for s in segments
+            if not is_hallucination(s.text, s.no_speech_prob, s.avg_logprob)
+        )

@@ -2,7 +2,7 @@ import type { CapturedDevice } from '@/api/generated/model/capturedDevice';
 import type { MeetingAnalysis } from '@/api/generated/model/meetingAnalysis';
 import type { MeetingListItem } from '@/api/generated/model/meetingListItem';
 import type { Segment } from '@/api/generated/model/segment';
-import type { AudioSource, LiveState } from '@/types/events';
+import type { AudioSource, LiveState, PartialText } from '@/types/events';
 
 /** A meeting of the history: opened by a click, deleted from its trash button */
 export interface MeetingCardProps {
@@ -23,6 +23,8 @@ export interface TranscriptProps {
   startedAt: string | null;
   /** Recording: follows the last sentence, and an empty transcript means "listening" */
   live: boolean;
+  /** Sentences being spoken, shown after the final ones until their transcription replaces them */
+  partials?: PartialText[];
 }
 
 /** Confirmation of an action that cannot be undone */

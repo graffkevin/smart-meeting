@@ -4,8 +4,11 @@ import { useTranslation } from 'react-i18next';
 import type { TranscriptProps } from '@/types/components';
 import format from '@/utils/format';
 
-/** Transcript as a conversation: my sentences on the right, highlighted; the other participants on the left */
-const Transcript = ({ segments, startedAt, live }: TranscriptProps) => {
+/**
+ * Transcript as a conversation: my sentences on the right, highlighted; the other participants on the left. While
+ * recording, the sentences being spoken follow in grey, word after word, until their final transcription.
+ */
+const Transcript = ({ segments, startedAt, live, partials = [] }: TranscriptProps) => {
   const end = useRef<HTMLDivElement>(null);
   const { t, i18n } = useTranslation();
   const time = (offset: number) =>
@@ -15,9 +18,9 @@ const Transcript = ({ segments, startedAt, live }: TranscriptProps) => {
   // biome-ignore lint/correctness/useExhaustiveDependencies: scrolls again on each new sentence
   useEffect(() => {
     if (live) end.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [live, segments.length]);
+  }, [live, segments.length, partials.length]);
 
-  if (segments.length === 0)
+  if (segments.length === 0 && partials.length === 0)
     return <Typography variant="description">{live ? t('transcript.listening') : t('transcript.empty')}</Typography>;
 
   return (
@@ -36,6 +39,16 @@ const Transcript = ({ segments, startedAt, live }: TranscriptProps) => {
           </Stack>
         );
       })}
+      {partials.map((partial) => (
+        <Stack key={partial.source} gap="xxs" align={partial.source === 'mic' ? 'flex-end' : 'flex-start'}>
+          <Typography variant="caption">
+            {partial.speaker} · {time(partial.start_s)}
+          </Typography>
+          <Card padding="sm">
+            <Typography variant="description">{t('transcript.partial', { text: partial.text })}</Typography>
+          </Card>
+        </Stack>
+      ))}
       <Box ref={end} />
     </Stack>
   );

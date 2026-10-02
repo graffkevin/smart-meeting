@@ -61,3 +61,22 @@ def test_flush_emits_ongoing_speech_and_ignores_blips():
     feed(seg, tone(2))
     flushed = seg.flush()
     assert len(flushed) == 1 and flushed[0].start_s(SR) > 2.5
+
+
+def test_ongoing_exposes_the_sentence_being_spoken():
+    seg = UtteranceSegmenter(energy_vad, min_silence_ms=500)
+    assert seg.ongoing() is None
+    feed(seg, np.concatenate([silence(1), tone(1.5)]))
+    ongoing = seg.ongoing()
+    assert ongoing is not None and 1.4 <= len(ongoing.audio) / SR <= 2.0
+    assert 0.6 <= ongoing.start_s(SR) <= 1.0
+    feed(seg, silence(1))  # the pause ends the sentence
+    assert seg.ongoing() is None
+
+
+def test_trailing_silence_tells_a_sentence_may_be_ending():
+    seg = UtteranceSegmenter(energy_vad, min_silence_ms=700)
+    feed(seg, tone(1))
+    assert seg.trailing_silence_s == 0
+    feed(seg, silence(0.3))
+    assert 0.25 <= seg.trailing_silence_s <= 0.35

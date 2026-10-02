@@ -160,6 +160,7 @@ const fr = {
     title: 'Transcription',
     listening: 'Smart Meeting écoute… les phrases apparaîtront ici au fil de la réunion.',
     empty: 'Aucune parole détectée.',
+    partial: '{{text}}…',
   },
 };
 

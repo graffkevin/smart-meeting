@@ -261,6 +261,7 @@ const MeetingView = ({ meetingId }: MeetingViewProps) => {
             segments={segments}
             startedAt={isDefined(meeting.source_file) ? null : meeting.started_at}
             live={recording}
+            partials={recording ? Object.values(live.partials).filter(isDefined) : []}
           />
         </Stack>
       </Card>

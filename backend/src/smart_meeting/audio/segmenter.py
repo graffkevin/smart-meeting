@@ -90,6 +90,17 @@ class UtteranceSegmenter:
             self._position += WINDOW
         return out
 
+    @property
+    def trailing_silence_s(self) -> float:
+        """Silence at the end of the sentence being spoken: the sentence may be ending."""
+        return self._silence_run * WINDOW / self.sample_rate
+
+    def ongoing(self) -> Utterance | None:
+        """The utterance being spoken, not finished yet (for provisional live text)."""
+        if not self._windows_buf:
+            return None
+        return Utterance(self._start, np.concatenate(self._windows_buf))
+
     def flush(self) -> list[Utterance]:
         """Emit whatever speech is buffered, e.g. when the meeting stops."""
         if self._pending.size and self.in_speech:

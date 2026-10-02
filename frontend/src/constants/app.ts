@@ -21,3 +21,6 @@ export const AUTO_DEVICE = 'auto';
 
 /** Transcription languages offered ("auto": detected, sticky), labels in locales `languages` */
 export const TRANSCRIPTION_LANGUAGES = ['auto', 'fr', 'en', 'de', 'es', 'it'] as const;
+
+/** A final sentence replaces a provisional text that started at most this much later (seconds) */
+export const PARTIAL_TOLERANCE_S = 0.5;
