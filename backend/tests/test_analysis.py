@@ -67,6 +67,23 @@ def test_schema_hides_backend_fields():
     action = analysis_schema()["$defs"]["ActionItem"]
     assert "verified" not in action["properties"]
     assert set(action["required"]) == {"task", "owner", "deadline", "quote"}
+    assert action["properties"]["quote"]["type"] == "string"  # never null
+
+
+def test_verbatim_task_counts_as_evidence():
+    result = ground_analysis(
+        analysis(
+            ActionItem(
+                task="Benoît s'occupe de la note d'architecture",
+                owner="Benoît",
+                deadline=None,
+                quote=None,
+            )
+        ),
+        TRANSCRIPT,
+        "Moi",
+    )
+    assert result.actions[0].verified
 
 
 def test_hallucination_filter():

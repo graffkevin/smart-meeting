@@ -98,7 +98,16 @@ button.link { border: none; background: none; padding: 0; color: var(--accent); 
 .meter span { display: block; height: 100%; background: var(--accent); transition: width 0.2s; }
 
 .history { list-style: none; padding: 0; margin: 0; }
-.history li { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.history li { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.history-header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.history-header h2 { margin: 0; }
+.history-header input { flex: 1; min-width: 200px; max-width: 360px; }
+.history-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.history-main .title { justify-self: start; text-align: left; font-weight: 600; }
+.history-main .muted { font-size: 0.85rem; overflow-wrap: anywhere; }
+.excerpt { margin: 2px 0 0; font-size: 0.9rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+button.icon { border: none; background: none; color: var(--muted); padding: 2px 6px; }
+button.icon:hover:not(:disabled) { color: var(--danger); }
 .history li:last-child { border-bottom: none; }
 
 .transcript p { margin: 0 0 6px; display: grid; grid-template-columns: auto auto 1fr; gap: 10px; }

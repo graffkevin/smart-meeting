@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { type AudioDevice, type AudioDevices, type Health, type Meeting, api } from "./api";
-import { STATUS_LABELS, formatDate } from "./format";
+import { type AudioDevice, type AudioDevices, type Health, api } from "./api";
+import { History } from "./History";
 
 const AUTO = "";
 
@@ -12,7 +12,6 @@ export function HomePage({ onOpen }: { onOpen: (id: number) => void }) {
   // undefined: first check pending; null: backend unreachable.
   const [health, setHealth] = useState<Health | null | undefined>(undefined);
   const [devices, setDevices] = useState<AudioDevices | null>(null);
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [title, setTitle] = useState("");
   const [mic, setMic] = useState(AUTO);
   const [remote, setRemote] = useState(AUTO);
@@ -24,7 +23,6 @@ export function HomePage({ onOpen }: { onOpen: (id: number) => void }) {
 
   useEffect(() => {
     refreshDevices();
-    api.meetings().then(setMeetings).catch((e) => setError(e.message));
     const poll = () => api.health().then(setHealth).catch(() => setHealth(null));
     poll();
     const timer = setInterval(poll, 5000);
@@ -130,24 +128,7 @@ export function HomePage({ onOpen }: { onOpen: (id: number) => void }) {
 
       <ImportCard disabled={active !== null} onOpen={onOpen} />
 
-      <section className="card">
-        <h2>Historique</h2>
-        {meetings.length === 0 ? (
-          <p className="muted">Aucune réunion.</p>
-        ) : (
-          <ul className="history">
-            {meetings.map((m) => (
-              <li key={m.id}>
-                <button className="link" onClick={() => onOpen(m.id)}>
-                  {m.title}
-                </button>
-                <span className="muted">{formatDate(m.started_at)}</span>
-                <span className={`badge ${m.status}`}>{STATUS_LABELS[m.status]}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <History onOpen={onOpen} />
     </>
   );
 }

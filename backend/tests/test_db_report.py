@@ -99,3 +99,36 @@ def test_migration_adds_source_file(tmp_path):
         db.create_meeting("x", None, None, keep_audio=False, source_file="a.mp3").source_file
         == "a.mp3"
     )
+
+
+def test_search_is_accent_insensitive_and_covers_transcripts(tmp_path):
+    db = Database(tmp_path / "test.db")
+    first = db.create_meeting("Point projet JUNN", None, None, keep_audio=False)
+    db.add_segment(
+        first.id,
+        Segment(
+            source="mic", speaker="Moi", start_s=0, end_s=1, text="On publie sur la Géoplateforme."
+        ),
+    )
+    second = db.create_meeting("Réunion budget 100%", None, None, keep_audio=False)
+    db.save_analysis(
+        second.id,
+        MeetingAnalysis(
+            summary="Arbitrage du budget.",
+            decisions=[],
+            questions=[],
+            risks=[],
+            technical_topics=[],
+            actions=[ActionItem(task="t", owner=None, deadline=None, quote=None)],
+        ),
+    )
+
+    def titles(query):
+        return [m.title for m in db.list_meetings(query)]
+
+    assert titles("") == ["Réunion budget 100%", "Point projet JUNN"]
+    assert titles("geoplateforme") == ["Point projet JUNN"]  # transcript, accent-insensitive
+    assert titles("REUNION arbitrage") == ["Réunion budget 100%"]  # title + summary
+    assert titles("junn budget") == []  # every word must match
+    assert titles("100%") == ["Réunion budget 100%"] and titles("_") == []  # LIKE escaped
+    assert db.list_meetings("budget")[0].action_count == 1

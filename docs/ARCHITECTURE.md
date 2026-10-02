@@ -139,7 +139,7 @@ deux WAV 16 kHz sont écrits dans `~/.local/share/smart-meeting/audio/<id>/`, su
 |---|---|---|
 | GET | `/health` | état de Whisper, d'Ollama et du modèle, réunion active |
 | GET | `/audio/devices` | micros, sorties, et périphériques actuellement utilisés |
-| GET | `/meetings` | historique |
+| GET | `/meetings?q=` | historique, du plus récent au plus ancien, avec nombre d'actions ; `q` cherche dans titres, résumés et transcriptions (insensible à la casse et aux accents, tous les mots requis) |
 | POST | `/meetings` | crée et démarre l'enregistrement `{title, mic_device?, remote_device?, keep_audio}` (`null` = auto) |
 | GET | `/meetings/{id}` | réunion, segments, analyse, périphériques capturés |
 | PATCH | `/meetings/{id}` | renommer |

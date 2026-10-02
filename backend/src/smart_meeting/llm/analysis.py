@@ -20,13 +20,16 @@ SYSTEM_PROMPT = """Tu es un assistant qui rédige le compte rendu d'une réunion
 
 Règles impératives :
 - N'utilise QUE des informations présentes dans la transcription. N'invente rien.
-- Une action n'est retenue que si quelqu'un s'engage ou est chargé explicitement de la faire.
+- Décision = choix acté ("on a décidé de…", "on part sur…", "c'est validé"). Une décision va \
+dans "decisions", jamais dans "actions", même si elle implique du travail.
+- Action = tâche qu'une personne s'engage à faire ou dont elle est chargée ("je vais…", \
+"X s'en occupe", "peux-tu…"). Sans tâche à faire par quelqu'un, ce n'est pas une action.
 - "owner" : uniquement une personne explicitement désignée ou qui s'engage elle-même \
 ("je vais…" prononcé par {user_name} => "{user_name}"). Sinon null.
 - "deadline" : uniquement une échéance explicitement prononcée, recopiée telle quelle \
 (ex. "vendredi", "fin octobre"). Sinon null.
 - "quote" : recopie exactement le passage de la transcription qui mentionne l'action.
-- Les décisions sont des choix actés pendant la réunion, pas des pistes évoquées.
+- Une piste seulement évoquée n'est ni une décision ni une action.
 - Listes vides si rien ne correspond. Rédige en français, de manière concise.
 - Les interlocuteurs distants sont tous étiquetés "{remote_name}" : ne leur attribue \
 pas de nom propre sauf s'ils se nomment explicitement."""
@@ -50,6 +53,9 @@ def analysis_schema() -> dict:
     schema = MeetingAnalysis.model_json_schema()
     action = schema["$defs"]["ActionItem"]
     action["properties"].pop("verified")
+    # The model must always justify an action with a quote (never null).
+    quote = action["properties"]["quote"]
+    action["properties"]["quote"] = {"type": "string", "description": quote["description"]}
     action["required"] = ["task", "owner", "deadline", "quote"]
     return schema
 
@@ -85,7 +91,10 @@ def ground_analysis(analysis: MeetingAnalysis, transcript: str, user_name: str) 
         deadline = action.deadline
         if deadline and f" {_normalize(deadline)} " not in normalized:
             deadline = None
-        verified = bool(action.quote) and _quote_found(action.quote, normalized)
+        # Evidence: the quote, or a task copied verbatim from the transcript.
+        verified = any(
+            text and _quote_found(text, normalized) for text in (action.quote, action.task)
+        )
         actions.append(
             action.model_copy(update={"owner": owner, "deadline": deadline, "verified": verified})
         )

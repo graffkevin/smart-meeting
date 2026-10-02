@@ -23,6 +23,7 @@ from smart_meeting.models import (
     Health,
     Meeting,
     MeetingDetail,
+    MeetingListItem,
     StartMeetingRequest,
     UpdateMeetingRequest,
 )
@@ -74,8 +75,9 @@ async def audio_devices() -> AudioDevices:
 
 
 @router.get("/meetings")
-def list_meetings(request: Request) -> list[Meeting]:
-    return service(request).db.list_meetings()
+def list_meetings(request: Request, q: str = "") -> list[MeetingListItem]:
+    """History, newest first; `q` searches titles, summaries and transcripts."""
+    return service(request).db.list_meetings(q)
 
 
 @router.post("/meetings", status_code=201)
@@ -134,7 +136,7 @@ async def stop_meeting(request: Request, meeting_id: int) -> Meeting:
 
 
 @router.post("/meetings/{meeting_id}/analyze", status_code=202)
-def analyze_meeting(request: Request, meeting_id: int) -> None:
+async def analyze_meeting(request: Request, meeting_id: int) -> None:
     svc = service(request)
     get_meeting_or_404(svc, meeting_id)
     with conflict_as_409():
@@ -159,7 +161,7 @@ def delete_audio(request: Request, meeting_id: int) -> None:
 
 
 @router.delete("/meetings/{meeting_id}", status_code=204)
-def delete_meeting(request: Request, meeting_id: int) -> None:
+async def delete_meeting(request: Request, meeting_id: int) -> None:
     svc = service(request)
     get_meeting_or_404(svc, meeting_id)
     with conflict_as_409():

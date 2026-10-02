@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+import unicodedata
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -10,6 +11,7 @@ from pathlib import Path
 from smart_meeting.models import (
     Meeting,
     MeetingAnalysis,
+    MeetingListItem,
     MeetingStatus,
     Segment,
 )
@@ -58,6 +60,14 @@ CREATE TABLE IF NOT EXISTS actions (
 """
 
 
+def fold(text: str | None) -> str:
+    """Lowercase and strip accents, for search."""
+    if not text:
+        return ""
+    decomposed = unicodedata.normalize("NFKD", text.lower())
+    return "".join(c for c in decomposed if not unicodedata.combining(c))
+
+
 def now_iso() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
@@ -76,6 +86,7 @@ class Database:
         conn = sqlite3.connect(self.path)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys=ON")
+        conn.create_function("fold", 1, fold, deterministic=True)
         try:
             with conn:
                 yield conn
@@ -110,10 +121,33 @@ class Database:
             row = conn.execute("SELECT * FROM meetings WHERE id = ?", (meeting_id,)).fetchone()
         return _meeting_from_row(row) if row else None
 
-    def list_meetings(self) -> list[Meeting]:
+    def list_meetings(self, query: str = "") -> list[MeetingListItem]:
+        """Meetings, newest first, optionally filtered by words found in the title, summary
+        or transcript (case and accent insensitive, every word must match)."""
+        sql = (
+            "SELECT m.*, (SELECT COUNT(*) FROM actions a WHERE a.meeting_id = m.id)"
+            " AS action_count FROM meetings m"
+        )
+        params: list[str] = []
+        conditions = []
+        match = "LIKE ? ESCAPE '\\'"
+        for word in fold(query).split():
+            conditions.append(
+                f"(fold(m.title) {match} OR fold(m.summary) {match}"
+                " OR EXISTS (SELECT 1 FROM segments s WHERE s.meeting_id = m.id"
+                f" AND fold(s.text) {match}))"
+            )
+            escaped = word.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            params += [f"%{escaped}%"] * 3
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        sql += " ORDER BY m.started_at DESC, m.id DESC"
         with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM meetings ORDER BY started_at DESC").fetchall()
-        return [_meeting_from_row(row) for row in rows]
+            rows = conn.execute(sql, params).fetchall()
+        return [
+            MeetingListItem(**_meeting_from_row(row).model_dump(), action_count=row["action_count"])
+            for row in rows
+        ]
 
     def update_meeting(self, meeting_id: int, **fields: object) -> None:
         allowed = {"title", "status", "ended_at", "transcript", "summary", "error", "keep_audio"}

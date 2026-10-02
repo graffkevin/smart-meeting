@@ -32,7 +32,13 @@ async def lifespan(app: FastAPI):
     await service.shutdown()
 
 
-app = FastAPI(title="Smart Meeting", lifespan=lifespan)
+# FastAPI's built-in OpenTelemetry instrumentation is fully disabled: nothing about meetings
+# must ever be exported, even if OTEL_* variables happen to be set in the environment.
+app = FastAPI(
+    title="Smart Meeting",
+    lifespan=lifespan,
+    telemetry={"tracing": False, "metrics": False, "logs": False, "auto_configure": False},
+)
 app.include_router(router)
 
 # Production-like mode: serve the built frontend from the same origin.

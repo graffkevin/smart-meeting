@@ -21,6 +21,10 @@ export interface Meeting {
   created_at: string;
 }
 
+export interface MeetingListItem extends Meeting {
+  action_count: number;
+}
+
 export interface Segment {
   id: number;
   source: "mic" | "remote";
@@ -115,7 +119,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   health: () => request<Health>("/health"),
   devices: () => request<AudioDevices>("/audio/devices"),
-  meetings: () => request<Meeting[]>("/meetings"),
+  meetings: (query = "") =>
+    request<MeetingListItem[]>(`/meetings?q=${encodeURIComponent(query)}`),
   meeting: (id: number) => request<MeetingDetail>(`/meetings/${id}`),
   start: (body: StartMeetingRequest) =>
     request<Meeting>("/meetings", { method: "POST", body: JSON.stringify(body) }),

@@ -30,6 +30,10 @@ class Meeting(BaseModel):
     created_at: str
 
 
+class MeetingListItem(Meeting):
+    action_count: int = 0
+
+
 class Segment(BaseModel):
     id: int | None = None
     source: Source
