@@ -178,7 +178,7 @@ const AskPanel = ({ meetingId, disabled, estimateS, questions }: AskPanelProps) 
       reset();
     },
   });
-  const { ai, restartable, restarting, restart } = useModelStatus();
+  const { ai, model, restartable, restarting, restart } = useModelStatus();
   // Asking needs something transcribed and the local AI answering (green)
   const unavailable = disabled || ai.tone !== 'success' || ask.isPending;
   const answers = questions.map(toEntry);
@@ -191,7 +191,7 @@ const AskPanel = ({ meetingId, disabled, estimateS, questions }: AskPanelProps) 
             <Typography variant="h5">{t('ask.title')}</Typography>
             <Typography variant="description">{disabled ? t('ask.empty') : t('ask.lead')}</Typography>
           </Stack>
-          <AiStatus ai={ai} restartable={restartable} restarting={restarting} onRestart={restart} />
+          <AiStatus ai={ai} model={model} restartable={restartable} restarting={restarting} onRestart={restart} />
         </Stack>
         <Stack direction="row" gap="xs" wrap="wrap">
           {QUICK_QUESTIONS.map((key) => (

@@ -99,6 +99,8 @@ export interface ModelState {
 /** Status dot of the local AI, with its restart button when it does not run properly */
 export interface AiStatusProps {
   ai: ModelState;
+  /** AI model in use (e.g. qwen2.5:7b), shown next to "AI" */
+  model: string;
   restartable: boolean;
   restarting: boolean;
   onRestart: () => void;

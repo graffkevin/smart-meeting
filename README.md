@@ -171,3 +171,7 @@ No audio and no transcript ever leaves the machine. The API only listens on `127
 proxy, a remote Ollama URL is refused, and the Ollama started by the app runs with its cloud features disabled
 (`OLLAMA_NO_CLOUD=1`). By default, the raw audio is never written to disk. Downloads only fetch software and model
 weights.
+
+## License
+
+[MIT](LICENSE)

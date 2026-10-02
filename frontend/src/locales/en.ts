@@ -33,6 +33,7 @@ const en: Translation = {
   },
   models: {
     ai: 'AI',
+    aiWithModel: 'AI - {{model}}',
     aiReady: 'Local AI ready: {{model}}',
     aiInstalling: 'Local AI being installed',
     aiMissing: 'The local AI answers, but the {{model}} model is missing',

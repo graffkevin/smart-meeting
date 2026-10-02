@@ -61,9 +61,11 @@ const Layout = () => {
             }
           />
           <Tooltip label={t('shell.localHint')} multiline>
-            <Badge tone="success" icon={IconShieldLock} size="sm">
-              {t('shell.local')}
-            </Badge>
+            <Box component="span" display="inline-flex">
+              <Badge tone="success" icon={IconShieldLock} size="sm">
+                {t('shell.local')}
+              </Badge>
+            </Box>
           </Tooltip>
           <Box flex={1} />
           <ModelStatus />

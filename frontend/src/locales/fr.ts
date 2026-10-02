@@ -31,6 +31,7 @@ const fr = {
   },
   models: {
     ai: 'IA',
+    aiWithModel: 'IA - {{model}}',
     aiReady: 'IA locale prête : {{model}}',
     aiInstalling: "Installation de l'IA locale en cours",
     aiMissing: "L'IA locale répond, mais le modèle {{model}} est absent",

@@ -32,6 +32,7 @@ const useModelStatus = () => {
 
   return {
     ai: reachable ? ai : unreachable,
+    model,
     /** The local AI can be restarted: it is not green and not being installed */
     restartable: reachable && ai.tone !== 'success' && !installing,
     restarting: restart.isPending,
