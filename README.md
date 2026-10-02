@@ -88,8 +88,11 @@ tout comme `Ctrl+C` dans le terminal.
 2. La transcription s'affiche en direct, mot à mot : la phrase en cours apparaît en grisé (brouillon rapide, mis à
    jour environ toutes les 1,5 s), puis sa version définitive, plus précise, la remplace à la pause. Durée et
    vumètres par source.
-3. **Stop** : la transcription se termine, puis l'analyse IA démarre.
-4. **Copier le compte rendu (Markdown)**.
+3. **Interroger la réunion**, pendant ou après : « Résumer », « Mes actions », « Décisions » en un clic, ou une
+   question libre (« Qu'est-ce que je dois faire ? »). L'IA locale répond à partir de la transcription seule, cite
+   les heures des passages, et dit quand l'information n'y est pas. La transcription défile dans le panneau de droite.
+4. **Stop** : la transcription se termine, puis l'analyse IA démarre.
+5. **Copier le compte rendu (Markdown)**.
 
 ### Importer une vidéo ou un audio
 
@@ -112,6 +115,13 @@ brut a été conservé, et `ollama.log`. Pour sauvegarder l'historique, copier l
 déplacer, `SM_DATA_DIR=/chemin` dans `config.env`.
 
 ## Configuration
+
+Le bouton **⚙ Paramètres** de l'en-tête règle sans redémarrer : votre nom (vos phrases, et « je » pour l'IA), le
+vocabulaire métier, la langue par défaut, le micro, le casque, et la conservation de l'audio. Les pastilles
+**Transcription** et **IA** de l'en-tête indiquent si les modèles tournent (vert, orange, rouge) ; un bouton relance
+l'IA locale quand elle n'est pas au vert. Une réunion sans nom s'appelle « Réunion du 2 octobre 2026 à 14h32 ».
+
+Réglages avancés :
 
 Variables `SM_*`, dans `config.env` du dossier de configuration (Linux : `~/.config/smart-meeting/`, macOS :
 `~/Library/Application Support/smart-meeting/`, Windows : `%LOCALAPPDATA%\smart-meeting\`), ou `backend/.env` en

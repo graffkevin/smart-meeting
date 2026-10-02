@@ -12,6 +12,7 @@ import wave
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
@@ -32,6 +33,7 @@ from smart_meeting.models import (
     Source,
     StartMeetingRequest,
 )
+from smart_meeting.preferences import PreferencesStore
 from smart_meeting.provision import OllamaProvisioner
 from smart_meeting.transcription.language import LanguageTracker
 from smart_meeting.transcription.whisper import WhisperTranscriber
@@ -52,6 +54,18 @@ UNUSED_GRACE_S = 10
 
 class ConflictError(Exception):
     pass
+
+
+MONTHS = [
+    "janvier", "février", "mars", "avril", "mai", "juin",
+    "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+]  # fmt: skip
+
+
+def default_title(at: datetime | None = None) -> str:
+    """Title of a meeting started without a name: its date and local time."""
+    at = at or datetime.now()
+    return f"Réunion du {at.day} {MONTHS[at.month - 1]} {at.year} à {at.hour}h{at.minute:02d}"
 
 
 @dataclass
@@ -96,6 +110,7 @@ class MeetingService:
         audio: AudioBackend | None = None,
     ) -> None:
         self.settings = settings
+        self.preferences = PreferencesStore(settings)
         self.audio = audio or get_backend()
         self.db = db
         self.hub = hub
@@ -109,6 +124,7 @@ class MeetingService:
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="whisper")
         self._background: set[asyncio.Task[None]] = set()
         self._start_lock = asyncio.Lock()
+        self._ask_lock = asyncio.Lock()
         self.ui_connections = 0  # open browser pages (presence WebSockets)
         self._analyses = 0
         self._import_task: asyncio.Task[None] | None = None
@@ -121,6 +137,15 @@ class MeetingService:
         and shows their progress."""
         self._spawn(self._load_whisper())
         self._spawn(self._provision())
+
+    def restart_ai(self) -> None:
+        """Restart button of the interface: stop the Ollama we started, then provision again
+        (start it, download its model if missing). A system Ollama is left running."""
+        self._spawn(self._restart_ai())
+
+    async def _restart_ai(self) -> None:
+        await self.provisioner.stop()
+        await self.provisioner.run()
 
     async def _provision(self) -> None:
         await self.provisioner.run()
@@ -220,7 +245,7 @@ class MeetingService:
                 raise ConflictError(f"Audio indisponible : {exc}") from exc
 
         meeting = self.db.create_meeting(
-            request.title.strip() or "Réunion sans titre",
+            request.title.strip() or default_title(),
             request.mic_device,
             request.remote_device,
             request.keep_audio,
@@ -629,6 +654,21 @@ class MeetingService:
             return
         self.db.save_analysis(meeting_id, analysis)
         self._set_status(meeting_id, MeetingStatus.DONE, error=None)
+
+    async def ask(self, meeting_id: int, question: str) -> str:
+        """Answer a question about a meeting, finished or still recording, from its transcript."""
+        meeting = self.db.get_meeting(meeting_id)
+        if not meeting:
+            raise KeyError(meeting_id)
+        segments = self.db.list_segments(meeting_id)
+        if not segments:
+            raise ConflictError(
+                "Rien n'a encore été transcrit : posez la question un peu plus tard."
+            )
+        await self.provisioner.ensure_running()
+        # One question at a time: the local AI shares the GPU with the live transcription.
+        async with self._ask_lock:
+            return await self.ollama.ask(meeting.title, segments, question)
 
     def request_analysis(self, meeting_id: int) -> None:
         meeting = self.db.get_meeting(meeting_id)

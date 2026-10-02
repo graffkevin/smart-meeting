@@ -4,6 +4,8 @@
  */
 
 export * from './actionItem';
+export * from './askAnswer';
+export * from './askRequest';
 export * from './audioDevice';
 export * from './audioDevices';
 export * from './bodyImportMeeting';
@@ -17,6 +19,7 @@ export * from './meetingAnalysis';
 export * from './meetingDetail';
 export * from './meetingListItem';
 export * from './meetingStatus';
+export * from './preferences';
 export * from './segment';
 export * from './segmentSource';
 export * from './setupStepInfo';

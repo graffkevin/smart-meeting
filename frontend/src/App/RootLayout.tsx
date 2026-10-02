@@ -1,17 +1,41 @@
-import { Badge, Box, Button, Card, ColorSchemeToggle, Page, Stack, Typography } from '@ign-junn/design-system';
-import { IconShieldLock } from '@tabler/icons-react';
+import {
+  Badge,
+  Box,
+  Button,
+  Card,
+  ColorSchemeToggle,
+  isDefined,
+  Page,
+  Stack,
+  Typography,
+} from '@ign-junn/design-system';
+import { IconSettings, IconShieldLock } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, Outlet } from 'react-router';
+import { Link, Outlet, useMatch } from 'react-router';
 import { ROUTES } from '@/constants/routes';
+import SettingsDialogProvider from '@/contexts/settings/SettingsDialogProvider';
+import useSettingsDialog from '@/contexts/settings/useSettingsDialog';
+import SettingsDialog from '@/features/settings/SettingsDialog';
+import ModelStatus from '@/features/shell/ModelStatus';
 import QuitButton from '@/features/shell/QuitButton';
 import useServerPresence from '@/features/shell/useServerPresence';
 import type { QuitState } from '@/types/meeting';
 
-/** Header (brand, local badge, theme, quit) and the current page, or the stopped state once quit */
-const RootLayout = () => {
+/** Opens the settings window */
+const SettingsButton = () => {
+  const { t } = useTranslation();
+  const { open } = useSettingsDialog();
+
+  return <Button iconOnly icon={IconSettings} label={t('settings.open')} variant="subtle" onClick={open} />;
+};
+
+/** Header (brand, local badge, models, settings, theme, quit) and the current page, or the stopped state once quit */
+const Layout = () => {
   const [quitState, setQuitState] = useState<QuitState>('running');
   const { t } = useTranslation();
+  // The meeting page has two columns (transcript panel on the right): a wider page
+  const meetingPage = useMatch(ROUTES.meeting);
   useServerPresence();
   const stopping = quitState === 'quitting';
 
@@ -34,12 +58,14 @@ const RootLayout = () => {
           {t('shell.local')}
         </Badge>
         <Box flex={1} />
+        <ModelStatus />
+        <SettingsButton />
         <ColorSchemeToggle labels={{ toLight: t('shell.toLight'), toDark: t('shell.toDark') }} />
         {quitState === 'running' && (
           <QuitButton onStopping={() => setQuitState('quitting')} onStopped={() => setQuitState('stopped')} />
         )}
       </Stack>
-      <Page width="medium">
+      <Page width={isDefined(meetingPage) ? 'wide' : 'medium'}>
         {quitState === 'running' ? (
           <Outlet />
         ) : (
@@ -56,5 +82,12 @@ const RootLayout = () => {
     </Box>
   );
 };
+
+const RootLayout = () => (
+  <SettingsDialogProvider>
+    <Layout />
+    <SettingsDialog />
+  </SettingsDialogProvider>
+);
 
 export default RootLayout;

@@ -40,6 +40,28 @@ Transcription (horodatage depuis le début de la réunion) :
 {transcript}"""
 
 
+ASK_PROMPT = """Tu réponds aux questions sur une réunion professionnelle, à partir de sa \
+transcription automatique (qui peut contenir des erreurs de reconnaissance, et peut être en cours).
+
+Règles impératives :
+- Réponds UNIQUEMENT avec ce que dit la transcription. Si l'information n'y est pas, dis-le \
+simplement, sans inventer.
+- La personne qui pose la question est {user_name} : ses propres phrases sont étiquetées \
+"{user_name}". "je", "moi", "mes" désignent {user_name}.
+- Les autres participants sont étiquetés "{remote_name}".
+- Sois exhaustif : relis toute la transcription. Pour une question sur des tâches, actions ou \
+décisions, liste CHACUNE d'elles, une par ligne commençant par "- ", même si elles sont dispersées.
+- Termine chaque point par l'horodatage [hh:mm:ss] du passage sur lequel il s'appuie.
+- Réponds en français, de façon concise, en t'adressant directement à {user_name} ("vous")."""
+
+ASK_USER_PROMPT = """Titre de la réunion : {title}
+
+Transcription :
+{transcript}
+
+Question : {question}"""
+
+
 def format_timestamp(seconds: float) -> str:
     total = int(seconds)
     return f"{total // 3600:02d}:{total % 3600 // 60:02d}:{total % 60:02d}"
@@ -121,26 +143,18 @@ class OllamaClient:
             return None
         return [m["name"] for m in response.json().get("models", [])]
 
-    async def analyze(self, title: str, segments: list[Segment]) -> MeetingAnalysis:
-        transcript = format_transcript(segments)
-        system = SYSTEM_PROMPT.format(
-            user_name=self.settings.user_name, remote_name=self.settings.remote_name
-        )
+    async def _chat(self, system: str, user: str, response_format: dict | None = None) -> str:
         payload = {
             "model": self.settings.ollama_model,
             "messages": [
                 {"role": "system", "content": system},
-                {
-                    "role": "user",
-                    "content": USER_PROMPT.format(
-                        title=title or "(sans titre)", transcript=transcript
-                    ),
-                },
+                {"role": "user", "content": user},
             ],
-            "format": analysis_schema(),
             "stream": False,
             "options": {"temperature": 0, "num_ctx": self.settings.ollama_num_ctx},
         }
+        if response_format is not None:
+            payload["format"] = response_format
         async with self._client(timeout=self.settings.ollama_timeout_s) as client:
             response = await client.post("/api/chat", json=payload)
         if response.is_error:
@@ -149,6 +163,30 @@ class OllamaClient:
             except (ValueError, KeyError):
                 detail = response.text
             raise RuntimeError(f"Ollama ({response.status_code}) : {detail}")
-        content = response.json()["message"]["content"]
+        return response.json()["message"]["content"]
+
+    def _names(self) -> dict[str, str]:
+        return {"user_name": self.settings.user_name, "remote_name": self.settings.remote_name}
+
+    async def analyze(self, title: str, segments: list[Segment]) -> MeetingAnalysis:
+        transcript = format_transcript(segments)
+        content = await self._chat(
+            SYSTEM_PROMPT.format(**self._names()),
+            USER_PROMPT.format(title=title or "(sans titre)", transcript=transcript),
+            response_format=analysis_schema(),
+        )
         analysis = MeetingAnalysis.model_validate_json(content)
         return ground_analysis(analysis, transcript, self.settings.user_name)
+
+    async def ask(self, title: str, segments: list[Segment], question: str) -> str:
+        """Answer a question about the meeting, from its transcript only (it may be in progress)."""
+        return (
+            await self._chat(
+                ASK_PROMPT.format(**self._names()),
+                ASK_USER_PROMPT.format(
+                    title=title or "(sans titre)",
+                    transcript=format_transcript(segments),
+                    question=question,
+                ),
+            )
+        ).strip()

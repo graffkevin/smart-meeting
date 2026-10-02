@@ -2,8 +2,10 @@ import asyncio
 import contextlib
 import shutil
 import uuid
+from datetime import datetime
 from pathlib import Path
 
+import httpx
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -17,13 +19,16 @@ from fastapi import (
 from fastapi.responses import PlainTextResponse
 
 from smart_meeting.meeting.report import build_markdown
-from smart_meeting.meeting.service import ConflictError, MeetingService
+from smart_meeting.meeting.service import ConflictError, MeetingService, default_title
 from smart_meeting.models import (
+    AskAnswer,
+    AskRequest,
     AudioDevices,
     Health,
     Meeting,
     MeetingDetail,
     MeetingListItem,
+    Preferences,
     SetupStepInfo,
     StartMeetingRequest,
     UpdateMeetingRequest,
@@ -78,6 +83,24 @@ async def shutdown(request: Request, background: BackgroundTasks) -> None:
     await service(request).quit()
     # After the response is sent: graceful shutdown, like Ctrl+C.
     background.add_task(request.app.state.request_exit)
+
+
+@router.post("/ai/restart", status_code=202)
+async def restart_ai(request: Request) -> None:
+    """Restart the local AI (Ollama), and install its model again if it is missing."""
+    service(request).restart_ai()
+
+
+@router.get("/preferences")
+def get_preferences(request: Request) -> Preferences:
+    return service(request).preferences.current
+
+
+@router.put("/preferences")
+def update_preferences(request: Request, body: Preferences) -> Preferences:
+    """Saved and applied at once: name and vocabulary for the next sentences, defaults for the next
+    meeting."""
+    return service(request).preferences.save(body)
 
 
 @router.get("/audio/devices")
@@ -136,8 +159,9 @@ def get_meeting(request: Request, meeting_id: int) -> MeetingDetail:
 @router.patch("/meetings/{meeting_id}")
 def update_meeting(request: Request, meeting_id: int, body: UpdateMeetingRequest) -> Meeting:
     svc = service(request)
-    get_meeting_or_404(svc, meeting_id)
-    svc.db.update_meeting(meeting_id, title=body.title.strip() or "Réunion sans titre")
+    meeting = get_meeting_or_404(svc, meeting_id)
+    started = datetime.fromisoformat(meeting.started_at).astimezone()
+    svc.db.update_meeting(meeting_id, title=body.title.strip() or default_title(started))
     return get_meeting_or_404(svc, meeting_id)
 
 
@@ -155,6 +179,21 @@ async def analyze_meeting(request: Request, meeting_id: int) -> None:
     get_meeting_or_404(svc, meeting_id)
     with conflict_as_409():
         svc.request_analysis(meeting_id)
+
+
+@router.post("/meetings/{meeting_id}/ask")
+async def ask_meeting(request: Request, meeting_id: int, body: AskRequest) -> AskAnswer:
+    """A question about the meeting (\"what do I have to do?\"), answered from its transcript by the
+    local AI, during or after the meeting. Answers are not stored."""
+    svc = service(request)
+    get_meeting_or_404(svc, meeting_id)
+    question = body.question.strip()
+    with conflict_as_409():
+        try:
+            answer = await svc.ask(meeting_id, question)
+        except (httpx.HTTPError, RuntimeError) as exc:
+            raise HTTPException(503, f"L'IA locale ne répond pas : {exc}") from exc
+    return AskAnswer(question=question, answer=answer)
 
 
 @router.get("/meetings/{meeting_id}/report.md", response_class=PlainTextResponse)

@@ -103,6 +103,26 @@ class UpdateMeetingRequest(BaseModel):
     title: str
 
 
+class Preferences(BaseModel):
+    """Settings of the interface, applied without restart (see preferences.py)."""
+
+    user_name: str = Field("Moi", max_length=80)  # label of my microphone, "I" for the AI
+    glossary: list[str] = []  # vocabulary that helps the transcription (names, acronyms)
+    language: str = "auto"  # default language of a new meeting
+    mic_device: str | None = None  # None: automatic
+    output_device: str | None = None  # None: automatic
+    keep_audio: bool = False
+
+
+class AskRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=1000)
+
+
+class AskAnswer(BaseModel):
+    question: str
+    answer: str
+
+
 class CapturedDevice(BaseModel):
     device: str | None
     auto: bool

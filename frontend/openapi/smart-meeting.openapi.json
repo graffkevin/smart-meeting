@@ -40,6 +40,78 @@
         }
       }
     },
+    "/api/ai/restart": {
+      "post": {
+        "summary": "Restart Ai",
+        "description": "Restart the local AI (Ollama), and install its model again if it is missing.",
+        "operationId": "restart_ai",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/preferences": {
+      "get": {
+        "summary": "Get Preferences",
+        "operationId": "get_preferences",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preferences"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Preferences",
+        "description": "Saved and applied at once: name and vocabulary for the next sentences, defaults for the next\nmeeting.",
+        "operationId": "update_preferences",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Preferences"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preferences"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/audio/devices": {
       "get": {
         "summary": "Audio Devices",
@@ -370,6 +442,56 @@
         }
       }
     },
+    "/api/meetings/{meeting_id}/ask": {
+      "post": {
+        "summary": "Ask Meeting",
+        "description": "A question about the meeting (\"what do I have to do?\"), answered from its transcript by the\nlocal AI, during or after the meeting. Answers are not stored.",
+        "operationId": "ask_meeting",
+        "parameters": [
+          {
+            "name": "meeting_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Meeting Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AskAnswer"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/meetings/{meeting_id}/report.md": {
       "get": {
         "summary": "Meeting Report",
@@ -501,6 +623,39 @@
           "quote"
         ],
         "title": "ActionItem"
+      },
+      "AskAnswer": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "answer"
+        ],
+        "title": "AskAnswer"
+      },
+      "AskRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Question"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "AskRequest"
       },
       "AudioDevice": {
         "properties": {
@@ -1055,6 +1210,59 @@
           "error"
         ],
         "title": "MeetingStatus"
+      },
+      "Preferences": {
+        "properties": {
+          "user_name": {
+            "type": "string",
+            "maxLength": 80,
+            "title": "User Name",
+            "default": "Moi"
+          },
+          "glossary": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Glossary",
+            "default": []
+          },
+          "language": {
+            "type": "string",
+            "title": "Language",
+            "default": "auto"
+          },
+          "mic_device": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mic Device"
+          },
+          "output_device": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Device"
+          },
+          "keep_audio": {
+            "type": "boolean",
+            "title": "Keep Audio",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "Preferences",
+        "description": "Settings of the interface, applied without restart (see preferences.py)."
       },
       "Segment": {
         "properties": {

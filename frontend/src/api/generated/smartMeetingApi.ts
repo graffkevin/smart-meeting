@@ -3,6 +3,8 @@
  * Smart Meeting 0.1.0
  */
 import type {
+  AskAnswer,
+  AskRequest,
   AudioDevices,
   BodyImportMeeting,
   Health,
@@ -10,6 +12,7 @@ import type {
   Meeting,
   MeetingDetail,
   MeetingListItem,
+  Preferences,
   StartMeetingRequest,
   UpdateMeetingRequest
 } from './model';
@@ -61,6 +64,95 @@ export const shutdown = async ( options?: Parameters<typeof smartMeetingClient>[
     method: 'POST'
 
 
+  }
+);}
+
+
+
+export const getRestartAiUrl = () => {
+
+
+
+
+  return `/api/ai/restart`
+}
+
+/**
+ * Restart the local AI (Ollama), and install its model again if it is missing.
+ * @summary Restart Ai
+ */
+export const restartAi = async ( options?: Parameters<typeof smartMeetingClient>[1]): Promise<unknown> => {
+
+  return smartMeetingClient<unknown>(getRestartAiUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+export const getGetPreferencesUrl = () => {
+
+
+
+
+  return `/api/preferences`
+}
+
+/**
+ * @summary Get Preferences
+ */
+export const getPreferences = async ( options?: Parameters<typeof smartMeetingClient>[1]): Promise<Preferences> => {
+
+  return smartMeetingClient<Preferences>(getGetPreferencesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export const getUpdatePreferencesUrl = () => {
+
+
+
+
+  return `/api/preferences`
+}
+
+/**
+ * Saved and applied at once: name and vocabulary for the next sentences, defaults for the next
+ * meeting.
+ * @summary Update Preferences
+ */
+export const updatePreferences = async (preferences: Preferences, options?: Parameters<typeof smartMeetingClient>[1]): Promise<Preferences> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return smartMeetingClient<Preferences>(getUpdatePreferencesUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(preferences)
   }
 );}
 
@@ -323,6 +415,47 @@ export const analyzeMeeting = async (meetingId: number, options?: Parameters<typ
     method: 'POST'
 
 
+  }
+);}
+
+
+
+export const getAskMeetingUrl = (meetingId: number,) => {
+
+
+
+
+  return `/api/meetings/${meetingId}/ask`
+}
+
+/**
+ * A question about the meeting ("what do I have to do?"), answered from its transcript by the
+ * local AI, during or after the meeting. Answers are not stored.
+ * @summary Ask Meeting
+ */
+export const askMeeting = async (meetingId: number,
+    askRequest: AskRequest, options?: Parameters<typeof smartMeetingClient>[1]): Promise<AskAnswer> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return smartMeetingClient<AskAnswer>(getAskMeetingUrl(meetingId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(askRequest)
   }
 );}
 
