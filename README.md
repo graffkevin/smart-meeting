@@ -94,8 +94,9 @@ transcription finished first), like `Ctrl+C` in the terminal.
 
 ### Import a video or an audio file
 
-From the home page (call replay, webinar, voice note; mp4, mkv, webm, mp3, wav…): same pipeline, faster than real time
-(about 6× on a GPU), times relative to the file. The uploaded file is deleted as soon as it is decoded. A video played
+From the home page (call replay, webinar, voice note; mp4, mkv, webm, mp3, wav…): the file is decoded at once and
+transcribed in batches, several passages in parallel, the language detected once (unless chosen): about 8× faster than
+real time on a modest laptop GPU (147 s of audio in 19 s on an NVIDIA T600), times relative to the file. The uploaded file is deleted as soon as it is decoded. A video played
 in the headset during a recording works too.
 
 ### Tabs, tags and history

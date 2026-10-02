@@ -14,7 +14,8 @@ const en: Translation = {
   },
   shell: {
     local: '100% local',
-    localHint: 'No sound and no text ever leaves your computer',
+    localHint:
+      'No data is sent anywhere else: the sound, the transcript, your questions and the AI answers stay on your computer.',
     toLight: 'Switch to the light theme',
     toDark: 'Switch to the dark theme',
     language: 'Interface language',

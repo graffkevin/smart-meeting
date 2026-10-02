@@ -7,6 +7,7 @@ import {
   isDefined,
   Page,
   Stack,
+  Tooltip,
   Typography,
 } from '@ign-junn/design-system';
 import { IconSettings, IconShieldLock } from '@tabler/icons-react';
@@ -59,9 +60,11 @@ const Layout = () => {
               </Stack>
             }
           />
-          <Badge tone="success" icon={IconShieldLock} size="sm" title={t('shell.localHint')}>
-            {t('shell.local')}
-          </Badge>
+          <Tooltip label={t('shell.localHint')} multiline>
+            <Badge tone="success" icon={IconShieldLock} size="sm">
+              {t('shell.local')}
+            </Badge>
+          </Tooltip>
           <Box flex={1} />
           <ModelStatus />
           <LanguageSwitch />

@@ -20,7 +20,7 @@ from typing import Literal
 import numpy as np
 
 from smart_meeting.audio.backend import AudioBackend, Capture, get_backend
-from smart_meeting.audio.decode import decode_audio, probe_duration
+from smart_meeting.audio.decode import decode_audio
 from smart_meeting.audio.segmenter import Utterance, UtteranceSegmenter, silero_vad
 from smart_meeting.config import Settings
 from smart_meeting.db import Database, now_iso
@@ -39,7 +39,7 @@ from smart_meeting.models import (
 from smart_meeting.preferences import PreferencesStore
 from smart_meeting.provision import OllamaProvisioner
 from smart_meeting.transcription.language import LanguageTracker
-from smart_meeting.transcription.whisper import WhisperTranscriber
+from smart_meeting.transcription.whisper import TranscribedPiece, WhisperTranscriber
 
 logger = logging.getLogger(__name__)
 
@@ -612,31 +612,55 @@ class MeetingService:
     async def _transcribe_file(
         self, meeting_id: int, path: Path, language: LanguageTracker
     ) -> None:
+        """Decode the whole file, then transcribe it in batches (several passages at once, the
+        language detected once unless chosen): several times faster than sentence by sentence.
+        Sentences are stored and published as they come; deleting the meeting stops it."""
         await self._whisper_ready.wait()
+        loop = asyncio.get_running_loop()
         sample_rate = self.settings.sample_rate
-        duration = await probe_duration(path)
-        segmenter = self._new_segmenter()
-        speaker = self.settings.import_speaker
-        previous_text = ""
-        received = 0
-        async with decode_audio(path, sample_rate) as chunks:
-            async for samples in chunks:
-                received += len(samples)
-                # Decoding pauses while Whisper works (bounded queue): memory stays bounded.
-                for utterance in segmenter.push(samples):
-                    previous_text = await self._transcribe_utterance(
-                        meeting_id, "remote", speaker, 0.0, utterance, language, previous_text
-                    )
-                self.hub.publish(
-                    meeting_id,
-                    {"type": "progress", "done_s": received / sample_rate, "total_s": duration},
-                )
-        if received == 0:
+        chunks: list[np.ndarray] = []
+        async with decode_audio(path, sample_rate) as decoded:
+            async for samples in decoded:
+                chunks.append(samples)
+        if not chunks:
             raise RuntimeError(tr("no_readable_audio"))
-        for utterance in segmenter.flush():
-            await self._transcribe_utterance(
-                meeting_id, "remote", speaker, 0.0, utterance, language, previous_text
+        audio = np.concatenate(chunks)
+        duration = len(audio) / sample_rate
+        self.hub.publish(meeting_id, {"type": "progress", "done_s": 0.0, "total_s": duration})
+        speaker = self.settings.import_speaker
+
+        def store(piece: TranscribedPiece) -> None:
+            segment = self.db.add_segment(
+                meeting_id,
+                Segment(
+                    source="remote",
+                    speaker=speaker,
+                    start_s=round(piece.start_s, 2),
+                    end_s=round(piece.end_s, 2),
+                    text=piece.text,
+                ),
             )
+            self.hub.publish(meeting_id, {"type": "segment", "segment": segment.model_dump()})
+            self.hub.publish(
+                meeting_id, {"type": "progress", "done_s": piece.end_s, "total_s": duration}
+            )
+
+        def on_piece(piece: TranscribedPiece) -> bool:
+            # Whisper thread: storing and publishing happen on the event loop
+            if self._import_meeting_id != meeting_id:
+                return False  # meeting deleted, import cancelled
+            loop.call_soon_threadsafe(store, piece)
+            return True
+
+        await loop.run_in_executor(
+            self._executor,
+            self.transcriber.transcribe_file,
+            audio,
+            None if language.automatic else language.language,
+            on_piece,
+        )
+        # Let the last sentences queued by the thread be stored before finishing
+        await asyncio.sleep(0)
 
     # Analysis
 

@@ -180,8 +180,10 @@ deux WAV 16 kHz sont écrits dans `~/.local/share/smart-meeting/audio/<id>/`, su
    silences comblés car le loopback WASAPI n'émet rien quand rien ne joue). Une source en échec n'arrête pas la
    réunion. Windows et macOS ne sont pas encore testés sur machine réelle. Décodage des imports par PyAV (plus de
    ffmpeg système), archives Ollama extraites en Python (zip, tgz, tar.zst).
-8. ✅ Import de fichiers audio/vidéo : PyAV décode en flux vers le même découpage VAD + Whisper (une file bornée
-   met le décodage en pause pendant que Whisper travaille). `meetings.source_file` est renseigné ; horodatage relatif au fichier.
+8. ✅ Import de fichiers audio/vidéo : PyAV décode tout le fichier, puis le pipeline par lots de faster-whisper
+   (`BatchedInferencePipeline`, son propre VAD) transcrit plusieurs passages en parallèle, langue détectée une fois
+   sauf choix explicite. Mesuré sur T600 : 147 s en 19 s (41 s phrase par phrase). Lots de 4, divisés par deux si
+   le GPU manque de mémoire, reprise sans doublon. `meetings.source_file` est renseigné ; horodatage relatif au fichier.
 9. ✅ Langue de transcription au choix (auto, fr, en…) ; en automatique, langue « collante » par source
    (`transcription/language.py`) : un énoncé détecté avec confiance est transcrit dans sa langue (pas de traduction
    involontaire), un énoncé incertain dans la langue courante, qui ne change qu'après 2 énoncés confiants consécutifs.

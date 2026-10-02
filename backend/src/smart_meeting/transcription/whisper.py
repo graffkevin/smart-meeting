@@ -6,6 +6,7 @@ import re
 import site
 import sys
 import unicodedata
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
@@ -79,6 +80,8 @@ class WhisperTranscriber:
         self.settings = settings
         self._model = None
         self._partial_model = None  # fast model for the live provisional text
+        self._batched = None  # batched pipeline over the main model, for imported files
+        self.batch_size = 4
         self.model_name: str | None = None
         self.device: str | None = None
 
@@ -117,6 +120,8 @@ class WhisperTranscriber:
             self._partial_model = self._model if partial == name else load_model(partial)
         self.model_name = name
         self.device = f"{device}/{compute_type}"
+        # Passages decoded at once for imported files (halved when the GPU runs out of memory)
+        self.batch_size = 4
 
     def transcribe(
         self, audio: np.ndarray, tracker: LanguageTracker, previous_text: str = ""
@@ -144,6 +149,51 @@ class WhisperTranscriber:
             for s in segments
             if not is_hallucination(s.text, s.no_speech_prob, s.avg_logprob)
         ]
+
+    def transcribe_file(
+        self,
+        audio: np.ndarray,
+        language: str | None,
+        on_piece: Callable[[TranscribedPiece], bool],
+    ) -> None:
+        """Whole imported file, several passages decoded at once (faster-whisper batched pipeline,
+        its own VAD). `language` None: detected once on the start of the file. `on_piece` receives
+        the sentences in order, with times relative to the file; it returns False to stop.
+
+        Out of GPU memory, the batches are halved and the file resumed after the last sentence
+        given; the working size is kept for the next files."""
+        if self._model is None:
+            raise RuntimeError("Whisper model is not loaded")
+        from faster_whisper import BatchedInferencePipeline
+
+        if self._batched is None:
+            self._batched = BatchedInferencePipeline(model=self._model)
+        state = {"last_end": -1.0}
+        while True:
+            try:
+                segments, _ = self._batched.transcribe(
+                    audio,
+                    language=language,
+                    beam_size=self.settings.whisper_beam_size,
+                    batch_size=self.batch_size,
+                    initial_prompt=self.settings.whisper_glossary or None,
+                    without_timestamps=False,
+                )
+                for s in segments:
+                    # Resumed after running out of memory: skip what was already given
+                    if s.start < state["last_end"] or is_hallucination(
+                        s.text, s.no_speech_prob, s.avg_logprob
+                    ):
+                        continue
+                    state["last_end"] = s.end
+                    if not on_piece(TranscribedPiece(s.start, s.end, s.text.strip())):
+                        return
+                return
+            except RuntimeError as exc:
+                if "out of memory" not in str(exc) or self.batch_size == 1:
+                    raise
+                self.batch_size //= 2
+                logger.warning("Out of GPU memory: batches of %s passages", self.batch_size)
 
     def transcribe_partial(self, audio: np.ndarray, language: str, previous_text: str = "") -> str:
         """Fast provisional text of an utterance still being spoken: small model, greedy decoding,

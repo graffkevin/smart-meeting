@@ -12,7 +12,8 @@ const fr = {
   },
   shell: {
     local: '100 % local',
-    localHint: 'Aucun son ni aucun texte ne quitte votre ordinateur',
+    localHint:
+      "Aucune donnée n'est envoyée ailleurs : le son, la transcription, vos questions et les réponses de l'IA restent sur votre ordinateur.",
     toLight: 'Passer en thème clair',
     toDark: 'Passer en thème sombre',
     language: "Langue de l'interface",
