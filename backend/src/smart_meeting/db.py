@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS meetings (
     analysis_json TEXT,
     error         TEXT,
     source_file   TEXT,                -- imported file name, NULL for live meetings
+    language      TEXT NOT NULL DEFAULT 'auto',
     created_at    TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS segments (
@@ -103,13 +104,25 @@ class Database:
         keep_audio: bool,
         status: MeetingStatus = MeetingStatus.RECORDING,
         source_file: str | None = None,
+        language: str = "auto",
     ) -> Meeting:
         now = now_iso()
         with self._connect() as conn:
             cursor = conn.execute(
                 "INSERT INTO meetings (title, status, started_at, mic_device, remote_device,"
-                " keep_audio, source_file, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (title, status, now, mic_device, remote_device, keep_audio, source_file, now),
+                " keep_audio, source_file, language, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    title,
+                    status,
+                    now,
+                    mic_device,
+                    remote_device,
+                    keep_audio,
+                    source_file,
+                    language,
+                    now,
+                ),
             )
             meeting_id = cursor.lastrowid
         meeting = self.get_meeting(meeting_id)
@@ -256,6 +269,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
     columns = {row["name"] for row in conn.execute("PRAGMA table_info(meetings)")}
     if "source_file" not in columns:
         conn.execute("ALTER TABLE meetings ADD COLUMN source_file TEXT")
+    if "language" not in columns:
+        conn.execute("ALTER TABLE meetings ADD COLUMN language TEXT NOT NULL DEFAULT 'auto'")
 
 
 def _meeting_from_row(row: sqlite3.Row) -> Meeting:
@@ -271,5 +286,6 @@ def _meeting_from_row(row: sqlite3.Row) -> Meeting:
         summary=row["summary"],
         error=row["error"],
         source_file=row["source_file"],
+        language=row["language"],
         created_at=row["created_at"],
     )

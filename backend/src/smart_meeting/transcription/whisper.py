@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from smart_meeting.config import Settings
+from smart_meeting.transcription.language import LanguageTracker
 
 logger = logging.getLogger(__name__)
 
@@ -105,13 +106,21 @@ class WhisperTranscriber:
         self.model_name = name
         self.device = f"{device}/{compute_type}"
 
-    def transcribe(self, audio: np.ndarray, previous_text: str = "") -> list[TranscribedPiece]:
+    def transcribe(
+        self, audio: np.ndarray, tracker: LanguageTracker, previous_text: str = ""
+    ) -> list[TranscribedPiece]:
+        """Transcribe an utterance; in automatic mode its language is detected first and the tracker
+        decides (sticky language, see transcription/language.py)."""
         if self._model is None:
             raise RuntimeError("Whisper model is not loaded")
+        language = tracker.language
+        if tracker.automatic:
+            detected, probability, _ = self._model.detect_language(audio)
+            language = tracker.observe(detected, probability, len(audio) / 16000)
         prompt = " ".join(p for p in (self.settings.whisper_glossary, previous_text[-200:]) if p)
         segments, _ = self._model.transcribe(
             audio,
-            language=self.settings.whisper_language,
+            language=language,
             beam_size=self.settings.whisper_beam_size,
             initial_prompt=prompt or None,
             # Utterances are already cut by our own VAD and are shorter than 30 s.

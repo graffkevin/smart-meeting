@@ -101,7 +101,9 @@ async def start_meeting(request: Request, body: StartMeetingRequest) -> Meeting:
 
 
 @router.post("/meetings/import", status_code=201)
-async def import_meeting(request: Request, file: UploadFile, title: str = Form("")) -> Meeting:
+async def import_meeting(
+    request: Request, file: UploadFile, title: str = Form(""), language: str = Form("auto")
+) -> Meeting:
     """Upload an audio or video file to transcribe and analyze. It is deleted once decoded."""
     svc = service(request)
     filename = Path(file.filename or "fichier").name
@@ -112,7 +114,7 @@ async def import_meeting(request: Request, file: UploadFile, title: str = Form("
         await asyncio.to_thread(shutil.copyfileobj, file.file, out, 1024 * 1024)
     try:
         with conflict_as_409():
-            return await svc.import_file(title, path, filename)
+            return await svc.import_file(title, path, filename, language)
     except HTTPException:
         path.unlink(missing_ok=True)
         raise

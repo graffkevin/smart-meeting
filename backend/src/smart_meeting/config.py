@@ -47,7 +47,10 @@ class Settings(BaseSettings):
     whisper_model: str = "auto"
     whisper_device: str = "auto"  # auto | cuda | cpu
     whisper_compute_type: str = "auto"  # auto | int8_float16 | int8 | float16 ...
-    whisper_language: str = "fr"
+    # Transcription language offered by default: "auto" (sticky detection) or a code (fr, en…).
+    whisper_language: str = "auto"
+    # Automatic mode: language assumed until a first clear detection.
+    whisper_fallback_language: str = "fr"
     whisper_beam_size: int = 5
     # Domain vocabulary fed to Whisper as prompt, helps with technical/English terms.
     whisper_glossary: str = ""

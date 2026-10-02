@@ -27,6 +27,7 @@ class Meeting(BaseModel):
     summary: str | None = None
     error: str | None = None
     source_file: str | None = None  # set for imported files
+    language: str = "auto"  # transcription language: "auto" or a code (fr, en…)
     created_at: str
 
 
@@ -94,6 +95,8 @@ class StartMeetingRequest(BaseModel):
     mic_device: str | None = None
     remote_device: str | None = None
     keep_audio: bool = False
+    # "auto": detected, sticky (a few foreign words do not switch it); or a code (fr, en…).
+    language: str = "auto"
 
 
 class UpdateMeetingRequest(BaseModel):

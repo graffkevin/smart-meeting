@@ -33,6 +33,7 @@ from smart_meeting.models import (
     StartMeetingRequest,
 )
 from smart_meeting.provision import OllamaProvisioner
+from smart_meeting.transcription.language import LanguageTracker
 from smart_meeting.transcription.whisper import WhisperTranscriber
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,7 @@ class SourceStream:
     offset_s: float | None = None
     wav: wave.Wave_write | None = None
     previous_text: str = ""
+    language: LanguageTracker = field(default_factory=LanguageTracker)
     peak_rms: float = 0.0
 
 
@@ -211,14 +213,20 @@ class MeetingService:
             request.mic_device,
             request.remote_device,
             request.keep_audio,
+            language=request.language,
         )
         loop = asyncio.get_running_loop()
         recording = Recording(
             meeting_id=meeting.id,
             started=loop.time(),
             streams={
-                "mic": SourceStream("mic", self.settings.user_name),
-                "remote": SourceStream("remote", self.settings.remote_name),
+                # One language per source: I may speak French while the others speak English.
+                "mic": SourceStream(
+                    "mic", self.settings.user_name, language=self._tracker(request.language)
+                ),
+                "remote": SourceStream(
+                    "remote", self.settings.remote_name, language=self._tracker(request.language)
+                ),
             },
         )
         for stream in recording.streams.values():
@@ -373,7 +381,7 @@ class MeetingService:
             stream = recording.streams[source]
             stream.previous_text = await self._transcribe_utterance(
                 recording.meeting_id, source, stream.speaker, offset_s, utterance,
-                stream.previous_text,
+                stream.language, stream.previous_text,
             )  # fmt: skip
 
     async def _transcribe_utterance(
@@ -383,13 +391,18 @@ class MeetingService:
         speaker: str,
         offset_s: float,
         utterance: Utterance,
+        language: LanguageTracker,
         previous_text: str,
     ) -> str:
         """Transcribe, store and publish one utterance. Returns the context for the next one."""
         sample_rate = self.settings.sample_rate
         try:
             pieces = await asyncio.get_running_loop().run_in_executor(
-                self._executor, self.transcriber.transcribe, utterance.audio, previous_text
+                self._executor,
+                self.transcriber.transcribe,
+                utterance.audio,
+                language,
+                previous_text,
             )
         except Exception:
             logger.exception("Transcription failed for a %s utterance", source)
@@ -446,8 +459,13 @@ class MeetingService:
 
     # File import
 
-    async def import_file(self, title: str, path: Path, filename: str) -> Meeting:
-        """Transcribe an audio/video file (decoded by ffmpeg), then analyze it like a meeting."""
+    def _tracker(self, choice: str) -> LanguageTracker:
+        return LanguageTracker.for_choice(choice, fallback=self.settings.whisper_fallback_language)
+
+    async def import_file(
+        self, title: str, path: Path, filename: str, language: str = "auto"
+    ) -> Meeting:
+        """Transcribe an audio/video file (decoded by PyAV), then analyze it like a meeting."""
         async with self._start_lock:
             if self.active:
                 raise ConflictError("Une réunion est en cours d'enregistrement")
@@ -462,14 +480,17 @@ class MeetingService:
                 keep_audio=False,
                 status=MeetingStatus.TRANSCRIBING,
                 source_file=filename,
+                language=language,
             )
-            self._import_task = asyncio.create_task(self._run_import(meeting.id, path))
+            self._import_task = asyncio.create_task(
+                self._run_import(meeting.id, path, self._tracker(language))
+            )
             self._import_meeting_id = meeting.id
         return meeting
 
-    async def _run_import(self, meeting_id: int, path: Path) -> None:
+    async def _run_import(self, meeting_id: int, path: Path, language: LanguageTracker) -> None:
         try:
-            await self._transcribe_file(meeting_id, path)
+            await self._transcribe_file(meeting_id, path, language)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
@@ -485,7 +506,9 @@ class MeetingService:
         )
         await self.analyze(meeting_id)
 
-    async def _transcribe_file(self, meeting_id: int, path: Path) -> None:
+    async def _transcribe_file(
+        self, meeting_id: int, path: Path, language: LanguageTracker
+    ) -> None:
         await self._whisper_ready.wait()
         sample_rate = self.settings.sample_rate
         duration = await probe_duration(path)
@@ -496,10 +519,10 @@ class MeetingService:
         async with decode_audio(path, sample_rate) as chunks:
             async for samples in chunks:
                 received += len(samples)
-                # ffmpeg is paused by the pipe while Whisper works: memory stays bounded.
+                # Decoding pauses while Whisper works (bounded queue): memory stays bounded.
                 for utterance in segmenter.push(samples):
                     previous_text = await self._transcribe_utterance(
-                        meeting_id, "remote", speaker, 0.0, utterance, previous_text
+                        meeting_id, "remote", speaker, 0.0, utterance, language, previous_text
                     )
                 self.hub.publish(
                     meeting_id,
@@ -509,7 +532,7 @@ class MeetingService:
             raise RuntimeError("Aucune piste audio lisible dans ce fichier")
         for utterance in segmenter.flush():
             await self._transcribe_utterance(
-                meeting_id, "remote", speaker, 0.0, utterance, previous_text
+                meeting_id, "remote", speaker, 0.0, utterance, language, previous_text
             )
 
     # Analysis
