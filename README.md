@@ -20,7 +20,7 @@ Linux, macOS et Windows : cloner le dépôt, puis `make run`. Le premier lanceme
 | **Windows** 10/11 | `winget install Git.Git ezwinports.make` | `make run` |
 
 ```bash
-git clone https://gitlab.ign.fr/kgraff/smart-meeting.git
+git clone https://github.com/graffkevin/smart-meeting.git
 cd smart-meeting
 make run
 ```
