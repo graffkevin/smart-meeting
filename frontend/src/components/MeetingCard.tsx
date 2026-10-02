@@ -1,6 +1,6 @@
 import { Badge, Button, Card, isDefined, Stack, Typography } from '@ign-junn/design-system';
 import { UnstyledButton } from '@mantine/core';
-import { IconChecklist, IconClock, IconFileUpload, IconTrash } from '@tabler/icons-react';
+import { IconChecklist, IconClock, IconFileUpload, IconTag, IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { STATUS_TONES } from '@/constants/meeting';
 import type { MeetingCardProps } from '@/types/components';
@@ -9,7 +9,7 @@ import format from '@/utils/format';
 /** A meeting of the history: title, status, date, duration or file, number of actions, summary */
 const MeetingCard = ({ meeting, onOpen, onDelete }: MeetingCardProps) => {
   const { t, i18n } = useTranslation();
-  const { title, status, started_at, ended_at, source_file, action_count, summary } = meeting;
+  const { title, status, started_at, ended_at, source_file, action_count, summary, tags = [] } = meeting;
   const durationBadge = isDefined(ended_at) && (
     <Badge tone="muted" variant="outline" size="xs" icon={IconClock}>
       {format.duration(format.secondsBetween(started_at, ended_at))}
@@ -36,6 +36,11 @@ const MeetingCard = ({ meeting, onOpen, onDelete }: MeetingCardProps) => {
               ) : (
                 durationBadge
               )}
+              {tags.map((tag) => (
+                <Badge key={tag} tone="accent" size="xs" icon={IconTag}>
+                  {tag}
+                </Badge>
+              ))}
               {(action_count ?? 0) > 0 && (
                 <Badge tone="primary" variant="outline" size="xs" icon={IconChecklist}>
                   {t('history.actions', { count: action_count ?? 0 })}

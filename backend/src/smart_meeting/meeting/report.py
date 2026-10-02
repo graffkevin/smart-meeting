@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from smart_meeting.llm.analysis import format_timestamp
-from smart_meeting.models import Meeting, MeetingAnalysis, Segment
+from smart_meeting.models import AskAnswer, Meeting, MeetingAnalysis, Segment
 
 
 def _bullets(items: list[str]) -> str:
@@ -13,7 +13,10 @@ def _cell(value: str | None, default: str) -> str:
 
 
 def build_markdown(
-    meeting: Meeting, segments: list[Segment], analysis: MeetingAnalysis | None
+    meeting: Meeting,
+    segments: list[Segment],
+    analysis: MeetingAnalysis | None,
+    questions: list[AskAnswer] | None = None,
 ) -> str:
     started = datetime.fromisoformat(meeting.started_at).astimezone()
     origin = f" · fichier `{meeting.source_file}`" if meeting.source_file else ""
@@ -44,6 +47,11 @@ def build_markdown(
         lines += ["## Points techniques", "", _bullets(analysis.technical_topics), ""]
         lines += ["## Questions ouvertes", "", _bullets(analysis.questions), ""]
         lines += ["## Risques", "", _bullets(analysis.risks), ""]
+
+    if questions:
+        lines += ["## Questions posées", ""]
+        for item in questions:
+            lines += [f"**{item.question}**", "", item.answer, ""]
 
     lines += ["## Transcription", ""]
     for segment in segments:

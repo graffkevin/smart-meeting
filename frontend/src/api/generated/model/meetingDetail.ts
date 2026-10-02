@@ -3,6 +3,7 @@
  * Smart Meeting 0.1.0
  */
 import type { AiEstimates } from './aiEstimates';
+import type { AskAnswer } from './askAnswer';
 import type { CapturedDevice } from './capturedDevice';
 import type { Meeting } from './meeting';
 import type { MeetingAnalysis } from './meetingAnalysis';
@@ -16,4 +17,5 @@ export interface MeetingDetail {
   captured?: Partial<Record<'mic' | 'remote', CapturedDevice>> | null;
   estimates?: AiEstimates | null;
   analysis_elapsed_s?: number | null;
+  questions?: AskAnswer[];
 }

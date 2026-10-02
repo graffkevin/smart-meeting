@@ -14,6 +14,8 @@ import type {
   MeetingListItem,
   Preferences,
   StartMeetingRequest,
+  TagCount,
+  TagsRequest,
   UpdateMeetingRequest
 } from './model';
 
@@ -372,6 +374,71 @@ export const deleteMeeting = async (meetingId: number, options?: Parameters<type
 
 
 
+export const getSetMeetingTagsUrl = (meetingId: number,) => {
+
+
+
+
+  return `/api/meetings/${meetingId}/tags`
+}
+
+/**
+ * Replaces the tags of a meeting (used to group the history).
+ * @summary Set Meeting Tags
+ */
+export const setMeetingTags = async (meetingId: number,
+    tagsRequest: TagsRequest, options?: Parameters<typeof smartMeetingClient>[1]): Promise<Meeting> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return smartMeetingClient<Meeting>(getSetMeetingTagsUrl(meetingId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(tagsRequest)
+  }
+);}
+
+
+
+export const getListTagsUrl = () => {
+
+
+
+
+  return `/api/tags`
+}
+
+/**
+ * Every tag in use, most used first.
+ * @summary List Tags
+ */
+export const listTags = async ( options?: Parameters<typeof smartMeetingClient>[1]): Promise<TagCount[]> => {
+
+  return smartMeetingClient<TagCount[]>(getListTagsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
 export const getStopMeetingUrl = (meetingId: number,) => {
 
 
@@ -430,7 +497,7 @@ export const getAskMeetingUrl = (meetingId: number,) => {
 
 /**
  * A question about the meeting ("what do I have to do?"), answered from its transcript by the
- * local AI, during or after the meeting. Answers are not stored.
+ * local AI, during or after the meeting. Kept with the meeting.
  * @summary Ask Meeting
  */
 export const askMeeting = async (meetingId: number,
@@ -456,6 +523,31 @@ return smartMeetingClient<AskAnswer>(getAskMeetingUrl(meetingId),
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(askRequest)
+  }
+);}
+
+
+
+export const getRecentQuestionsUrl = () => {
+
+
+
+
+  return `/api/questions/recent`
+}
+
+/**
+ * Questions asked lately in any meeting: suggestions of the question field.
+ * @summary Recent Questions
+ */
+export const recentQuestions = async ( options?: Parameters<typeof smartMeetingClient>[1]): Promise<string[]> => {
+
+  return smartMeetingClient<string[]>(getRecentQuestionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
   }
 );}
 

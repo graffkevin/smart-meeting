@@ -17,5 +17,6 @@ export interface Meeting {
   error?: string | null;
   source_file?: string | null;
   language?: string;
+  tags?: string[];
   created_at: string;
 }

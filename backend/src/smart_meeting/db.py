@@ -9,11 +9,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from smart_meeting.models import (
+    AskAnswer,
     Meeting,
     MeetingAnalysis,
     MeetingListItem,
     MeetingStatus,
     Segment,
+    TagCount,
 )
 
 SCHEMA = """
@@ -44,6 +46,18 @@ CREATE TABLE IF NOT EXISTS segments (
     text       TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_segments_meeting ON segments(meeting_id, start_s);
+CREATE TABLE IF NOT EXISTS tags (
+    meeting_id INTEGER NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    PRIMARY KEY (meeting_id, name)
+);
+CREATE TABLE IF NOT EXISTS questions (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    meeting_id INTEGER NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+    question   TEXT NOT NULL,
+    answer     TEXT NOT NULL,
+    asked_at   TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS decisions (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     meeting_id INTEGER NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
@@ -67,6 +81,23 @@ def fold(text: str | None) -> str:
         return ""
     decomposed = unicodedata.normalize("NFKD", text.lower())
     return "".join(c for c in decomposed if not unicodedata.combining(c))
+
+
+TAG_SEPARATOR = "\x1f"
+TAGS_COLUMN = (
+    "(SELECT group_concat(t.name, char(31)) FROM tags t WHERE t.meeting_id = m.id) AS tags"
+)
+TAG_MAX_LENGTH = 40
+
+
+def clean_tags(tags: list[str]) -> list[str]:
+    """Trimmed, single-spaced, not empty, without case-insensitive duplicates (first kept)."""
+    cleaned: dict[str, str] = {}
+    for tag in tags:
+        name = " ".join(tag.split())[:TAG_MAX_LENGTH]
+        if name and fold(name) not in cleaned:
+            cleaned[fold(name)] = name
+    return list(cleaned.values())
 
 
 def now_iso() -> str:
@@ -131,14 +162,16 @@ class Database:
 
     def get_meeting(self, meeting_id: int) -> Meeting | None:
         with self._connect() as conn:
-            row = conn.execute("SELECT * FROM meetings WHERE id = ?", (meeting_id,)).fetchone()
+            row = conn.execute(
+                f"SELECT m.*, {TAGS_COLUMN} FROM meetings m WHERE m.id = ?", (meeting_id,)
+            ).fetchone()
         return _meeting_from_row(row) if row else None
 
     def list_meetings(self, query: str = "") -> list[MeetingListItem]:
         """Meetings, newest first, optionally filtered by words found in the title, summary
         or transcript (case and accent insensitive, every word must match)."""
         sql = (
-            "SELECT m.*, (SELECT COUNT(*) FROM actions a WHERE a.meeting_id = m.id)"
+            f"SELECT m.*, {TAGS_COLUMN}, (SELECT COUNT(*) FROM actions a WHERE a.meeting_id = m.id)"
             " AS action_count FROM meetings m"
         )
         params: list[str] = []
@@ -148,10 +181,12 @@ class Database:
             conditions.append(
                 f"(fold(m.title) {match} OR fold(m.summary) {match}"
                 " OR EXISTS (SELECT 1 FROM segments s WHERE s.meeting_id = m.id"
-                f" AND fold(s.text) {match}))"
+                f" AND fold(s.text) {match})"
+                " OR EXISTS (SELECT 1 FROM tags t WHERE t.meeting_id = m.id"
+                f" AND fold(t.name) {match}))"
             )
             escaped = word.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            params += [f"%{escaped}%"] * 3
+            params += [f"%{escaped}%"] * 4
         if conditions:
             sql += " WHERE " + " AND ".join(conditions)
         sql += " ORDER BY m.started_at DESC, m.id DESC"
@@ -172,6 +207,60 @@ class Database:
             conn.execute(
                 f"UPDATE meetings SET {assignments} WHERE id = ?", (*fields.values(), meeting_id)
             )
+
+    # Questions to the local AI
+
+    def add_question(self, meeting_id: int, question: str, answer: str) -> AskAnswer:
+        asked_at = now_iso()
+        with self._connect() as conn:
+            cursor = conn.execute(
+                "INSERT INTO questions (meeting_id, question, answer, asked_at)"
+                " VALUES (?, ?, ?, ?)",
+                (meeting_id, question, answer, asked_at),
+            )
+        return AskAnswer(id=cursor.lastrowid, question=question, answer=answer, asked_at=asked_at)
+
+    def list_questions(self, meeting_id: int) -> list[AskAnswer]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM questions WHERE meeting_id = ? ORDER BY id", (meeting_id,)
+            ).fetchall()
+        return [
+            AskAnswer(
+                id=row["id"],
+                question=row["question"],
+                answer=row["answer"],
+                asked_at=row["asked_at"],
+            )
+            for row in rows
+        ]
+
+    def recent_questions(self, limit: int) -> list[str]:
+        """Questions asked lately, in any meeting, most recent first, without duplicates."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT question FROM questions GROUP BY question ORDER BY MAX(id) DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [row["question"] for row in rows]
+
+    # Tags
+
+    def set_tags(self, meeting_id: int, tags: list[str]) -> None:
+        with self._connect() as conn:
+            conn.execute("DELETE FROM tags WHERE meeting_id = ?", (meeting_id,))
+            conn.executemany(
+                "INSERT INTO tags (meeting_id, name) VALUES (?, ?)",
+                [(meeting_id, tag) for tag in clean_tags(tags)],
+            )
+
+    def list_tags(self) -> list[TagCount]:
+        """Every tag in use, most used first (suggestions of the tag fields)."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT name, COUNT(*) AS count FROM tags GROUP BY name ORDER BY count DESC, name"
+            ).fetchall()
+        return [TagCount(name=row["name"], count=row["count"]) for row in rows]
 
     def delete_meeting(self, meeting_id: int) -> None:
         with self._connect() as conn:
@@ -287,5 +376,8 @@ def _meeting_from_row(row: sqlite3.Row) -> Meeting:
         error=row["error"],
         source_file=row["source_file"],
         language=row["language"],
+        tags=sorted(row["tags"].split(TAG_SEPARATOR), key=fold)
+        if "tags" in row.keys() and row["tags"]
+        else [],
         created_at=row["created_at"],
     )

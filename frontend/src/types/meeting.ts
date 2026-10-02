@@ -1,3 +1,4 @@
+import type { MeetingListItem } from '@/api/generated/model/meetingListItem';
 import type { TRANSCRIPTION_LANGUAGES } from '@/constants/app';
 
 export type TranscriptionLanguage = (typeof TRANSCRIPTION_LANGUAGES)[number];
@@ -29,4 +30,13 @@ export type QuitState = 'running' | 'quitting' | 'stopped';
 export interface RenameValues {
   id: number;
   title: string;
+}
+
+/** How the history lists the meetings */
+export type HistoryView = 'all' | 'byTag';
+
+/** Meetings of a tag in the history (a meeting with several tags is in several groups) */
+export interface TagGroup {
+  tag: string;
+  meetings: MeetingListItem[];
 }

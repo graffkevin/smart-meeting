@@ -50,7 +50,7 @@ const fr = {
   },
   home: {
     title: 'Prêt pour votre prochaine réunion ?',
-    lead: 'Smart Meeting écoute votre réunion, la transcrit en direct et vous prépare le compte rendu : résumé, décisions et actions. Tout reste sur votre ordinateur.',
+    lead: 'Smart Meeting transcrit votre réunion en direct. Demandez-lui ce que vous voulez, pendant ou après : un résumé, vos actions, qui a dit quoi… et récupérez le compte rendu. Tout reste sur votre ordinateur.',
     titleLabel: 'Nom de la réunion',
     titlePlaceholder: 'Ex. : Point projet JUNN',
     start: "Démarrer l'enregistrement",
@@ -130,7 +130,16 @@ const fr = {
     ollamaDown: "L'IA locale ne répond pas : le compte rendu automatique est indisponible.",
     modelMissing: "Le modèle d'IA {{model}} est absent.",
   },
+  tags: {
+    label: 'Tags',
+    placeholder: 'Ajouter un tag (Entrée)',
+    untagged: 'Sans tag',
+  },
   history: {
+    view: 'Affichage',
+    viewAll: 'Toutes',
+    viewByTag: 'Par tag',
+    group: '{{tag}} ({{count}})',
     title: 'Vos réunions',
     search: 'Rechercher dans vos réunions',
     searchPlaceholder: 'Un mot, un nom, un sujet…',

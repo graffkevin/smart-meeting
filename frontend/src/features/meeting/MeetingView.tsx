@@ -1,5 +1,6 @@
 import {
   Alert,
+  Autocomplete,
   Badge,
   Box,
   Button,
@@ -40,6 +41,7 @@ import {
   askMeeting,
   deleteAudio,
   deleteMeeting,
+  setMeetingTags,
   stopMeeting,
   updateMeeting,
 } from '@/api/generated/smartMeetingApi';
@@ -56,13 +58,15 @@ import useModelStatus from '@/hooks/useModelStatus';
 import audioDevicesQueryOptions from '@/services/audioDevicesQueryOptions';
 import meetingQueryOptions from '@/services/meetingQueryOptions';
 import meetingReportQueryOptions from '@/services/meetingReportQueryOptions';
+import recentQuestionsQueryOptions from '@/services/recentQuestionsQueryOptions';
+import tagsQueryOptions from '@/services/tagsQueryOptions';
 import type { AskPanelProps, LivePanelProps, MeetingViewProps } from '@/types/components';
 import type { AnswerEntry } from '@/types/meeting';
 import format from '@/utils/format';
 
 /** An answer of the local AI, with stable keys for its lines (empty lines dropped) */
-const toEntry = ({ question, answer }: AskAnswer): AnswerEntry => {
-  const id = crypto.randomUUID();
+const toEntry = ({ id: savedId, question, answer }: AskAnswer): AnswerEntry => {
+  const id = String(savedId ?? question);
 
   return {
     id,
@@ -147,12 +151,18 @@ const LivePanel = ({ startedAt, live, captured, onStop, stopping }: LivePanelPro
  * Questions about the meeting, answered by the local AI from the transcript, during or after the meeting: one-click
  * questions (summary, my actions, decisions) or a free question; the answers follow, newest last.
  */
-const AskPanel = ({ meetingId, disabled, estimateS }: AskPanelProps) => {
-  const [answers, setAnswers] = useState<AnswerEntry[]>([]);
+const AskPanel = ({ meetingId, disabled, estimateS, questions }: AskPanelProps) => {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const { data: recent } = useQuery(recentQuestionsQueryOptions());
+  // Answers are kept with the meeting: reload it, and the suggestions
   const ask = useMutation({
     mutationFn: (question: string) => askMeeting(meetingId, { question }),
-    onSuccess: (answer) => setAnswers((previous) => [...previous, toEntry(answer)]),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: meetingQueryOptions(meetingId).queryKey }),
+        queryClient.invalidateQueries({ queryKey: recentQuestionsQueryOptions().queryKey }),
+      ]),
   });
   const { Field, handleSubmit, reset } = useForm({
     defaultValues: { question: '' },
@@ -165,6 +175,7 @@ const AskPanel = ({ meetingId, disabled, estimateS }: AskPanelProps) => {
   const { ai, restartable, restarting, restart } = useModelStatus();
   // Asking needs something transcribed and the local AI answering (green)
   const unavailable = disabled || ai.tone !== 'success' || ask.isPending;
+  const answers = questions.map(toEntry);
 
   return (
     <Card padding="lg">
@@ -200,11 +211,12 @@ const AskPanel = ({ meetingId, disabled, estimateS }: AskPanelProps) => {
         >
           <Field name="question">
             {(field) => (
-              <TextField
+              <Autocomplete
                 label={t('ask.label')}
                 placeholder={t('ask.placeholder')}
                 value={field.state.value}
                 onChange={field.handleChange}
+                suggestions={recent ?? []}
                 disabled={disabled}
                 grow
               />
@@ -225,7 +237,12 @@ const AskPanel = ({ meetingId, disabled, estimateS }: AskPanelProps) => {
           </Card>
         ))}
         {ask.isPending && (
-          <EstimatedProgress label={t('ask.thinking')} estimateS={estimateS} startedAt={ask.submittedAt} />
+          <Card padding="md">
+            <Stack gap="xs">
+              <Typography variant="subtitle2">{ask.variables}</Typography>
+              <EstimatedProgress label={t('ask.thinking')} estimateS={estimateS} startedAt={ask.submittedAt} />
+            </Stack>
+          </Card>
         )}
         {ask.isError && <Alert tone="warning">{t('ask.error', { error: ask.error.message })}</Alert>}
       </Stack>
@@ -261,6 +278,17 @@ const MeetingView = ({ meetingId }: MeetingViewProps) => {
     mutationFn: () => deleteAudio(meetingId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['meeting', meetingId] }),
   });
+  // Tags group the history: the list and the suggestions change with them
+  const retag = useMutation({
+    mutationFn: (tags: string[]) => setMeetingTags(meetingId, { tags }),
+    onSuccess: () =>
+      Promise.all(
+        [['meeting', meetingId], ['meetings'], tagsQueryOptions().queryKey].map((queryKey) =>
+          queryClient.invalidateQueries({ queryKey }),
+        ),
+      ),
+  });
+  const { data: knownTags } = useQuery(tagsQueryOptions());
   const removal = useMutation({
     mutationFn: () => deleteMeeting(meetingId),
     onSuccess: () => {
@@ -306,6 +334,15 @@ const MeetingView = ({ meetingId }: MeetingViewProps) => {
                     {!recording && <Badge tone={STATUS_TONES[status]}>{t(`status.${status}`)}</Badge>}
                   </Stack>
                 </Stack>
+                <TextField
+                  type="tags"
+                  label={t('tags.label')}
+                  hideLabel
+                  placeholder={t('tags.placeholder')}
+                  value={meeting.tags ?? []}
+                  onChange={(tags) => retag.mutate(tags)}
+                  suggestions={(knownTags ?? []).map((tag) => tag.name)}
+                />
                 {isDefined(meeting.source_file) && (
                   <Badge tone="muted" variant="outline" icon={IconFileUpload}>
                     {t('meeting.importedFrom', { file: meeting.source_file })}
@@ -386,6 +423,7 @@ const MeetingView = ({ meetingId }: MeetingViewProps) => {
               meetingId={meetingId}
               disabled={segments.length === 0}
               estimateS={detail.estimates?.ask_s ?? DEFAULT_ESTIMATE_S}
+              questions={detail.questions ?? []}
             />
 
             {isDefined(analysis) && <MeetingReport analysis={analysis} />}

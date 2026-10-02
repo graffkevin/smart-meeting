@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { AskAnswer } from '@/api/generated/model/askAnswer';
 import type { CapturedDevice } from '@/api/generated/model/capturedDevice';
 import type { MeetingAnalysis } from '@/api/generated/model/meetingAnalysis';
 import type { MeetingListItem } from '@/api/generated/model/meetingListItem';
@@ -38,6 +39,8 @@ export interface AskPanelProps {
   disabled: boolean;
   /** Expected duration of an answer, in seconds */
   estimateS: number;
+  /** Questions already asked about this meeting, oldest first */
+  questions: AskAnswer[];
 }
 
 /** Confirmation of an action that cannot be undone */

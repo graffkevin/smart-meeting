@@ -25,6 +25,8 @@ export * from './segment';
 export * from './segmentSource';
 export * from './setupStepInfo';
 export * from './startMeetingRequest';
+export * from './tagCount';
+export * from './tagsRequest';
 export * from './updateMeetingRequest';
 export * from './validationError';
 export * from './validationErrorCtx';

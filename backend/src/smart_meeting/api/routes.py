@@ -31,10 +31,15 @@ from smart_meeting.models import (
     Preferences,
     SetupStepInfo,
     StartMeetingRequest,
+    TagCount,
+    TagsRequest,
     UpdateMeetingRequest,
 )
 
 router = APIRouter(prefix="/api")
+
+# Suggestions of the question field
+RECENT_QUESTIONS = 10
 
 
 def service(request: Request) -> MeetingService:
@@ -156,6 +161,7 @@ def get_meeting(request: Request, meeting_id: int) -> MeetingDetail:
         captured=svc.captured_devices(meeting_id),
         estimates=svc.estimates(segments),
         analysis_elapsed_s=svc.analysis_elapsed_s(meeting_id),
+        questions=svc.db.list_questions(meeting_id),
     )
 
 
@@ -166,6 +172,21 @@ def update_meeting(request: Request, meeting_id: int, body: UpdateMeetingRequest
     started = datetime.fromisoformat(meeting.started_at).astimezone()
     svc.db.update_meeting(meeting_id, title=body.title.strip() or default_title(started))
     return get_meeting_or_404(svc, meeting_id)
+
+
+@router.put("/meetings/{meeting_id}/tags")
+def set_meeting_tags(request: Request, meeting_id: int, body: TagsRequest) -> Meeting:
+    """Replaces the tags of a meeting (used to group the history)."""
+    svc = service(request)
+    get_meeting_or_404(svc, meeting_id)
+    svc.db.set_tags(meeting_id, body.tags)
+    return get_meeting_or_404(svc, meeting_id)
+
+
+@router.get("/tags")
+def list_tags(request: Request) -> list[TagCount]:
+    """Every tag in use, most used first."""
+    return service(request).db.list_tags()
 
 
 @router.post("/meetings/{meeting_id}/stop")
@@ -187,7 +208,7 @@ async def analyze_meeting(request: Request, meeting_id: int) -> None:
 @router.post("/meetings/{meeting_id}/ask")
 async def ask_meeting(request: Request, meeting_id: int, body: AskRequest) -> AskAnswer:
     """A question about the meeting (\"what do I have to do?\"), answered from its transcript by the
-    local AI, during or after the meeting. Answers are not stored."""
+    local AI, during or after the meeting. Kept with the meeting."""
     svc = service(request)
     get_meeting_or_404(svc, meeting_id)
     question = body.question.strip()
@@ -196,7 +217,13 @@ async def ask_meeting(request: Request, meeting_id: int, body: AskRequest) -> As
             answer = await svc.ask(meeting_id, question)
         except (httpx.HTTPError, RuntimeError) as exc:
             raise HTTPException(503, f"L'IA locale ne répond pas : {exc}") from exc
-    return AskAnswer(question=question, answer=answer)
+    return svc.db.add_question(meeting_id, question, answer)
+
+
+@router.get("/questions/recent")
+def recent_questions(request: Request) -> list[str]:
+    """Questions asked lately in any meeting: suggestions of the question field."""
+    return service(request).db.recent_questions(RECENT_QUESTIONS)
 
 
 @router.get("/meetings/{meeting_id}/report.md", response_class=PlainTextResponse)
@@ -204,7 +231,10 @@ def meeting_report(request: Request, meeting_id: int) -> str:
     svc = service(request)
     meeting = get_meeting_or_404(svc, meeting_id)
     return build_markdown(
-        meeting, svc.db.list_segments(meeting_id), svc.db.get_analysis(meeting_id)
+        meeting,
+        svc.db.list_segments(meeting_id),
+        svc.db.get_analysis(meeting_id),
+        svc.db.list_questions(meeting_id),
     )
 
 

@@ -28,6 +28,7 @@ class Meeting(BaseModel):
     error: str | None = None
     source_file: str | None = None  # set for imported files
     language: str = "auto"  # transcription language: "auto" or a code (fr, en…)
+    tags: list[str] = []
     created_at: str
 
 
@@ -114,13 +115,26 @@ class Preferences(BaseModel):
     keep_audio: bool = False
 
 
+class TagsRequest(BaseModel):
+    tags: list[str] = Field(max_length=30)
+
+
+class TagCount(BaseModel):
+    name: str
+    count: int
+
+
 class AskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
 
 
 class AskAnswer(BaseModel):
+    """A question to the local AI about a meeting and its answer, kept with the meeting."""
+
+    id: int | None = None
     question: str
     answer: str
+    asked_at: str | None = None
 
 
 class CapturedDevice(BaseModel):
@@ -145,6 +159,8 @@ class MeetingDetail(BaseModel):
     estimates: AiEstimates | None = None
     # Seconds since the report started, while it is being written.
     analysis_elapsed_s: float | None = None
+    # Questions asked to the local AI about this meeting, oldest first.
+    questions: list["AskAnswer"] = []
 
 
 class SetupStepInfo(BaseModel):

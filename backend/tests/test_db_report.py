@@ -132,3 +132,17 @@ def test_search_is_accent_insensitive_and_covers_transcripts(tmp_path):
     assert titles("junn budget") == []  # every word must match
     assert titles("100%") == ["Réunion budget 100%"] and titles("_") == []  # LIKE escaped
     assert db.list_meetings("budget")[0].action_count == 1
+
+
+def test_tags_are_cleaned_listed_and_searchable(tmp_path):
+    db = Database(tmp_path / "test.db")
+    junn = db.create_meeting("Point projet", None, None, keep_audio=False)
+    other = db.create_meeting("Comité", None, None, keep_audio=False)
+    db.set_tags(junn.id, ["  JUNN ", "lot  4", "junn", ""])
+    db.set_tags(other.id, ["JUNN"])
+    assert db.get_meeting(junn.id).tags == ["JUNN", "lot 4"]
+    assert [(t.name, t.count) for t in db.list_tags()] == [("JUNN", 2), ("lot 4", 1)]
+    assert [m.title for m in db.list_meetings("lot")] == ["Point projet"]
+    assert db.list_meetings()[0].tags == ["JUNN"]  # newest first: Comité
+    db.set_tags(junn.id, [])
+    assert db.get_meeting(junn.id).tags == []

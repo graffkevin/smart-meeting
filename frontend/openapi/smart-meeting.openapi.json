@@ -366,6 +366,79 @@
         }
       }
     },
+    "/api/meetings/{meeting_id}/tags": {
+      "put": {
+        "summary": "Set Meeting Tags",
+        "description": "Replaces the tags of a meeting (used to group the history).",
+        "operationId": "set_meeting_tags",
+        "parameters": [
+          {
+            "name": "meeting_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Meeting Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TagsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Meeting"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tags": {
+      "get": {
+        "summary": "List Tags",
+        "description": "Every tag in use, most used first.",
+        "operationId": "list_tags",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TagCount"
+                  },
+                  "type": "array",
+                  "title": "Response List Tags"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/meetings/{meeting_id}/stop": {
       "post": {
         "summary": "Stop Meeting",
@@ -445,7 +518,7 @@
     "/api/meetings/{meeting_id}/ask": {
       "post": {
         "summary": "Ask Meeting",
-        "description": "A question about the meeting (\"what do I have to do?\"), answered from its transcript by the\nlocal AI, during or after the meeting. Answers are not stored.",
+        "description": "A question about the meeting (\"what do I have to do?\"), answered from its transcript by the\nlocal AI, during or after the meeting. Kept with the meeting.",
         "operationId": "ask_meeting",
         "parameters": [
           {
@@ -485,6 +558,29 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/questions/recent": {
+      "get": {
+        "summary": "Recent Questions",
+        "description": "Questions asked lately in any meeting: suggestions of the question field.",
+        "operationId": "recent_questions",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response Recent Questions"
                 }
               }
             }
@@ -644,6 +740,17 @@
       },
       "AskAnswer": {
         "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
           "question": {
             "type": "string",
             "title": "Question"
@@ -651,6 +758,17 @@
           "answer": {
             "type": "string",
             "title": "Answer"
+          },
+          "asked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asked At"
           }
         },
         "type": "object",
@@ -658,7 +776,8 @@
           "question",
           "answer"
         ],
-        "title": "AskAnswer"
+        "title": "AskAnswer",
+        "description": "A question to the local AI about a meeting and its answer, kept with the meeting."
       },
       "AskRequest": {
         "properties": {
@@ -980,6 +1099,14 @@
             "title": "Language",
             "default": "auto"
           },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
+          },
           "created_at": {
             "type": "string",
             "title": "Created At"
@@ -1114,6 +1241,14 @@
               }
             ],
             "title": "Analysis Elapsed S"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/AskAnswer"
+            },
+            "type": "array",
+            "title": "Questions",
+            "default": []
           }
         },
         "type": "object",
@@ -1217,6 +1352,14 @@
             "type": "string",
             "title": "Language",
             "default": "auto"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
           },
           "created_at": {
             "type": "string",
@@ -1441,6 +1584,41 @@
         },
         "type": "object",
         "title": "StartMeetingRequest"
+      },
+      "TagCount": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "count"
+        ],
+        "title": "TagCount"
+      },
+      "TagsRequest": {
+        "properties": {
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 30,
+            "title": "Tags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tags"
+        ],
+        "title": "TagsRequest"
       },
       "UpdateMeetingRequest": {
         "properties": {

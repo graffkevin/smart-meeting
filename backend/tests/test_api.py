@@ -87,11 +87,16 @@ def test_ask_answers_from_the_transcript(client):
     service.ollama.ask = fake_ask
     answer = client.post(
         f"/api/meetings/{meeting_id}/ask", json={"question": " Que dois-je faire ? "}
+    ).json()
+    assert (answer["question"], answer["answer"]) == (
+        "Que dois-je faire ?",
+        "Vous devez rédiger la note.",
     )
-    assert answer.json() == {
-        "question": "Que dois-je faire ?",
-        "answer": "Vous devez rédiger la note.",
-    }
+    # Kept with the meeting, in its report, and offered as a suggestion
+    kept = client.get(f"/api/meetings/{meeting_id}").json()["questions"]
+    assert [q["question"] for q in kept] == ["Que dois-je faire ?"]
+    assert "**Que dois-je faire ?**" in client.get(f"/api/meetings/{meeting_id}/report.md").text
+    assert client.get("/api/questions/recent").json() == ["Que dois-je faire ?"]
     assert seen == {
         "title": "Point JUNN",
         "texts": ["Je m'occupe de la note."],

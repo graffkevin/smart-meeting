@@ -3,7 +3,12 @@
  * Smart Meeting 0.1.0
  */
 
+/**
+ * A question to the local AI about a meeting and its answer, kept with the meeting.
+ */
 export interface AskAnswer {
+  id?: number | null;
   question: string;
   answer: string;
+  asked_at?: string | null;
 }
