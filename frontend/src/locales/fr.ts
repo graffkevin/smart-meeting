@@ -132,7 +132,7 @@ const fr = {
   },
   tags: {
     label: 'Tags',
-    placeholder: 'Ajouter un tag (Entrée)',
+    placeholder: 'Ajouter un tag',
     untagged: 'Sans tag',
   },
   history: {
