@@ -38,7 +38,7 @@ Choix par rapport à la proposition initiale :
   dépendance C à compiler. `sounddevice`/PortAudio ne voit pas proprement les monitors. FFmpeg n'apporte rien ici.
 - **Segmentation par pauses (VAD)** plutôt que des chunks fixes (voir §4).
 - **SQLite via `sqlite3`** (sans ORM) : 4 tables, requêtes simples.
-- **Front aux règles de junn-apps** : design system JUNN, TanStack Query/Form, i18next, client Orval généré, routeur
+- **Front aux règles strictes** (voir le README) : design system (Mantine), TanStack Query/Form, i18next, client Orval généré, routeur
   par hash (le backend sert une seule page).
 
 ## 3. Capturer le micro et ce que j'entends dans le casque
@@ -66,7 +66,7 @@ quelques secondes coupent les mots, puis demandent du recouvrement et une dédup
   300 ms de pré-roll et 200 ms de post-roll ;
 - chaque énoncé est transcrit **une seule fois** : pas de doublon ni de recouvrement à fusionner ;
 - contexte : le glossaire (`SM_WHISPER_GLOSSARY`) et la fin du texte précédent de la même source sont passés en
-  `initial_prompt`. Mesuré : avec le glossaire, « June / jeu Petform / la pi » deviennent « JUNN / Géoplateforme / API » ;
+  `initial_prompt`. Mesuré : avec le glossaire, les noms propres et les sigles mal reconnus sans lui sont correctement transcrits ;
 - latence observée : environ 1 à 2 s après la fin de la phrase.
 
 **Hallucinations Whisper** (« Sous-titres réalisés par la communauté d'Amara.org » sur du silence) : le VAD ne laisse
@@ -111,7 +111,7 @@ smart-meeting/
 │   │   ├── llm/analysis.py       # Ollama, prompt, garde-fous
 │   │   └── meeting/              # service.py (orchestration), events.py, report.py (Markdown)
 │   └── tests/
-└── frontend/                     # React 19 + TypeScript + Vite + Bun, règles de junn-apps
+└── frontend/                     # React 19 + TypeScript + Vite + Bun, règles strictes (voir le README)
     ├── openapi/                  # schéma OpenAPI exporté du backend (make api)
     ├── scripts/                  # contrôles des règles (check:rules)
     └── src/
@@ -185,7 +185,7 @@ deux WAV 16 kHz sont écrits dans `~/.local/share/smart-meeting/audio/<id>/`, su
 9. ✅ Langue de transcription au choix (auto, fr, en…) ; en automatique, langue « collante » par source
    (`transcription/language.py`) : un énoncé détecté avec confiance est transcrit dans sa langue (pas de traduction
    involontaire), un énoncé incertain dans la langue courante, qui ne change qu'après 2 énoncés confiants consécutifs.
-10. ✅ Interface refaite avec le design system JUNN et les règles du front de junn-apps.
+10. ✅ Interface refaite avec le design system (Mantine) et des règles de code front strictes.
 11. ✅ Texte en direct mot à mot : pendant qu'une phrase est prononcée, un brouillon est recalculé (modèle `small`
     à côté du modèle principal sur GPU, décodage glouton, sans détection de langue) et envoyé en événement `partial`,
     jamais stocké. Les phrases finales passent en priorité : pas de brouillon si la file n'est pas vide ou si une

@@ -5,7 +5,7 @@ from smart_meeting.models import ActionItem, MeetingAnalysis, MeetingStatus, Seg
 
 def test_meeting_roundtrip_and_report(tmp_path):
     db = Database(tmp_path / "test.db")
-    meeting = db.create_meeting("Point projet JUNN", "mic", None, keep_audio=False)
+    meeting = db.create_meeting("Point projet Atlas", "mic", None, keep_audio=False)
     assert meeting.status == MeetingStatus.RECORDING
     db.add_segment(
         meeting.id,
@@ -47,7 +47,7 @@ def test_meeting_roundtrip_and_report(tmp_path):
     assert db.get_meeting(meeting.id).summary == "Intégration du simulateur."
 
     markdown = build_markdown(db.get_meeting(meeting.id), db.list_segments(meeting.id), analysis)
-    assert markdown.startswith("# Point projet JUNN")
+    assert markdown.startswith("# Point projet Atlas")
     assert "| Intégrer \\| le simulateur | Moi | Non définie |" in markdown
     assert "Moi : Bonjour." in markdown
 
@@ -103,11 +103,15 @@ def test_migration_adds_source_file(tmp_path):
 
 def test_search_is_accent_insensitive_and_covers_transcripts(tmp_path):
     db = Database(tmp_path / "test.db")
-    first = db.create_meeting("Point projet JUNN", None, None, keep_audio=False)
+    first = db.create_meeting("Point projet Atlas", None, None, keep_audio=False)
     db.add_segment(
         first.id,
         Segment(
-            source="mic", speaker="Moi", start_s=0, end_s=1, text="On publie sur la Géoplateforme."
+            source="mic",
+            speaker="Moi",
+            start_s=0,
+            end_s=1,
+            text="On publie sur la plateforme géographique.",
         ),
     )
     second = db.create_meeting("Réunion budget 100%", None, None, keep_audio=False)
@@ -126,23 +130,23 @@ def test_search_is_accent_insensitive_and_covers_transcripts(tmp_path):
     def titles(query):
         return [m.title for m in db.list_meetings(query)]
 
-    assert titles("") == ["Réunion budget 100%", "Point projet JUNN"]
-    assert titles("geoplateforme") == ["Point projet JUNN"]  # transcript, accent-insensitive
+    assert titles("") == ["Réunion budget 100%", "Point projet Atlas"]
+    assert titles("geographique") == ["Point projet Atlas"]  # transcript, accent-insensitive
     assert titles("REUNION arbitrage") == ["Réunion budget 100%"]  # title + summary
-    assert titles("junn budget") == []  # every word must match
+    assert titles("atlas budget") == []  # every word must match
     assert titles("100%") == ["Réunion budget 100%"] and titles("_") == []  # LIKE escaped
     assert db.list_meetings("budget")[0].action_count == 1
 
 
 def test_tags_are_cleaned_listed_and_searchable(tmp_path):
     db = Database(tmp_path / "test.db")
-    junn = db.create_meeting("Point projet", None, None, keep_audio=False)
+    atlas = db.create_meeting("Point projet", None, None, keep_audio=False)
     other = db.create_meeting("Comité", None, None, keep_audio=False)
-    db.set_tags(junn.id, ["  JUNN ", "lot  4", "junn", ""])
-    db.set_tags(other.id, ["JUNN"])
-    assert db.get_meeting(junn.id).tags == ["JUNN", "lot 4"]
-    assert [(t.name, t.count) for t in db.list_tags()] == [("JUNN", 2), ("lot 4", 1)]
+    db.set_tags(atlas.id, ["  Atlas ", "lot  4", "atlas", ""])
+    db.set_tags(other.id, ["Atlas"])
+    assert db.get_meeting(atlas.id).tags == ["Atlas", "lot 4"]
+    assert [(t.name, t.count) for t in db.list_tags()] == [("Atlas", 2), ("lot 4", 1)]
     assert [m.title for m in db.list_meetings("lot")] == ["Point projet"]
-    assert db.list_meetings()[0].tags == ["JUNN"]  # newest first: Comité
-    db.set_tags(junn.id, [])
-    assert db.get_meeting(junn.id).tags == []
+    assert db.list_meetings()[0].tags == ["Atlas"]  # newest first: Comité
+    db.set_tags(atlas.id, [])
+    assert db.get_meeting(atlas.id).tags == []

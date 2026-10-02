@@ -33,6 +33,7 @@ import useOpenMeeting from '@/hooks/useOpenMeeting';
 import audioDevicesQueryOptions from '@/services/audioDevicesQueryOptions';
 import healthQueryOptions from '@/services/healthQueryOptions';
 import preferencesQueryOptions from '@/services/preferencesQueryOptions';
+import tagsQueryOptions from '@/services/tagsQueryOptions';
 import type { RecordFormProps } from '@/types/components';
 import type { ImportFormValues, StartFormValues, TranscriptionLanguage } from '@/types/meeting';
 import format from '@/utils/format';
@@ -105,6 +106,7 @@ const HealthStatus = () => {
 const RecordForm = ({ preferences }: RecordFormProps) => {
   const { t } = useTranslation();
   const { data: devices } = useQuery(audioDevicesQueryOptions());
+  const { data: knownTags } = useQuery(tagsQueryOptions());
   const start = useMutation({
     mutationFn: (values: StartFormValues) =>
       startMeeting({
@@ -113,11 +115,16 @@ const RecordForm = ({ preferences }: RecordFormProps) => {
         remote_device: preferences.output_device ?? null,
         keep_audio: preferences.keep_audio ?? false,
         language: values.language,
+        tags: values.tags,
       }),
     onSuccess: (meeting) => openMeeting(meeting.id),
   });
   const { Field, handleSubmit } = useForm({
-    defaultValues: { title: '', language: (preferences.language ?? 'auto') as TranscriptionLanguage },
+    defaultValues: {
+      title: '',
+      language: (preferences.language ?? 'auto') as TranscriptionLanguage,
+      tags: [] as string[],
+    },
     onSubmit: ({ value }) => start.mutate(value),
   });
   const { open: openSettings } = useSettingsDialog();
@@ -151,6 +158,19 @@ const RecordForm = ({ preferences }: RecordFormProps) => {
                 placeholder={t('home.titlePlaceholder')}
                 value={field.state.value}
                 onChange={field.handleChange}
+                grow
+              />
+            )}
+          </Field>
+          <Field name="tags">
+            {(field) => (
+              <TextField
+                type="tags"
+                label={t('tags.label')}
+                placeholder={t('tags.placeholder')}
+                value={field.state.value}
+                onChange={field.handleChange}
+                suggestions={(knownTags ?? []).map((tag) => tag.name)}
                 grow
               />
             )}

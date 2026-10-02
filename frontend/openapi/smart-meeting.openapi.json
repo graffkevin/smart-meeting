@@ -1580,6 +1580,15 @@
             "type": "string",
             "title": "Language",
             "default": "auto"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 30,
+            "title": "Tags",
+            "default": []
           }
         },
         "type": "object",

@@ -1,5 +1,5 @@
 /**
- * Repository rules that a text search can check (the `check:rules` greps of junn-apps, as a Bun script so that they
+ * Repository rules that a text search can check (as a Bun script rather than shell greps, so that they
  * also run on Windows). Each violation is printed with its rule; the exit code is 1 when there is any.
  * Usage: `bun scripts/checkRules.ts`.
  */

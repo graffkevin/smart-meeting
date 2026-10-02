@@ -9,4 +9,6 @@ export interface StartMeetingRequest {
   remote_device?: string | null;
   keep_audio?: boolean;
   language?: string;
+  /** @maxItems 30 */
+  tags?: string[];
 }

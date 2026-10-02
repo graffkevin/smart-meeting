@@ -98,6 +98,7 @@ class StartMeetingRequest(BaseModel):
     keep_audio: bool = False
     # "auto": detected, sticky (a few foreign words do not switch it); or a code (fr, en…).
     language: str = "auto"
+    tags: list[str] = Field(default=[], max_length=30)
 
 
 class UpdateMeetingRequest(BaseModel):

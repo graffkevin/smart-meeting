@@ -153,3 +153,18 @@ _real_sleep = asyncio.sleep
 
 async def _fast_sleep(delay):
     await _real_sleep(min(delay, 0.01))
+
+
+def test_meeting_starts_with_its_tags(tmp_path):
+    async def run():
+        svc = make_service(tmp_path, FakeBackend())
+        meeting = await svc.start(
+            StartMeetingRequest(title="t", tags=["Atlas", "atlas", " lot 2 "])
+        )
+        await svc.stop(meeting.id)
+        svc._whisper_ready.set()
+        while svc.active:
+            await asyncio.sleep(0.01)
+        return svc.db.get_meeting(meeting.id).tags
+
+    assert asyncio.run(run()) == ["Atlas", "lot 2"]

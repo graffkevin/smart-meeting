@@ -29,7 +29,7 @@ def client(tmp_path):
 
 def add_transcribed_meeting(client) -> int:
     db = client.app.state.service.db
-    meeting = db.create_meeting("Point JUNN", None, None, keep_audio=False)
+    meeting = db.create_meeting("Point Atlas", None, None, keep_audio=False)
     db.add_segment(
         meeting.id,
         Segment(source="mic", speaker="Moi", start_s=0, end_s=1, text="Je m'occupe de la note."),
@@ -98,7 +98,7 @@ def test_ask_answers_from_the_transcript(client):
     assert "**Que dois-je faire ?**" in client.get(f"/api/meetings/{meeting_id}/report.md").text
     assert client.get("/api/questions/recent").json() == ["Que dois-je faire ?"]
     assert seen == {
-        "title": "Point JUNN",
+        "title": "Point Atlas",
         "texts": ["Je m'occupe de la note."],
         "question": "Que dois-je faire ?",
     }
@@ -120,7 +120,7 @@ def test_preferences_are_saved_and_applied(client, tmp_path):
         "/api/preferences",
         json={
             "user_name": "Kevin",
-            "glossary": ["JUNN", "Géoplateforme"],
+            "glossary": ["Atlas", "Géolocalisation"],
             "language": "fr",
             "mic_device": None,
             "output_device": "casque",
@@ -129,7 +129,7 @@ def test_preferences_are_saved_and_applied(client, tmp_path):
     ).json()
     assert saved["output_device"] == "casque"
     assert service.settings.user_name == "Kevin"
-    assert service.settings.whisper_glossary == "JUNN, Géoplateforme"
+    assert service.settings.whisper_glossary == "Atlas, Géolocalisation"
     assert (tmp_path / "preferences.json").exists()
 
 

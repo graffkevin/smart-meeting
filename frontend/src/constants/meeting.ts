@@ -14,6 +14,9 @@ export const STATUS_TONES: Record<MeetingStatus, Tone> = {
 /** One-click questions of the meeting page, by their key in locales `ask.quick` and `ask.quickQuestions` */
 export const QUICK_QUESTIONS = ['summary', 'myActions', 'decisions'] as const;
 
+/** Height of the fixed bar (header and tabs), in pixels: sticky panels stay under it */
+export const FIXED_BAR_HEIGHT = 112;
+
 /** Height of the transcript side panel, in pixels: it scrolls inside, the page keeps it in view */
 export const TRANSCRIPT_PANEL_HEIGHT = 640;
 

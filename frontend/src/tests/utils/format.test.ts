@@ -17,7 +17,7 @@ describe('format', () => {
   });
 
   it('uses a file name without its extension as title', () => {
-    expect(format.fileTitle('Point projet.JUNN.mp4')).toBe('Point projet.JUNN');
+    expect(format.fileTitle('Point projet.Atlas.mp4')).toBe('Point projet.Atlas');
   });
 
   it('turns a level in dBFS into a meter value', () => {

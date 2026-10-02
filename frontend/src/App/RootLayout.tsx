@@ -43,35 +43,38 @@ const Layout = () => {
 
   return (
     <Box mih="100vh">
-      <Stack component="header" direction="row" align="center" gap="sm" px="lg" py="sm">
-        <Button
-          component={Link}
-          to={ROUTES.home}
-          variant="subtle"
-          size="md"
-          label={
-            <Stack direction="row" gap="xs" align="center">
-              <Box component="img" src="/favicon.svg" alt="" w="xl" h="xl" />
-              <Typography variant="brand">{t('app.name')}</Typography>
-            </Stack>
-          }
-        />
-        <Badge tone="success" icon={IconShieldLock} size="sm" title={t('shell.localHint')}>
-          {t('shell.local')}
-        </Badge>
-        <Box flex={1} />
-        <ModelStatus />
-        <SettingsButton />
-        <ColorSchemeToggle labels={{ toLight: t('shell.toLight'), toDark: t('shell.toDark') }} />
+      {/* Fixed bar: header and tabs stay visible while the page scrolls */}
+      <Box pos="sticky" top={0} bg="var(--mantine-color-body)" style={{ zIndex: 'var(--mantine-z-index-app)' }}>
+        <Stack component="header" direction="row" align="center" gap="sm" px="lg" py="sm">
+          <Button
+            component={Link}
+            to={ROUTES.home}
+            variant="subtle"
+            size="md"
+            label={
+              <Stack direction="row" gap="xs" align="center">
+                <Box component="img" src="/favicon.svg" alt="" w="xl" h="xl" />
+                <Typography variant="brand">{t('app.name')}</Typography>
+              </Stack>
+            }
+          />
+          <Badge tone="success" icon={IconShieldLock} size="sm" title={t('shell.localHint')}>
+            {t('shell.local')}
+          </Badge>
+          <Box flex={1} />
+          <ModelStatus />
+          <SettingsButton />
+          <ColorSchemeToggle labels={{ toLight: t('shell.toLight'), toDark: t('shell.toDark') }} />
+          {quitState === 'running' && (
+            <QuitButton onStopping={() => setQuitState('quitting')} onStopped={() => setQuitState('stopped')} />
+          )}
+        </Stack>
         {quitState === 'running' && (
-          <QuitButton onStopping={() => setQuitState('quitting')} onStopped={() => setQuitState('stopped')} />
+          <Box px="lg">
+            <MeetingTabs />
+          </Box>
         )}
-      </Stack>
-      {quitState === 'running' && (
-        <Box px="lg">
-          <MeetingTabs />
-        </Box>
-      )}
+      </Box>
       <Page width={isDefined(meetingPage) ? 'wide' : 'medium'}>
         {quitState === 'running' ? (
           <Outlet />

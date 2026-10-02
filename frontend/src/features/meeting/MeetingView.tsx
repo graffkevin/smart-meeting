@@ -51,7 +51,13 @@ import EstimatedProgress from '@/components/EstimatedProgress';
 import MeetingReport from '@/components/MeetingReport';
 import Transcript from '@/components/Transcript';
 import { DEFAULT_ESTIMATE_S, LEVEL_FLOOR_DB } from '@/constants/app';
-import { LIVE_STATUSES, QUICK_QUESTIONS, STATUS_TONES, TRANSCRIPT_PANEL_HEIGHT } from '@/constants/meeting';
+import {
+  FIXED_BAR_HEIGHT,
+  LIVE_STATUSES,
+  QUICK_QUESTIONS,
+  STATUS_TONES,
+  TRANSCRIPT_PANEL_HEIGHT,
+} from '@/constants/meeting';
 import { ROUTES } from '@/constants/routes';
 import useMeetingEvents from '@/features/meeting/useMeetingEvents';
 import useModelStatus from '@/hooks/useModelStatus';
@@ -319,12 +325,24 @@ const MeetingView = ({ meetingId }: MeetingViewProps) => {
             <Card padding="lg" highlighted={recording}>
               <Stack gap="md">
                 <Stack direction="row" gap="sm" align="center" justify="space-between" wrap="wrap">
-                  <EditableText
-                    value={meeting.title}
-                    onChange={(title) => rename.mutate(title)}
-                    label={t('meeting.rename')}
-                    variant="h2"
-                  />
+                  <Stack direction="row" gap="md" align="center" wrap="wrap" flex={1}>
+                    <EditableText
+                      value={meeting.title}
+                      onChange={(title) => rename.mutate(title)}
+                      label={t('meeting.rename')}
+                      variant="h2"
+                    />
+                    <TextField
+                      type="tags"
+                      label={t('tags.label')}
+                      hideLabel
+                      placeholder={t('tags.placeholder')}
+                      value={meeting.tags ?? []}
+                      onChange={(tags) => retag.mutate(tags)}
+                      suggestions={(knownTags ?? []).map((tag) => tag.name)}
+                      grow
+                    />
+                  </Stack>
                   <Stack direction="row" gap="xs" align="center">
                     {meeting.language !== 'auto' && isDefined(meeting.language) && (
                       <Badge tone="muted" variant="outline" icon={IconLanguage}>
@@ -334,15 +352,6 @@ const MeetingView = ({ meetingId }: MeetingViewProps) => {
                     {!recording && <Badge tone={STATUS_TONES[status]}>{t(`status.${status}`)}</Badge>}
                   </Stack>
                 </Stack>
-                <TextField
-                  type="tags"
-                  label={t('tags.label')}
-                  hideLabel
-                  placeholder={t('tags.placeholder')}
-                  value={meeting.tags ?? []}
-                  onChange={(tags) => retag.mutate(tags)}
-                  suggestions={(knownTags ?? []).map((tag) => tag.name)}
-                />
                 {isDefined(meeting.source_file) && (
                   <Badge tone="muted" variant="outline" icon={IconFileUpload}>
                     {t('meeting.importedFrom', { file: meeting.source_file })}
@@ -432,7 +441,7 @@ const MeetingView = ({ meetingId }: MeetingViewProps) => {
 
         <Grid.Col span={{ base: 12, md: 5 }}>
           {/* Transcript panel: stays in view while the page scrolls, scrolls inside */}
-          <Box pos="sticky" top="md">
+          <Box pos="sticky" top={FIXED_BAR_HEIGHT}>
             <Card padding="md">
               <Stack gap="sm">
                 <Stack direction="row" align="center" justify="space-between">

@@ -254,6 +254,8 @@ class MeetingService:
             request.keep_audio,
             language=request.language,
         )
+        if request.tags:
+            self.db.set_tags(meeting.id, request.tags)
         loop = asyncio.get_running_loop()
         recording = Recording(
             meeting_id=meeting.id,

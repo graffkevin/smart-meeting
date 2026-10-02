@@ -7,6 +7,7 @@ export type TranscriptionLanguage = (typeof TRANSCRIPTION_LANGUAGES)[number];
 export interface StartFormValues {
   title: string;
   language: TranscriptionLanguage;
+  tags: string[];
 }
 
 /** Values of the form importing a file */
