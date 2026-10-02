@@ -14,6 +14,7 @@ from typing import Protocol
 
 import numpy as np
 
+from smart_meeting.messages import tr
 from smart_meeting.models import AudioDevices, Source
 
 OnAudio = Callable[[np.ndarray], None]
@@ -61,4 +62,4 @@ def get_backend() -> AudioBackend:
         from smart_meeting.audio.macos import MacBackend
 
         return MacBackend()
-    raise RuntimeError(f"Système non pris en charge : {sys.platform}")
+    raise RuntimeError(tr("unsupported_system", system=sys.platform))

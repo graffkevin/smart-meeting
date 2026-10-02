@@ -13,6 +13,7 @@ import numpy as np
 
 from smart_meeting.audio.backend import OnAudio
 from smart_meeting.audio.threaded import ThreadedCapture
+from smart_meeting.messages import tr
 from smart_meeting.models import AudioDevice, AudioDevices, Source
 
 FRAMES_PER_BUFFER = 1024
@@ -65,7 +66,7 @@ class WasapiCapture(ThreadedCapture):
         except StopIteration:
             self._pa.terminate()
             raise RuntimeError(
-                f"Périphérique introuvable : {self.target or 'par défaut'}"
+                tr("device_not_found", device=self.target or tr("default_device"))
             ) from None
         channels = max(1, int(device["maxInputChannels"]))
         rate = int(device["defaultSampleRate"])

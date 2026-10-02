@@ -6,8 +6,8 @@ import healthQueryOptions from '@/services/healthQueryOptions';
 import type { ModelState } from '@/types/components';
 
 /**
- * Are the transcription model and the local AI running? Green, orange or red with an explanation, from the polled
- * server status, and the restart of the local AI (shown when it is not green, outside its first install).
+ * Is the local AI running? Green, orange or red with an explanation, from the polled server status, and its restart
+ * (offered when it is not green, outside its first install).
  */
 const useModelStatus = () => {
   const { t } = useTranslation();
@@ -18,14 +18,8 @@ const useModelStatus = () => {
     onSettled: () => queryClient.invalidateQueries({ queryKey: healthQueryOptions().queryKey }),
   });
   const unreachable: ModelState = { tone: 'danger', hint: t('models.unreachable') };
-  const detail = health?.whisper_detail ?? '';
   const model = health?.ollama_model ?? '';
   const installing = (health?.setup ?? []).some((step) => !step.done && !isDefined(step.error));
-  const transcriptionStates: Record<string, ModelState> = {
-    loading: { tone: 'warning', hint: t('models.transcriptionLoading') },
-    ready: { tone: 'success', hint: t('models.transcriptionReady', { detail }) },
-    error: { tone: 'danger', hint: t('models.transcriptionError', { detail }) },
-  };
   const aiDown: ModelState = installing
     ? { tone: 'warning', hint: t('models.aiInstalling') }
     : { tone: 'danger', hint: t('models.aiDown') };
@@ -35,10 +29,8 @@ const useModelStatus = () => {
       : { tone: 'warning', hint: t('models.aiMissing', { model }) };
   const reachable = !isError && isDefined(health);
   const ai = reachable && health?.ollama === true ? aiUp : aiDown;
-  const transcription = transcriptionStates[health?.whisper ?? ''] ?? unreachable;
 
   return {
-    transcription: reachable ? transcription : unreachable,
     ai: reachable ? ai : unreachable,
     /** The local AI can be restarted: it is not green and not being installed */
     restartable: reachable && ai.tone !== 'success' && !installing,

@@ -16,16 +16,13 @@ import numpy as np
 
 from smart_meeting.audio.backend import OnAudio
 from smart_meeting.audio.threaded import ThreadedCapture
+from smart_meeting.messages import tr
 from smart_meeting.models import AudioDevice, AudioDevices, Source
 
 logger = logging.getLogger(__name__)
 
 SYSTEM_AUDIO = "system"
 SCK_RATE = 48000
-PERMISSION_HINT = (
-    "Autorisez « Enregistrement de l'écran et de l'audio système » pour votre terminal dans "
-    "Réglages Système > Confidentialité et sécurité, puis relancez Smart Meeting."
-)
 
 
 class MicCapture(ThreadedCapture):
@@ -72,7 +69,7 @@ class SystemAudioCapture(ThreadedCapture):
 
         content = _wait(SCK.SCShareableContent.getShareableContentWithCompletionHandler_)
         if not content.displays():
-            raise RuntimeError(PERMISSION_HINT)
+            raise RuntimeError(tr("macos_permission"))
         content_filter = SCK.SCContentFilter.alloc().initWithDisplay_excludingWindows_(
             content.displays()[0], []
         )
@@ -93,7 +90,7 @@ class SystemAudioCapture(ThreadedCapture):
             self._output, SCK.SCStreamOutputTypeAudio, None, None
         )
         if not (added[0] if isinstance(added, tuple) else added):
-            raise RuntimeError("Capture de l'audio système impossible")
+            raise RuntimeError(tr("system_audio_failed"))
         _wait(self._stream.startCaptureWithCompletionHandler_, has_result=False)
 
     def _close(self) -> None:
@@ -112,11 +109,11 @@ def _wait(method, has_result: bool = True, timeout: float = 10):
 
     method(handler)
     if not done.wait(timeout):
-        raise RuntimeError("ScreenCaptureKit ne répond pas. " + PERMISSION_HINT)
+        raise RuntimeError(f"{tr('macos_no_answer')} {tr('macos_permission')}")
     args = outcome["args"]
     error = args[-1]
     if error is not None:
-        raise RuntimeError(f"{error.localizedDescription()} {PERMISSION_HINT}")
+        raise RuntimeError(f"{error.localizedDescription()} {tr('macos_permission')}")
     return args[0] if has_result else None
 
 
@@ -161,7 +158,7 @@ class MacBackend:
             sinks=[
                 AudioDevice(
                     name=SYSTEM_AUDIO,
-                    description="Audio système (toutes les sorties)",
+                    description=tr("system_audio"),
                     is_default=True,
                 )
             ],

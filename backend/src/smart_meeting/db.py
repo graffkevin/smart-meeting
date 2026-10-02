@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
+from smart_meeting.messages import tr
 from smart_meeting.models import (
     AskAnswer,
     Meeting,
@@ -274,7 +275,7 @@ class Database:
                 " WHERE status IN (?, ?)",
                 (
                     MeetingStatus.ERROR,
-                    "Interrompue (redémarrage du serveur)",
+                    tr("interrupted"),
                     now_iso(),
                     MeetingStatus.RECORDING,
                     MeetingStatus.TRANSCRIBING,

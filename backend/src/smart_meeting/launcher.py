@@ -17,6 +17,8 @@ from pathlib import Path
 import httpx
 
 from smart_meeting.config import get_settings
+from smart_meeting.messages import tr
+from smart_meeting.preferences import PreferencesStore
 
 logger = logging.getLogger("smart_meeting.launcher")
 
@@ -65,13 +67,11 @@ def check_system() -> None:
     if sys.platform.startswith("linux"):
         missing = [tool for tool in ("pw-record", "pw-dump") if not shutil.which(tool)]
         if missing:
-            fail(
-                "PipeWire est requis (Ubuntu 22.10+). Installez-le : sudo apt install pipewire-bin"
-            )
+            fail(tr("pipewire_missing"))
     elif sys.platform == "darwin":
         version = tuple(int(x) for x in (platform.mac_ver()[0] or "0").split(".")[:1])
         if version < (13,):
-            fail("macOS 13 (Ventura) ou plus récent est requis pour capturer l'audio système.")
+            fail(tr("macos_too_old"))
 
 
 BUN_RELEASES = "https://github.com/oven-sh/bun/releases/latest/download"
@@ -98,7 +98,7 @@ def install_bun(target: Path) -> None:
     platform_name = "linux" if sys.platform.startswith("linux") else sys.platform
     variant = BUN_VARIANTS.get((platform_name, platform.machine().lower()))
     if variant is None:
-        fail(f"Bun n'est pas disponible pour {sys.platform} {platform.machine()}")
+        fail(tr("bun_unavailable", system=f"{sys.platform} {platform.machine()}"))
     url = f"{BUN_RELEASES}/bun-{variant}.zip"
     logger.info("Installing Bun from %s", url)
     archive = target.parent / "bun-download.zip"
@@ -115,10 +115,7 @@ def install_bun(target: Path) -> None:
             member = next(n for n in zipped.namelist() if n.rsplit("/", 1)[-1] == target.name)
             target.write_bytes(zipped.read(member))
     except (httpx.HTTPError, OSError, zipfile.BadZipFile, StopIteration) as exc:
-        fail(
-            f"Téléchargement de Bun impossible ({exc}). Derrière un proxy, vérifiez HTTPS_PROXY ;"
-            " sinon installez Bun à la main : https://bun.sh"
-        )
+        fail(tr("bun_download_failed", error=exc))
     finally:
         archive.unlink(missing_ok=True)
     target.chmod(0o755)
@@ -132,7 +129,7 @@ def ensure_bun() -> str:
             return candidate
     install_bun(local)
     if not _bun_works(str(local)):
-        fail(f"Bun a été installé dans {local} mais ne démarre pas sur cette machine.")
+        fail(tr("bun_not_starting", path=local))
     return str(local)
 
 
@@ -154,7 +151,7 @@ def build_frontend_if_needed(frontend: Path) -> None:
     logger.info("Building the interface…")
     for command in ([bun, "install", "--frozen-lockfile"], [bun, "run", "build"]):
         if subprocess.run(command, cwd=frontend, env=env).returncode != 0:
-            fail("Construction de l'interface impossible (voir les messages ci-dessus).")
+            fail(tr("build_failed"))
 
 
 def fail(message: str) -> None:
@@ -170,6 +167,8 @@ def run() -> None:
     parser.add_argument("--no-window", action="store_true", help="do not open the app window")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    # Messages in the language chosen in the interface (saved preferences)
+    PreferencesStore(get_settings())
 
     url = f"http://127.0.0.1:{args.port}/"
     owner = _port_owner(url)
@@ -179,10 +178,7 @@ def run() -> None:
             open_unless_already_open(url)
         return
     if owner == "other":
-        raise SystemExit(
-            f"Port {args.port} is used by another application. "
-            "Choose another one with --port or SM_PORT."
-        )
+        raise SystemExit(tr("port_taken", port=args.port))
 
     from smart_meeting.main import FRONTEND_DIST
 

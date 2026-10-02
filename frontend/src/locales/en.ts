@@ -31,11 +31,7 @@ const en: Translation = {
       'You can close this tab. If you keep it open, it will reload by itself the next time the app starts.',
   },
   models: {
-    transcription: 'Transcription',
     ai: 'AI',
-    transcriptionReady: 'Transcription model ready: {{detail}}',
-    transcriptionLoading: 'Transcription model loading',
-    transcriptionError: 'Transcription failing: {{detail}}',
     aiReady: 'Local AI ready: {{model}}',
     aiInstalling: 'Local AI being installed',
     aiMissing: 'The local AI answers, but the {{model}} model is missing',

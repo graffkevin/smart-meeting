@@ -29,11 +29,7 @@ const fr = {
       'Vous pouvez fermer cet onglet. Si vous le gardez ouvert, il se rechargera tout seul au prochain lancement.',
   },
   models: {
-    transcription: 'Transcription',
     ai: 'IA',
-    transcriptionReady: 'Modèle de transcription prêt : {{detail}}',
-    transcriptionLoading: 'Modèle de transcription en cours de chargement',
-    transcriptionError: 'Transcription en erreur : {{detail}}',
     aiReady: 'IA locale prête : {{model}}',
     aiInstalling: "Installation de l'IA locale en cours",
     aiMissing: "L'IA locale répond, mais le modèle {{model}} est absent",

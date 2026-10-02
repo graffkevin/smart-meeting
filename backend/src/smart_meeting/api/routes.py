@@ -20,6 +20,7 @@ from fastapi.responses import PlainTextResponse
 
 from smart_meeting.meeting.report import build_markdown
 from smart_meeting.meeting.service import ConflictError, MeetingService, default_title
+from smart_meeting.messages import tr
 from smart_meeting.models import (
     AskAnswer,
     AskRequest,
@@ -49,7 +50,7 @@ def service(request: Request) -> MeetingService:
 def get_meeting_or_404(svc: MeetingService, meeting_id: int) -> Meeting:
     meeting = svc.db.get_meeting(meeting_id)
     if not meeting:
-        raise HTTPException(404, "Réunion introuvable")
+        raise HTTPException(404, tr("meeting_not_found"))
     return meeting
 
 
@@ -113,7 +114,7 @@ async def audio_devices(request: Request) -> AudioDevices:
     try:
         return await service(request).audio.list_devices()
     except (OSError, RuntimeError) as exc:
-        raise HTTPException(503, f"Audio indisponible : {exc}") from exc
+        raise HTTPException(503, tr("audio_unavailable", error=exc)) from exc
 
 
 @router.get("/meetings")
@@ -217,7 +218,7 @@ async def ask_meeting(request: Request, meeting_id: int, body: AskRequest) -> As
         try:
             answer = await svc.ask(meeting_id, question)
         except (httpx.HTTPError, RuntimeError) as exc:
-            raise HTTPException(503, f"L'IA locale ne répond pas : {exc}") from exc
+            raise HTTPException(503, tr("ai_unreachable", error=exc)) from exc
     return svc.db.add_question(meeting_id, question, answer)
 
 

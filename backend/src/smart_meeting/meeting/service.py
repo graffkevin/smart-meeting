@@ -26,6 +26,7 @@ from smart_meeting.config import Settings
 from smart_meeting.db import Database, now_iso
 from smart_meeting.llm.analysis import OllamaClient, format_transcript
 from smart_meeting.meeting.events import EventHub
+from smart_meeting.messages import tr
 from smart_meeting.models import (
     AiEstimates,
     CapturedDevice,
@@ -240,9 +241,9 @@ class MeetingService:
 
     async def _start(self, request: StartMeetingRequest) -> Meeting:
         if self.active:
-            raise ConflictError("Une réunion est déjà en cours")
+            raise ConflictError(tr("meeting_in_progress"))
         if self.whisper_state == "error":
-            raise ConflictError(f"Whisper indisponible : {self.whisper_detail}")
+            raise ConflictError(tr("whisper_unavailable", detail=self.whisper_detail))
 
         targets: dict[Source, str | None] = {
             "mic": request.mic_device,
@@ -255,7 +256,7 @@ class MeetingService:
                     zip(("mic", "remote"), await self.audio.resolve_in_use(), strict=True)
                 )
             except (OSError, RuntimeError) as exc:
-                raise ConflictError(f"Audio indisponible : {exc}") from exc
+                raise ConflictError(tr("audio_unavailable", error=exc)) from exc
 
         meeting = self.db.create_meeting(
             request.title.strip() or default_title(language=self.settings.ui_language),
@@ -298,7 +299,7 @@ class MeetingService:
                 stream.error = str(exc) or type(exc).__name__
         if all(stream.error for stream in recording.streams.values()):
             errors = " ; ".join(f"{s.source} : {s.error}" for s in recording.streams.values())
-            exc = RuntimeError(f"Aucune source audio capturée ({errors})")
+            exc = RuntimeError(tr("no_audio_source", errors=errors))
             await self._abort(recording, exc)
             raise ConflictError(str(exc))
         recording.tasks = [
@@ -528,9 +529,9 @@ class MeetingService:
     async def stop(self, meeting_id: int) -> Meeting:
         recording = self.active
         if not recording or recording.meeting_id != meeting_id:
-            raise ConflictError("Cette réunion n'est pas en cours d'enregistrement")
+            raise ConflictError(tr("not_recording"))
         if recording.stopping:
-            raise ConflictError("Arrêt déjà en cours")
+            raise ConflictError(tr("already_stopping"))
         recording.stopping = True
         self._set_status(meeting_id, MeetingStatus.TRANSCRIBING, ended_at=now_iso())
         async with recording.device_lock:
@@ -570,11 +571,11 @@ class MeetingService:
         """Transcribe an audio/video file (decoded by PyAV), then analyze it like a meeting."""
         async with self._start_lock:
             if self.active:
-                raise ConflictError("Une réunion est en cours d'enregistrement")
+                raise ConflictError(tr("recording_in_progress"))
             if self._import_task:
-                raise ConflictError("Un import est déjà en cours")
+                raise ConflictError(tr("import_in_progress"))
             if self.whisper_state == "error":
-                raise ConflictError(f"Whisper indisponible : {self.whisper_detail}")
+                raise ConflictError(tr("whisper_unavailable", detail=self.whisper_detail))
             meeting = self.db.create_meeting(
                 title.strip() or Path(filename).stem,
                 None,
@@ -631,7 +632,7 @@ class MeetingService:
                     {"type": "progress", "done_s": received / sample_rate, "total_s": duration},
                 )
         if received == 0:
-            raise RuntimeError("Aucune piste audio lisible dans ce fichier")
+            raise RuntimeError(tr("no_readable_audio"))
         for utterance in segmenter.flush():
             await self._transcribe_utterance(
                 meeting_id, "remote", speaker, 0.0, utterance, language, previous_text
@@ -665,9 +666,7 @@ class MeetingService:
         if not meeting:
             return
         if not segments:
-            self._set_status(
-                meeting_id, MeetingStatus.TRANSCRIBED, error="Transcription vide : rien à analyser"
-            )
+            self._set_status(meeting_id, MeetingStatus.TRANSCRIBED, error=tr("empty_transcript"))
             return
         self._set_status(meeting_id, MeetingStatus.ANALYZING, error=None)
         try:
@@ -677,7 +676,7 @@ class MeetingService:
             logger.exception("Analysis failed for meeting %s", meeting_id)
             detail = str(exc) or type(exc).__name__
             self._set_status(
-                meeting_id, MeetingStatus.TRANSCRIBED, error=f"Analyse impossible : {detail}"
+                meeting_id, MeetingStatus.TRANSCRIBED, error=tr("analysis_failed", error=detail)
             )
             return
         self.db.save_analysis(meeting_id, analysis)
@@ -690,9 +689,7 @@ class MeetingService:
             raise KeyError(meeting_id)
         segments = self.db.list_segments(meeting_id)
         if not segments:
-            raise ConflictError(
-                "Rien n'a encore été transcrit : posez la question un peu plus tard."
-            )
+            raise ConflictError(tr("nothing_transcribed"))
         await self.provisioner.ensure_running()
         # One question at a time: the local AI shares the GPU with the live transcription.
         async with self._ask_lock:
@@ -703,14 +700,14 @@ class MeetingService:
         if not meeting:
             raise KeyError(meeting_id)
         if meeting.status not in (MeetingStatus.TRANSCRIBED, MeetingStatus.DONE):
-            raise ConflictError(f"Analyse impossible dans l'état « {meeting.status} »")
+            raise ConflictError(tr("analysis_not_possible", status=meeting.status))
         self._spawn(self.analyze(meeting_id))
 
     # Housekeeping
 
     def delete_audio(self, meeting_id: int) -> None:
         if self.active and self.active.meeting_id == meeting_id:
-            raise ConflictError("Réunion en cours")
+            raise ConflictError(tr("meeting_busy"))
         shutil.rmtree(self.audio_path(meeting_id), ignore_errors=True)
         self.db.update_meeting(meeting_id, keep_audio=False)
 

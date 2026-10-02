@@ -34,6 +34,7 @@ import zstandard
 from platformdirs import user_data_path
 
 from smart_meeting.config import Settings
+from smart_meeting.messages import tr
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +76,7 @@ def _download_url() -> str:
     if sys.platform == "darwin":
         return "https://ollama.com/download/ollama-darwin.tgz"  # universal binary
     if not arch:
-        raise RuntimeError(f"Architecture non prise en charge : {platform.machine()}")
+        raise RuntimeError(tr("unsupported_architecture", machine=platform.machine()))
     if sys.platform == "win32":
         return f"https://ollama.com/download/ollama-windows-{arch}.zip"
     return f"https://ollama.com/download/ollama-linux-{arch}.tar.zst"
@@ -164,13 +165,13 @@ class OllamaProvisioner:
         return next((c for c in candidates if c and Path(c).expanduser().is_file()), None)
 
     async def _install_binary(self) -> str:
-        step = self.steps.setdefault("ollama", SetupStep("Installation d'Ollama"))
+        step = self.steps.setdefault("ollama", SetupStep(tr("installing_ollama")))
         url = _download_url()
         archive = LOCAL_OLLAMA_DIR.with_name("ollama-download-" + url.rsplit("/", 1)[1])
         archive.parent.mkdir(parents=True, exist_ok=True)
         logger.info("Downloading Ollama from %s", url)
         await self._download(url, archive, step)
-        step.label, step.progress = "Installation d'Ollama (extraction)", None
+        step.label, step.progress = tr("extracting_ollama"), None
         partial = LOCAL_OLLAMA_DIR.with_name("ollama.partial")
         shutil.rmtree(partial, ignore_errors=True)
         await asyncio.to_thread(_extract, archive, partial)
@@ -179,7 +180,7 @@ class OllamaProvisioner:
         partial.rename(LOCAL_OLLAMA_DIR)
         binary = self._find_binary()
         if not binary:
-            raise RuntimeError(f"{BINARY_NAME} introuvable dans l'archive Ollama")
+            raise RuntimeError(tr("ollama_binary_missing", name=BINARY_NAME))
         if sys.platform != "win32":
             Path(binary).chmod(0o755)
         step.done = True
@@ -212,7 +213,7 @@ class OllamaProvisioner:
             if await self._reachable():
                 return
             await asyncio.sleep(0.2)
-        raise RuntimeError(f"Ollama ne démarre pas (voir {log})")
+        raise RuntimeError(tr("ollama_not_starting", log=log))
 
     async def _reachable(self) -> bool:
         return await self._models() is not None
@@ -235,7 +236,7 @@ class OllamaProvisioner:
         full_name = name if ":" in name else f"{name}:latest"
         if full_name in (await self._models() or []):
             return
-        step = self.steps.setdefault("model", SetupStep(f"Téléchargement du modèle IA {name}"))
+        step = self.steps.setdefault("model", SetupStep(tr("downloading_model", name=name)))
         if self._process:  # our Ollama: we own its model directory
             await self._download_model(name, step)
             if full_name not in (await self._models() or []):
@@ -247,7 +248,7 @@ class OllamaProvisioner:
         else:
             await self._pull_model(name, step)
         if full_name not in (await self._models() or []):
-            raise RuntimeError(f"Modèle {name} introuvable après téléchargement")
+            raise RuntimeError(tr("model_missing_after_download", name=name))
         step.done = True
 
     async def _pull_model(self, name: str, step: SetupStep) -> None:
@@ -352,7 +353,7 @@ class OllamaProvisioner:
                 await client.aclose()
         if sha256 and await asyncio.to_thread(_sha256, partial) != sha256:
             partial.unlink()
-            raise RuntimeError(f"Somme de contrôle invalide pour {path.name}")
+            raise RuntimeError(tr("bad_checksum", name=path.name))
         partial.rename(path)
 
 

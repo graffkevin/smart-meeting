@@ -10,6 +10,8 @@ from pathlib import Path
 import av
 import numpy as np
 
+from smart_meeting.messages import tr
+
 CHUNK_S = 1
 
 
@@ -49,7 +51,7 @@ async def decode_audio(path: Path, sample_rate: int) -> AsyncIterator[AsyncItera
         try:
             with av.open(str(path)) as container:
                 if not container.streams.audio:
-                    raise RuntimeError("Aucune piste audio dans ce fichier")
+                    raise RuntimeError(tr("no_audio_track"))
                 resampler = av.AudioResampler(format="s16", layout="mono", rate=sample_rate)
                 pending: list[np.ndarray] = []
                 pending_size = 0
@@ -68,7 +70,7 @@ async def decode_audio(path: Path, sample_rate: int) -> AsyncIterator[AsyncItera
                         return
             put(None)
         except av.FFmpegError as exc:
-            put(RuntimeError(f"Décodage impossible : {exc}"))
+            put(RuntimeError(tr("decoding_failed", error=exc)))
         except Exception as exc:
             put(exc)
 
