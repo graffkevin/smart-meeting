@@ -57,20 +57,50 @@ indique pourquoi ; l'import de fichiers fonctionne dans tous les cas.
 
 ## Utilisation
 
-Lancer `make run` (ou, sous Linux, **Smart Meeting** depuis le menu). L'interface s'ouvre sur http://127.0.0.1:8417. Le serveur local démarre, ainsi qu'Ollama s'il ne
-tourne pas déjà, et l'application s'ouvre dans une fenêtre.
+### Lancer
+
+| Comment | Commande |
+|---|---|
+| **Menu des applications** (Linux) | touche Super, taper « Smart Meeting » (après `make desktop` ; épinglable dans le dock) |
+| **Terminal** (tous systèmes) | `make run` dans le dossier du projet (ou `./smart-meeting` sous Linux et macOS) |
+| **Navigateur**, si déjà lancée | http://127.0.0.1:8417 |
+
+Le serveur local démarre, ainsi qu'Ollama s'il ne tourne pas déjà, et l'interface s'ouvre dans le navigateur.
+L'application est cette page web locale, servie par votre machine : rien ne passe par Internet.
+
+### Arrêter
+
+Bouton **Quitter** en haut à droite de l'interface (arrête tout, Ollama compris ; une réunion en cours est d'abord
+stoppée et sa transcription terminée), ou `Ctrl+C` dans le terminal si elle a été lancée depuis un terminal. Fermer
+l'onglet ne l'arrête pas.
+
+### Enregistrer une réunion
 
 1. Titre (facultatif), puis **Démarrer l'enregistrement**. Par défaut, les périphériques sont en mode automatique :
    le micro et la sortie réellement utilisés par vos applications sont suivis, même si l'appel démarre après.
 2. La transcription s'affiche en direct, avec la durée et un vumètre par source.
 3. **Stop** : la transcription se termine, puis l'analyse IA démarre.
 4. **Copier le compte rendu (Markdown)**.
-5. **Quitter** (en haut à droite) arrête tout, Ollama compris. Une réunion en cours est d'abord stoppée et sa
-   transcription terminée. Depuis un terminal, `Ctrl+C` fait la même chose.
 
-**Importer une vidéo ou un audio** (replay, webinaire, mp4/mkv/webm/mp3/wav…) : même chaîne, plus rapide que le temps
-réel (≈ 6× sur GPU), horodatage en position dans le fichier. Le fichier envoyé est supprimé dès qu'il est décodé.
+### Importer une vidéo ou un audio
+
+Bloc « Importer une vidéo ou un audio » de l'accueil (replay, webinaire, mp4/mkv/webm/mp3/wav…) : même chaîne,
+plus rapide que le temps réel (≈ 6× sur GPU), horodatage en position dans le fichier. Le fichier envoyé est supprimé dès qu'il est décodé.
 Une vidéo jouée dans le casque pendant un enregistrement fonctionne aussi.
+
+### Historique
+
+Les réunions sont conservées uniquement sur la machine, dans une base SQLite (jamais dans le dépôt) :
+
+| Système | Dossier |
+|---|---|
+| Linux | `~/.local/share/smart-meeting/` |
+| macOS | `~/Library/Application Support/smart-meeting/` |
+| Windows | `%LOCALAPPDATA%\smart-meeting\` |
+
+Il contient `smart-meeting.db` (réunions, transcriptions, résumés, décisions, actions), `audio/<id>/` si l'audio
+brut a été conservé, et `ollama.log`. Pour sauvegarder l'historique, copier le `.db` application arrêtée ; pour le
+déplacer, `SM_DATA_DIR=/chemin` dans `config.env`.
 
 ## Configuration
 
