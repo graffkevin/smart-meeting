@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import shutil
+import time
 import uuid
 from pathlib import Path
 
@@ -31,6 +32,9 @@ from smart_meeting.models import (
 
 router = APIRouter(prefix="/api")
 
+# Open pages poll /health every 2 s.
+UI_PRESENCE_S = 5
+
 
 def service(request: Request) -> MeetingService:
     return request.app.state.service
@@ -52,8 +56,11 @@ def conflict_as_409():
 
 
 @router.get("/health")
-async def health(request: Request) -> Health:
+async def health(request: Request, ui: bool = False) -> Health:
+    """`ui=1` is sent by open pages: the launcher reuses them instead of opening a new one."""
     svc = service(request)
+    if ui:
+        svc.ui_last_seen = time.monotonic()
     models = await svc.ollama.available_models()
     wanted = svc.settings.ollama_model
     return Health(
@@ -64,6 +71,7 @@ async def health(request: Request) -> Health:
         ollama_model_available=bool(models)
         and any(m == wanted or m == f"{wanted}:latest" for m in models),
         active_meeting_id=svc.active.meeting_id if svc.active else None,
+        ui_open=time.monotonic() - svc.ui_last_seen < UI_PRESENCE_S,
         setup=[
             SetupStepInfo(**vars(step)) for step in svc.provisioner.steps.values() if not step.done
         ],

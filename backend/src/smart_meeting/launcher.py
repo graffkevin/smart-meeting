@@ -19,7 +19,12 @@ from smart_meeting.config import get_settings
 
 logger = logging.getLogger("smart_meeting.launcher")
 
-APP_MODE_BROWSERS = ["google-chrome", "chromium", "chromium-browser", "microsoft-edge"]
+
+def _health(url: str) -> dict | None:
+    try:
+        return httpx.get(f"{url}api/health", timeout=1, trust_env=False).json()
+    except (httpx.HTTPError, ValueError):
+        return None
 
 
 def _port_owner(url: str) -> str | None:
@@ -36,19 +41,22 @@ def _port_owner(url: str) -> str | None:
 
 
 def open_window(url: str) -> None:
-    """A dedicated app window when a Chromium-based browser exists, else a browser tab."""
-    for browser in APP_MODE_BROWSERS:
-        if path := shutil.which(browser):
-            subprocess.Popen(
-                [path, f"--app={url}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-            )
+    """Open the app as a new tab of the user's default browser (in its existing window)."""
+    webbrowser.open_new_tab(url)
+
+
+def open_unless_already_open(url: str, wait_s: float = 0) -> None:
+    """Reuse an open page: pages poll the server every 2 s (and reload themselves when it comes
+    back after a restart), so only open a tab when none shows up within `wait_s`."""
+    deadline = time.monotonic() + wait_s
+    while True:
+        if (_health(url) or {}).get("ui_open"):
+            logger.info("Smart Meeting is already open in the browser")
             return
-    if path := shutil.which("firefox"):
-        subprocess.Popen(
-            [path, "--new-window", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
-        return
-    webbrowser.open_new(url)
+        if time.monotonic() >= deadline:
+            open_window(url)
+            return
+        time.sleep(0.5)
 
 
 def check_system() -> None:
@@ -104,9 +112,9 @@ def run() -> None:
     url = f"http://127.0.0.1:{args.port}/"
     owner = _port_owner(url)
     if owner == "smart-meeting":
-        logger.info("Already running: opening %s", url)
+        logger.info("Already running at %s", url)
         if not args.no_window:
-            open_window(url)
+            open_unless_already_open(url)
         return
     if owner == "other":
         raise SystemExit(
@@ -122,7 +130,8 @@ def run() -> None:
     def open_when_ready() -> None:
         for _ in range(100):
             if _port_owner(url) == "smart-meeting":
-                open_window(url)
+                # Leave time for a page left open from a previous run to reconnect.
+                open_unless_already_open(url, wait_s=5)
                 return
             time.sleep(0.2)
 

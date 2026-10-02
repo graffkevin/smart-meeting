@@ -129,5 +129,6 @@ class Health(BaseModel):
     ollama_model: str
     ollama_model_available: bool
     active_meeting_id: int | None
+    ui_open: bool = False  # a browser page is currently open on the app
     # First-run installs and downloads still running or failed (Ollama, model).
     setup: list[SetupStepInfo] = []

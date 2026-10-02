@@ -63,3 +63,9 @@ def test_history_search_report_and_delete(client):
 def test_cannot_stop_a_meeting_that_is_not_recording(client):
     meeting_id = add_transcribed_meeting(client)
     assert client.post(f"/api/meetings/{meeting_id}/stop").status_code == 409
+
+
+def test_health_reports_open_pages(client):
+    assert client.get("/api/health").json()["ui_open"] is False
+    client.get("/api/health", params={"ui": 1})
+    assert client.get("/api/health").json()["ui_open"] is True

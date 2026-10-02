@@ -65,7 +65,9 @@ indique pourquoi ; l'import de fichiers fonctionne dans tous les cas.
 | **Terminal** (tous systèmes) | `make run` dans le dossier du projet (ou `./smart-meeting` sous Linux et macOS) |
 | **Navigateur**, si déjà lancée | http://127.0.0.1:8417 |
 
-Le serveur local démarre, ainsi qu'Ollama s'il ne tourne pas déjà, et l'interface s'ouvre dans le navigateur.
+Le serveur local démarre, ainsi qu'Ollama s'il ne tourne pas déjà, et l'interface s'ouvre dans un onglet du
+navigateur par défaut. Si une page Smart Meeting est déjà ouverte, elle est réutilisée : aucun onglet n'est ajouté,
+et une page restée ouverte après un arrêt se recharge d'elle-même au lancement suivant.
 L'application est cette page web locale, servie par votre machine : rien ne passe par Internet.
 
 ### Arrêter

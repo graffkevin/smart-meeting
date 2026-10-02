@@ -13,6 +13,24 @@ export function App() {
   const [meetingId, setMeetingId] = useState(currentMeetingId);
   const [quitState, setQuitState] = useState<"running" | "quitting" | "stopped">("running");
 
+  // Presence: tells the launcher a page is open (it then opens none). When the server comes
+  // back after a stop or restart, reload so this page is reused instead of a new one.
+  useEffect(() => {
+    let lost = false;
+    const ping = () =>
+      fetch("/api/health?ui=1")
+        .then((response) => {
+          if (!response.ok) throw new Error(String(response.status));
+          if (lost) location.reload();
+        })
+        .catch(() => {
+          lost = true;
+        });
+    ping();
+    const timer = setInterval(ping, 2000);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     const onChange = () => setMeetingId(currentMeetingId());
     addEventListener("hashchange", onChange);
@@ -44,7 +62,10 @@ export function App() {
           {quitState === "quitting" ? (
             <p>Arrêt en cours… (fin de la transcription si une réunion était en cours)</p>
           ) : (
-            <p>Smart Meeting est arrêté. Vous pouvez fermer cet onglet.</p>
+            <p>
+              Smart Meeting est arrêté. Vous pouvez fermer cet onglet, ou le garder : il se
+              rechargera tout seul au prochain lancement.
+            </p>
           )}
         </section>
       </main>

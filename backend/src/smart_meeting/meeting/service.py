@@ -97,6 +97,7 @@ class MeetingService:
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="whisper")
         self._background: set[asyncio.Task[None]] = set()
         self._start_lock = asyncio.Lock()
+        self.ui_last_seen = 0.0  # monotonic time of the last poll from an open page
         self._import_task: asyncio.Task[None] | None = None
         self._import_meeting_id: int | None = None
 
