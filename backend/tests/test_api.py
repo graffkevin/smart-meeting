@@ -19,7 +19,9 @@ def client(tmp_path):
     settings = Settings(data_dir=tmp_path, ollama_url="http://127.0.0.1:9")
     app = FastAPI()
     app.include_router(router)
-    app.state.service = MeetingService(settings, Database(settings.db_path), EventHub())
+    service = MeetingService(settings, Database(settings.db_path), EventHub())
+    service.provisioner._find_binary = lambda: None  # no Ollama to start in tests
+    app.state.service = service
     app.state.stop_when_unused = None
     with TestClient(app) as test_client:
         yield test_client

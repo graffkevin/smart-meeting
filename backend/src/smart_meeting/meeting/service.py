@@ -120,7 +120,11 @@ class MeetingService:
         """Load Whisper and provision Ollama in the background: the UI is usable meanwhile
         and shows their progress."""
         self._spawn(self._load_whisper())
-        self._spawn(self.provisioner.run())
+        self._spawn(self._provision())
+
+    async def _provision(self) -> None:
+        await self.provisioner.run()
+        await self.provisioner.watch()
 
     async def _load_whisper(self) -> None:
         try:
@@ -614,6 +618,7 @@ class MeetingService:
             return
         self._set_status(meeting_id, MeetingStatus.ANALYZING, error=None)
         try:
+            await self.provisioner.ensure_running()
             analysis = await self.ollama.analyze(meeting.title, segments)
         except Exception as exc:
             logger.exception("Analysis failed for meeting %s", meeting_id)

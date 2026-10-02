@@ -46,3 +46,26 @@ def test_download_url_per_platform(monkeypatch, platform_name, machine, expected
     monkeypatch.setattr(provision.sys, "platform", platform_name)
     monkeypatch.setattr(provision.platform, "machine", lambda: machine)
     assert provision._download_url().endswith(expected)
+
+
+def test_ensure_running_restarts_a_stopped_ollama(tmp_path, monkeypatch):
+    import asyncio
+
+    from smart_meeting.config import Settings
+
+    started = []
+    provisioner = provision.OllamaProvisioner(Settings(data_dir=tmp_path))
+    answers = iter([False])
+
+    async def reachable():
+        return next(answers, True)
+
+    async def start(binary):
+        started.append(binary)
+
+    monkeypatch.setattr(provisioner, "_reachable", reachable)
+    monkeypatch.setattr(provisioner, "_find_binary", lambda: "/opt/ollama")
+    monkeypatch.setattr(provisioner, "_start", start)
+    asyncio.run(provisioner.ensure_running())  # stopped: restarted
+    asyncio.run(provisioner.ensure_running())  # answering: left alone
+    assert started == ["/opt/ollama"]

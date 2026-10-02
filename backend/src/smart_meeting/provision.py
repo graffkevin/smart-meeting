@@ -51,6 +51,8 @@ KNOWN_INSTALLS = [
     Path(os.environ.get("LOCALAPPDATA", "~")) / "Programs" / "Ollama" / "ollama.exe",
 ]
 CHUNK = 1024 * 1024
+# How often the watchdog checks that Ollama still answers (it may belong to another process).
+WATCHDOG_S = 10
 
 
 @dataclass
@@ -124,6 +126,27 @@ class OllamaProvisioner:
     def busy(self) -> bool:
         return any(not step.done and not step.error for step in self.steps.values())
 
+    async def watch(self) -> None:
+        """Keep Ollama running: the one in use may stop (another app, a crash), restart it."""
+        while True:
+            await asyncio.sleep(WATCHDOG_S)
+            if not self.busy:
+                await self.ensure_running()
+
+    async def ensure_running(self) -> None:
+        """Start Ollama if it does not answer (installed already: no download here)."""
+        if await self._reachable():
+            return
+        binary = self._find_binary()
+        if binary is None:
+            return
+        logger.warning("Ollama stopped answering: restarting it")
+        await self.stop()
+        try:
+            await self._start(binary)
+        except RuntimeError:
+            logger.exception("Could not restart Ollama")
+
     async def stop(self) -> None:
         if self._process and self._process.poll() is None:
             self._process.terminate()
@@ -169,7 +192,12 @@ class OllamaProvisioner:
         log.parent.mkdir(parents=True, exist_ok=True)
         logger.info("Starting %s serve (log: %s)", binary, log)
         url = urlparse(self.settings.ollama_url)
-        env = {**os.environ, "OLLAMA_HOST": f"{url.hostname}:{url.port or 11434}"}
+        env = {
+            **os.environ,
+            "OLLAMA_HOST": f"{url.hostname}:{url.port or 11434}",
+            # Local only: no remote inference nor web search, whatever the models.
+            "OLLAMA_NO_CLOUD": "1",
+        }
         # Plain Popen: asyncio subprocesses depend on the event loop type on Windows.
         with log.open("ab") as output:
             self._process = subprocess.Popen(
