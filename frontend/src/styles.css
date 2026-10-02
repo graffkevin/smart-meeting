@@ -42,6 +42,8 @@ body {
 }
 
 main { max-width: 960px; margin: 0 auto; padding: 16px; }
+.app-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.app-header span { font-weight: 700; font-size: 1.1rem; }
 .app-header a { color: var(--text); font-weight: 700; font-size: 1.1rem; text-decoration: none; }
 h1 { margin: 0; font-size: 1.5rem; cursor: text; }
 h2 { font-size: 1.1rem; margin: 1.2em 0 0.4em; }

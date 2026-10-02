@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { api } from "./api";
 import { HomePage } from "./HomePage";
 import { MeetingPage } from "./MeetingPage";
 
@@ -10,6 +11,7 @@ function currentMeetingId(): number | null {
 
 export function App() {
   const [meetingId, setMeetingId] = useState(currentMeetingId);
+  const [quitState, setQuitState] = useState<"running" | "quitting" | "stopped">("running");
 
   useEffect(() => {
     const onChange = () => setMeetingId(currentMeetingId());
@@ -17,10 +19,45 @@ export function App() {
     return () => removeEventListener("hashchange", onChange);
   }, []);
 
+  async function quit() {
+    const health = await api.health().catch(() => null);
+    const warning = health?.active_meeting_id
+      ? "Une réunion est en cours : elle sera arrêtée et sa transcription terminée " +
+        "(l'analyse IA pourra être relancée plus tard).\n\n"
+      : "";
+    if (!confirm(`${warning}Quitter Smart Meeting ?`)) return;
+    setQuitState("quitting");
+    try {
+      await api.shutdown();
+    } finally {
+      setQuitState("stopped");
+    }
+  }
+
+  if (quitState !== "running") {
+    return (
+      <main>
+        <header className="app-header">
+          <span>Smart Meeting</span>
+        </header>
+        <section className="card">
+          {quitState === "quitting" ? (
+            <p>Arrêt en cours… (fin de la transcription si une réunion était en cours)</p>
+          ) : (
+            <p>Smart Meeting est arrêté. Vous pouvez fermer cet onglet.</p>
+          )}
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main>
       <header className="app-header">
         <a href="#/">Smart Meeting</a>
+        <button onClick={quit} title="Arrêter Smart Meeting (serveur et Ollama)">
+          Quitter
+        </button>
       </header>
       {meetingId === null ? (
         <HomePage onOpen={(id) => (location.hash = `#/meetings/${id}`)} />

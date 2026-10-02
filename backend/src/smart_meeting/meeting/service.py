@@ -108,6 +108,14 @@ class MeetingService:
         self._whisper_ready.set()
         logger.info("Whisper ready: %s", self.whisper_detail)
 
+    async def quit(self) -> None:
+        """Prepare a user-requested exit: stop the recording and let its transcription finish,
+        so nothing said is lost. A pending analysis is interrupted and can be rerun later."""
+        if self.active and not self.active.stopping:
+            await self.stop(self.active.meeting_id)
+        while self.active:
+            await asyncio.sleep(0.2)
+
     async def shutdown(self) -> None:
         if self.active and not self.active.stopping:
             await self.stop(self.active.meeting_id)

@@ -1,11 +1,14 @@
 import asyncio
 import contextlib
+import os
 import shutil
+import signal
 import uuid
 from pathlib import Path
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Form,
     HTTPException,
     Request,
@@ -64,6 +67,15 @@ async def health(request: Request) -> Health:
         and any(m == wanted or m == f"{wanted}:latest" for m in models),
         active_meeting_id=svc.active.meeting_id if svc.active else None,
     )
+
+
+@router.post("/shutdown", status_code=202)
+async def shutdown(request: Request, background: BackgroundTasks) -> None:
+    """Quit button: finish the current recording's transcription, then stop the server
+    (the launcher then stops the Ollama it started)."""
+    await service(request).quit()
+    # After the response is sent: same graceful path as Ctrl+C.
+    background.add_task(os.kill, os.getpid(), signal.SIGINT)
 
 
 @router.get("/audio/devices")

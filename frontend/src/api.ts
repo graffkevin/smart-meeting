@@ -118,6 +118,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => request<Health>("/health"),
+  shutdown: () => request<void>("/shutdown", { method: "POST" }),
   devices: () => request<AudioDevices>("/audio/devices"),
   meetings: (query = "") =>
     request<MeetingListItem[]>(`/meetings?q=${encodeURIComponent(query)}`),

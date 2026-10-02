@@ -35,6 +35,8 @@ tourne pas déjà, et l'application s'ouvre dans une fenêtre.
 2. La transcription s'affiche en direct, avec la durée et un vumètre par source.
 3. **Stop** : la transcription se termine, puis l'analyse IA démarre.
 4. **Copier le compte rendu (Markdown)**.
+5. **Quitter** (en haut à droite) arrête tout, Ollama compris. Une réunion en cours est d'abord stoppée et sa
+   transcription terminée. Depuis un terminal, `Ctrl+C` fait la même chose.
 
 **Importer une vidéo ou un audio** (replay, webinaire, mp4/mkv/webm/mp3/wav…) : même chaîne, plus rapide que le temps
 réel (≈ 6× sur GPU), horodatage en position dans le fichier. Le fichier envoyé est supprimé dès qu'il est décodé.
