@@ -11,6 +11,7 @@ import sys
 import threading
 import time
 import webbrowser
+import zipfile
 from pathlib import Path
 
 import httpx
@@ -73,22 +74,65 @@ def check_system() -> None:
             fail("macOS 13 (Ventura) ou plus récent est requis pour capturer l'audio système.")
 
 
-BUN_INSTALLERS = {
-    "win32": ["powershell", "-NoProfile", "-c", "irm bun.sh/install.ps1 | iex"],
-    "default": ["bash", "-c", "curl -fsSL https://bun.sh/install | bash"],
+BUN_RELEASES = "https://github.com/oven-sh/bun/releases/latest/download"
+# "baseline" builds run on every x86-64 CPU (the others need AVX2: "Illegal instruction").
+BUN_VARIANTS = {
+    ("linux", "x86_64"): "linux-x64-baseline",
+    ("linux", "aarch64"): "linux-aarch64",
+    ("darwin", "arm64"): "darwin-aarch64",
+    ("darwin", "x86_64"): "darwin-x64-baseline",
+    ("win32", "amd64"): "windows-x64-baseline",
 }
 
 
+def _bun_works(path: str) -> bool:
+    try:
+        return subprocess.run([path, "--version"], capture_output=True, timeout=30).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def install_bun(target: Path) -> None:
+    """Download the official Bun build for this machine and unzip it in Python: no curl, no
+    unzip, no AVX2 needed, and the download goes through the proxy of the environment."""
+    platform_name = "linux" if sys.platform.startswith("linux") else sys.platform
+    variant = BUN_VARIANTS.get((platform_name, platform.machine().lower()))
+    if variant is None:
+        fail(f"Bun n'est pas disponible pour {sys.platform} {platform.machine()}")
+    url = f"{BUN_RELEASES}/bun-{variant}.zip"
+    logger.info("Installing Bun from %s", url)
+    archive = target.parent / "bun-download.zip"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with (
+            httpx.stream("GET", url, follow_redirects=True, timeout=120) as response,
+            archive.open("wb") as out,
+        ):
+            response.raise_for_status()
+            for chunk in response.iter_bytes():
+                out.write(chunk)
+        with zipfile.ZipFile(archive) as zipped:
+            member = next(n for n in zipped.namelist() if n.rsplit("/", 1)[-1] == target.name)
+            target.write_bytes(zipped.read(member))
+    except (httpx.HTTPError, OSError, zipfile.BadZipFile, StopIteration) as exc:
+        fail(
+            f"Téléchargement de Bun impossible ({exc}). Derrière un proxy, vérifiez HTTPS_PROXY ;"
+            " sinon installez Bun à la main : https://bun.sh"
+        )
+    finally:
+        archive.unlink(missing_ok=True)
+    target.chmod(0o755)
+
+
 def ensure_bun() -> str:
-    """Bun builds the interface; installed for the user (no admin rights) when missing."""
+    """Bun builds the interface; installed for the user (no admin rights) when missing or broken."""
     local = Path.home() / ".bun" / "bin" / ("bun.exe" if sys.platform == "win32" else "bun")
-    found = shutil.which("bun") or (str(local) if local.exists() else None)
-    if found:
-        return found
-    logger.info("Installing Bun…")
-    installer = BUN_INSTALLERS.get(sys.platform, BUN_INSTALLERS["default"])
-    if subprocess.run(installer).returncode != 0 or not local.exists():
-        fail("Installation de Bun impossible : voir https://bun.sh")
+    for candidate in (shutil.which("bun"), str(local) if local.exists() else None):
+        if candidate and _bun_works(candidate):
+            return candidate
+    install_bun(local)
+    if not _bun_works(str(local)):
+        fail(f"Bun a été installé dans {local} mais ne démarre pas sur cette machine.")
     return str(local)
 
 
