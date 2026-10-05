@@ -1,4 +1,4 @@
-import { Badge, Box, Button, Stack, Tooltip } from '@ign-junn/design-system';
+import { Badge, Button, Stack, Tooltip } from '@ign-junn/design-system';
 import { IconRefresh } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import type { AiStatusProps } from '@/types/components';
@@ -9,13 +9,10 @@ const AiStatus = ({ ai, model, restartable, restarting, onRestart }: AiStatusPro
 
   return (
     <Stack direction="row" gap="xxs" align="center">
-      {/* Box: the badge does not take the ref the tooltip needs */}
       <Tooltip label={ai.hint}>
-        <Box component="span" display="inline-flex">
-          <Badge tone={ai.tone} variant="dot" size="sm">
-            {model === '' ? t('models.ai') : t('models.aiWithModel', { model })}
-          </Badge>
-        </Box>
+        <Badge tone={ai.tone} variant="dot" size="sm">
+          {model === '' ? t('models.ai') : t('models.aiWithModel', { model })}
+        </Badge>
       </Tooltip>
       {restartable && (
         <Button

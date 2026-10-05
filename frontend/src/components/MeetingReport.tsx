@@ -1,6 +1,5 @@
 import {
   Badge,
-  Box,
   Card,
   DataTable,
   Grid,
@@ -28,9 +27,7 @@ const MeetingReport = ({ analysis }: MeetingReportProps) => {
           <Typography variant="body2">{action.task}</Typography>
           {action.verified === false && (
             <Tooltip label={t('report.unverified')}>
-              <Box component="span" display="inline-flex">
-                <StatusIcon icon={IconAlertTriangle} tone="warning" size="sm" label={t('report.unverified')} />
-              </Box>
+              <StatusIcon icon={IconAlertTriangle} tone="warning" size="sm" label={t('report.unverified')} />
             </Tooltip>
           )}
         </Stack>

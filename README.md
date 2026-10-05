@@ -121,8 +121,8 @@ kept, and `ollama.log`. To back up the history, copy the `.db` while the app is 
 
 The **⚙ settings** button of the header sets, without restarting: your name (your sentences, and "I" for the AI),
 a vocabulary of names and acronyms that helps the transcription, the default language, the microphone, the headset,
-and whether the raw audio is kept. The **Transcription** and **IA** dots of the header tell whether the models run
-(green, orange, red), with a button to restart the local AI when it is not green.
+and whether the raw audio is kept. The **AI - model** dot of the header tells whether the local AI runs (green,
+orange, red), with a button to restart it when it is not green.
 
 Advanced settings: `SM_*` variables in `config.env` of the configuration folder (Linux: `~/.config/smart-meeting/`,
 macOS: `~/Library/Application Support/smart-meeting/`, Windows: `%LOCALAPPDATA%\smart-meeting\`), or `backend/.env`
