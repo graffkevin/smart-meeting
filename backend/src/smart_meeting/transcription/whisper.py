@@ -16,6 +16,10 @@ from smart_meeting.transcription.language import LanguageTracker
 
 logger = logging.getLogger(__name__)
 
+# Decoding temperatures. faster-whisper retries uncertain passages up to 1.0 by default: sampled
+# text then often holds plausible but non-existent words. One low retry only.
+TEMPERATURES = (0.0, 0.2)
+
 # Phrases Whisper is known to produce on silence or noise (learnt from subtitled videos).
 HALLUCINATIONS = [
     "sous-titres realises par la communaute d'amara.org",
@@ -134,12 +138,13 @@ class WhisperTranscriber:
         if tracker.automatic:
             detected, probability, _ = self._model.detect_language(audio)
             language = tracker.observe(detected, probability, len(audio) / 16000)
-        prompt = " ".join(p for p in (self.settings.whisper_glossary, previous_text[-200:]) if p)
+        prompt = self._prompt(previous_text)
         segments, _ = self._model.transcribe(
             audio,
             language=language,
             beam_size=self.settings.whisper_beam_size,
             initial_prompt=prompt or None,
+            temperature=TEMPERATURES,
             # Utterances are already cut by our own VAD and are shorter than 30 s.
             vad_filter=False,
             condition_on_previous_text=False,
@@ -177,6 +182,7 @@ class WhisperTranscriber:
                     beam_size=self.settings.whisper_beam_size,
                     batch_size=self.batch_size,
                     initial_prompt=self.settings.whisper_glossary or None,
+                    temperature=TEMPERATURES,
                     without_timestamps=False,
                 )
                 for s in segments:
@@ -195,16 +201,23 @@ class WhisperTranscriber:
                 self.batch_size //= 2
                 logger.warning("Out of GPU memory: batches of %s passages", self.batch_size)
 
+    def _prompt(self, previous_text: str) -> str:
+        """Vocabulary of the user, and the previous sentence only when enabled: an error in it tends
+        to spread to the next sentences."""
+        context = previous_text[-200:] if self.settings.whisper_previous_context else ""
+        return " ".join(p for p in (self.settings.whisper_glossary, context) if p)
+
     def transcribe_partial(self, audio: np.ndarray, language: str, previous_text: str = "") -> str:
         """Fast provisional text of an utterance still being spoken: small model, greedy decoding,
         no language detection. Only shown live, replaced by the final transcription."""
         if self._partial_model is None:
             return ""
-        prompt = " ".join(p for p in (self.settings.whisper_glossary, previous_text[-200:]) if p)
+        prompt = self._prompt(previous_text)
         segments, _ = self._partial_model.transcribe(
             audio,
             language=language,
             beam_size=1,
+            temperature=0.0,
             initial_prompt=prompt or None,
             vad_filter=False,
             condition_on_previous_text=False,

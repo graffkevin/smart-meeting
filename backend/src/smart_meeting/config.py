@@ -59,6 +59,8 @@ class Settings(BaseSettings):
     whisper_beam_size: int = 5
     # Domain vocabulary fed to Whisper as prompt, helps with technical/English terms.
     whisper_glossary: str = ""
+    # Also give Whisper the previous sentence: better continuity, but its errors spread.
+    whisper_previous_context: bool = False
 
     # Ollama
     ollama_url: str = "http://127.0.0.1:11434"
