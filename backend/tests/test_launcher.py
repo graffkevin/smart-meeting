@@ -22,3 +22,30 @@ def test_waits_for_a_page_reconnecting_after_restart(monkeypatch):
 
 def test_opens_a_tab_when_no_page_is_open(monkeypatch):
     assert run_launcher(monkeypatch, [{"ui_open": False}], wait_s=0) == ["http://x/"]
+
+
+def test_a_second_server_cannot_bind_the_port():
+    first = launcher.bind_port(0)
+    port = first.getsockname()[1]
+    first.listen()
+    try:
+        assert launcher.bind_port(port) is None
+    finally:
+        first.close()
+
+
+def test_replaces_a_frozen_server(monkeypatch, tmp_path):
+    from smart_meeting.config import Settings
+
+    monkeypatch.setattr(launcher, "get_settings", lambda: Settings(data_dir=tmp_path))
+    launcher.pid_path(tmp_path).write_text("4242")
+    killed = []
+    binds = iter([None, "socket"])  # port held until the frozen server is killed
+    monkeypatch.setattr(launcher, "_port_owner", lambda url: None)
+    monkeypatch.setattr(launcher, "bind_port", lambda port: next(binds, "socket"))
+    monkeypatch.setattr(launcher, "STALL_S", -5)  # no waiting
+    monkeypatch.setattr(launcher, "_is_our_server", lambda pid: True)
+    monkeypatch.setattr(launcher.os, "kill", lambda pid, sig: killed.append(pid))
+    assert launcher.replace_frozen_server("http://x/", 1) == "socket"
+    assert killed == [4242]
+    assert not launcher.pid_path(tmp_path).exists()

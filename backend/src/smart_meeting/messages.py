@@ -154,6 +154,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fr": "Construction de l'interface impossible (voir les messages ci-dessus).",
         "en": "Cannot build the interface (see the messages above).",
     },
+    "port_unresponsive": {
+        "fr": "Le port {port} est occupé mais rien n'y répond. Fermez l'application qui l'utilise,"
+        " ou choisissez un autre port avec --port ou SM_PORT.",
+        "en": "Port {port} is taken but nothing answers on it. Close the application using it, or"
+        " choose another port with --port or SM_PORT.",
+    },
     "port_taken": {
         "fr": "Le port {port} est utilisé par une autre application. Choisissez-en un autre avec"
         " --port ou SM_PORT.",

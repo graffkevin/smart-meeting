@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import signal
@@ -10,6 +11,7 @@ os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
 from fastapi import FastAPI  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
+from smart_meeting import watchdog  # noqa: E402
 from smart_meeting.api.routes import router  # noqa: E402
 from smart_meeting.config import get_settings  # noqa: E402
 from smart_meeting.db import Database  # noqa: E402
@@ -24,6 +26,10 @@ FRONTEND_DIST = Path(__file__).resolve().parents[3] / "frontend" / "dist"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
+    watchdog.start(asyncio.get_running_loop(), settings.data_dir)
+    # Lets the launcher replace this server if it ever freezes.
+    pid_file = watchdog.pid_path(settings.data_dir)
+    pid_file.write_text(str(os.getpid()))
     db = Database(settings.db_path)
     db.fail_interrupted_meetings()
     service = MeetingService(settings, db, EventHub())
@@ -31,6 +37,7 @@ async def lifespan(app: FastAPI):
     service.startup()
     yield
     await service.shutdown()
+    pid_file.unlink(missing_ok=True)
 
 
 # FastAPI's built-in OpenTelemetry instrumentation is fully disabled: nothing about meetings

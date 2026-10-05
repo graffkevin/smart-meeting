@@ -6,6 +6,8 @@ import logging
 import os
 import platform
 import shutil
+import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -19,6 +21,7 @@ import httpx
 from smart_meeting.config import get_settings
 from smart_meeting.messages import tr
 from smart_meeting.preferences import PreferencesStore
+from smart_meeting.watchdog import STALL_S, pid_path, traces_path
 
 logger = logging.getLogger("smart_meeting.launcher")
 
@@ -41,6 +44,64 @@ def _port_owner(url: str) -> str | None:
     except ValueError:
         is_ours = False
     return "smart-meeting" if is_ours else "other"
+
+
+def bind_port(port: int) -> socket.socket | None:
+    """The server's socket, bound before anything else starts: a second launch never gets past
+    this point, so it cannot touch the meetings of the running server. None if the port is taken."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    if sys.platform != "win32":  # on Windows this option would let two servers share the port
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        sock.bind(("127.0.0.1", port))
+    except OSError:
+        sock.close()
+        return None
+    return sock
+
+
+def _is_our_server(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except (OSError, SystemError):
+        return False
+    cmdline = Path(f"/proc/{pid}/cmdline")
+    if not cmdline.exists():  # no /proc (macOS, Windows): trust the pid file
+        return True
+    return b"smart-meeting" in cmdline.read_bytes() or b"smart_meeting" in cmdline.read_bytes()
+
+
+def replace_frozen_server(url: str, port: int) -> socket.socket | None:
+    """Our port is taken but nothing answers: wait in case the server is only busy, then stop it
+    (its meetings are kept, the one being recorded is closed with what was transcribed).
+    None if it answers again meanwhile."""
+    deadline = time.monotonic() + STALL_S + 5  # the frozen server writes its stacks first
+    while time.monotonic() < deadline:
+        if _port_owner(url) is not None:
+            return None
+        if sock := bind_port(port):
+            return sock
+        time.sleep(1)
+    pid_file = pid_path(get_settings().data_dir)
+    try:
+        pid = int(pid_file.read_text())
+    except (OSError, ValueError):
+        pid = None
+    if pid is None or not _is_our_server(pid):
+        fail(tr("port_unresponsive", port=port))
+    logger.warning(
+        "Smart Meeting (pid %s) no longer responds: restarting it. Stacks in %s",
+        pid, traces_path(get_settings().data_dir),
+    )  # fmt: skip
+    # SIGKILL: a frozen event loop never runs the SIGTERM handler. TerminateProcess on Windows.
+    os.kill(pid, signal.SIGTERM if sys.platform == "win32" else signal.SIGKILL)
+    for _ in range(50):
+        if sock := bind_port(port):
+            pid_file.unlink(missing_ok=True)
+            return sock
+        time.sleep(0.2)
+    fail(tr("port_unresponsive", port=port))
+    return None
 
 
 def open_window(url: str) -> None:
@@ -172,13 +233,14 @@ def run() -> None:
 
     url = f"http://127.0.0.1:{args.port}/"
     owner = _port_owner(url)
-    if owner == "smart-meeting":
+    if owner == "other":
+        raise SystemExit(tr("port_taken", port=args.port))
+    sock = None if owner else bind_port(args.port) or replace_frozen_server(url, args.port)
+    if sock is None:
         logger.info("Already running at %s", url)
         if not args.no_window:
             open_unless_already_open(url)
         return
-    if owner == "other":
-        raise SystemExit(tr("port_taken", port=args.port))
 
     from smart_meeting.main import FRONTEND_DIST
 
@@ -206,4 +268,4 @@ def run() -> None:
     # Quit button: on Windows a signal would kill the process without a graceful shutdown.
     app.state.request_exit = lambda: setattr(server, "should_exit", True)
     app.state.stop_when_unused = app.state.request_exit
-    server.run()
+    server.run(sockets=[sock])

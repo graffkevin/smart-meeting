@@ -71,6 +71,10 @@ The local server starts, with Ollama if it is not running yet, and the interface
 browser. An already open Smart Meeting page is reused, and a page left open after a stop reloads itself on the next
 start. The app is this local web page, served by your own machine: nothing goes through the Internet.
 
+If a running Smart Meeting no longer responds, starting it again replaces it after about 15 seconds: what was already
+transcribed is kept. The Python stacks of the frozen server are saved in `hang-traces.log` in the data folder (on
+Linux and macOS, `kill -USR1 <pid>` writes them on demand, the pid being in `server.pid`).
+
 ### Stop
 
 **Closing the tab is enough**: the app stops 10 seconds after its last page is closed (time for a reload). A

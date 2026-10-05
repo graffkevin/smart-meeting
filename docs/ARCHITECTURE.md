@@ -100,6 +100,7 @@ smart-meeting/
 │   ├── src/smart_meeting/
 │   │   ├── main.py               # app FastAPI, lifespan
 │   │   ├── launcher.py           # commande `smart-meeting`
+│   │   ├── watchdog.py           # piles des threads si la boucle d'événements se fige
 │   │   ├── provision.py          # installation d'Ollama et du modèle au premier lancement
 │   │   ├── config.py             # réglages SM_*
 │   │   ├── models.py             # modèles Pydantic (API + LLM)
