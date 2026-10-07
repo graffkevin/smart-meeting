@@ -179,3 +179,23 @@ def test_speech_lost_during_the_meeting_is_recovered_at_the_end(tmp_path):
     svc, meeting_id = asyncio.run(run())
     assert [s.text for s in svc.db.list_segments(meeting_id)] == ["Bonjour"]
     assert not svc.audio_path(meeting_id).exists()  # tracks deleted: audio not kept
+
+
+def test_minutes_interrupted_by_a_restart_are_written_again(tmp_path):
+    async def run():
+        svc = ready_service(tmp_path)
+        meeting = svc.db.create_meeting("t", None, None, keep_audio=False)
+        svc.db.update_meeting(meeting.id, status=MeetingStatus.ANALYZING)
+        unfinished = svc.db.fail_interrupted_meetings()
+        analyzed = []
+
+        async def analyze(meeting_id):
+            analyzed.append(meeting_id)
+
+        svc.analyze = analyze
+        svc._provisioned.set()
+        await svc._analyze_unfinished(unfinished)
+        return meeting.id, unfinished, analyzed
+
+    meeting_id, unfinished, analyzed = asyncio.run(run())
+    assert unfinished == [meeting_id] and analyzed == [meeting_id]

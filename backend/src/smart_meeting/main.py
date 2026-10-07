@@ -39,11 +39,11 @@ async def lifespan(app: FastAPI):
     db = Database(settings.db_path)
     # Restarted because the transcription froze: that meeting goes on
     resume = safety.take_resume(settings.data_dir)
-    db.fail_interrupted_meetings(resumed=resume["meeting_id"] if resume else None)
+    unfinished = db.fail_interrupted_meetings(resumed=resume["meeting_id"] if resume else None)
     service = MeetingService(settings, db, EventHub())
     services.append(service)
     app.state.service = service
-    service.startup(resume)
+    service.startup(resume, unfinished)
     yield
     await service.shutdown()
     pid_file.unlink(missing_ok=True)

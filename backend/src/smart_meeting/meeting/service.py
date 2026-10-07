@@ -175,20 +175,24 @@ class MeetingService:
         self._import_meeting_id: int | None = None
         self.pending = safety.PendingAudio(settings.data_dir, settings.sample_rate)
         self._voices_loaded = asyncio.Event()
+        self._provisioned = asyncio.Event()  # Ollama installed and started (or failed to)
         # Whisper thread computations not finished yet: number -> submitted at (monotonic)
         self._jobs: dict[int, float] = {}
         self._job_numbers = itertools.count()
 
     # Lifecycle
 
-    def startup(self, resume: dict | None = None) -> None:
+    def startup(self, resume: dict | None = None, unfinished: list[int] | None = None) -> None:
         """Load Whisper and provision Ollama in the background: the UI is usable meanwhile
         and shows their progress. Then resume the meeting of a restart for a frozen
-        transcription, and transcribe the sentences a crash left untranscribed."""
+        transcription, transcribe the sentences a crash left untranscribed, and write again the
+        minutes a restart interrupted (`unfinished`)."""
         self._spawn(self._load_whisper())
         self._spawn(self._load_voice_printer())
         self._spawn(self._provision())
         self._spawn(self._recover(resume))
+        if unfinished:
+            self._spawn(self._analyze_unfinished(unfinished))
 
     def restart_ai(self) -> None:
         """Restart button of the interface: stop the Ollama we started, then provision again
@@ -200,8 +204,18 @@ class MeetingService:
         await self.provisioner.run()
 
     async def _provision(self) -> None:
-        await self.provisioner.run()
+        try:
+            await self.provisioner.run()
+        finally:
+            self._provisioned.set()
         await self.provisioner.watch()
+
+    async def _analyze_unfinished(self, meeting_ids: list[int]) -> None:
+        """Minutes interrupted by a restart, written again once Ollama is set up."""
+        await self._provisioned.wait()
+        for meeting_id in meeting_ids:
+            logger.info("Writing again the minutes of meeting %s, interrupted", meeting_id)
+            await self.analyze(meeting_id)
 
     async def _load_whisper(self) -> None:
         try:

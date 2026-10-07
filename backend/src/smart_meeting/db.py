@@ -274,10 +274,17 @@ class Database:
         with self._connect() as conn:
             conn.execute("DELETE FROM meetings WHERE id = ?", (meeting_id,))
 
-    def fail_interrupted_meetings(self, resumed: int | None = None) -> None:
+    def fail_interrupted_meetings(self, resumed: int | None = None) -> list[int]:
         """Meetings left in a running state by a crash or restart can never complete (except
-        `resumed`, the one a restart for a frozen transcription goes on recording)."""
+        `resumed`, the one a restart for a frozen transcription goes on recording). Returns the
+        meetings whose analysis was interrupted, to analyze again."""
         with self._connect() as conn:
+            analyzing = [
+                row["id"]
+                for row in conn.execute(
+                    "SELECT id FROM meetings WHERE status = ?", (MeetingStatus.ANALYZING,)
+                )
+            ]
             conn.execute(
                 "UPDATE meetings SET status = ?, error = ?, ended_at = COALESCE(ended_at, ?)"
                 " WHERE status IN (?, ?) AND id IS NOT ?",
@@ -294,6 +301,7 @@ class Database:
                 "UPDATE meetings SET status = ? WHERE status = ?",
                 (MeetingStatus.TRANSCRIBED, MeetingStatus.ANALYZING),
             )
+        return analyzing
 
     # Notes on the old parts of long meetings
 
