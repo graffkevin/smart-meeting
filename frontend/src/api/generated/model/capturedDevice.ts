@@ -7,4 +7,5 @@ export interface CapturedDevice {
   device: string | null;
   auto: boolean;
   error?: string | null;
+  permission_needed?: boolean;
 }

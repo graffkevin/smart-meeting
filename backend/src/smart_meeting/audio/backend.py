@@ -30,6 +30,11 @@ class Capture(Protocol):
         ...
 
 
+class PermissionNeeded(RuntimeError):
+    """The system blocks this capture until the user allows it (macOS: Screen & System Audio
+    Recording): the interface then offers to open the right settings."""
+
+
 class AudioBackend(Protocol):
     name: str
 

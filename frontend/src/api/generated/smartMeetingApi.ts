@@ -161,6 +161,31 @@ return smartMeetingClient<Preferences>(getUpdatePreferencesUrl(),
 
 
 
+export const getOpenPermissionSettingsUrl = () => {
+
+
+
+
+  return `/api/audio/permission-settings`
+}
+
+/**
+ * macOS: open the settings where the capture of the system audio is allowed.
+ * @summary Open Permission Settings
+ */
+export const openPermissionSettings = async ( options?: Parameters<typeof smartMeetingClient>[1]): Promise<void> => {
+
+  return smartMeetingClient<void>(getOpenPermissionSettingsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
 export const getAudioDevicesUrl = () => {
 
 

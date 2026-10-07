@@ -171,3 +171,7 @@ def test_naming_a_speaker_renames_passages_and_action_owners(client):
     client.put(f"/api/meetings/{meeting.id}/speakers", json=body)
     detail = client.get(f"/api/meetings/{meeting.id}").json()
     assert {s["speaker"] for s in detail["segments"]} == {"Paul"}
+
+
+def test_permission_settings_only_exist_where_the_system_needs_them(client):
+    assert client.post("/api/audio/permission-settings").status_code == 409  # not macOS

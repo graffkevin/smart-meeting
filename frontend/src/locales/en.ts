@@ -182,6 +182,9 @@ const en: Translation = {
     systemDefault: 'default',
     micError: 'Your microphone is not captured: {{error}}',
     remoteError: 'The sound of the participants is not captured: {{error}}',
+    permissionSteps:
+      'Click below, turn on "Terminal" (or "Smart Meeting" if you start it from the Dock), then choose "Quit & Reopen".',
+    openPermissionSettings: 'Open the settings',
     importing: 'Transcribing the file',
     transcribing: 'Transcribing the last sentences…',
     analyzing: 'The local AI is writing the minutes…',

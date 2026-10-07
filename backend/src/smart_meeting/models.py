@@ -153,6 +153,8 @@ class CapturedDevice(BaseModel):
     device: str | None
     auto: bool
     error: str | None = None  # capture failed for this source
+    # The system blocks it until the user allows it: the interface opens the right settings
+    permission_needed: bool = False
 
 
 class AiEstimates(BaseModel):

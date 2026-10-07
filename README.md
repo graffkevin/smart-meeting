@@ -90,10 +90,8 @@ said.
 - **Long meetings** (2 or 3 hours) are fine: the AI reads the whole meeting.
 - **The AI can be slow** without a large graphics card: about 2 minutes for a first question on a 30-minute meeting,
   less than one for the next ones, a few minutes for the minutes. The transcription goes on meanwhile.
-- **macOS**: to hear the other participants, Smart Meeting needs the "Screen & System Audio Recording" permission.
-  In System Settings > Privacy & Security > Screen & System Audio Recording, turn on **Terminal** (or **Smart
-  Meeting** if you start it from the Dock; **+** if it is not listed), quit it completely (⌘Q), then launch again.
-  Your microphone works without it.
+- **macOS**, first meeting: a message asks to let Smart Meeting hear the computer. Click **Open the settings**, turn
+  on **Terminal** (or **Smart Meeting** if you start it from the Dock), then **Quit & Reopen**. Done once for all.
 - Tested on Linux. Windows and macOS are **not tested yet**.
 
 ## Privacy

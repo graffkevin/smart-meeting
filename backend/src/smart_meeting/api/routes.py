@@ -110,6 +110,15 @@ def update_preferences(request: Request, body: Preferences) -> Preferences:
     return service(request).preferences.save(body)
 
 
+@router.post("/audio/permission-settings", status_code=204)
+def open_permission_settings(request: Request) -> None:
+    """macOS: open the settings where the capture of the system audio is allowed."""
+    audio = service(request).audio
+    if not hasattr(audio, "open_permission_settings"):
+        raise HTTPException(status_code=409, detail=tr("not_on_this_system"))
+    audio.open_permission_settings()
+
+
 @router.get("/audio/devices")
 async def audio_devices(request: Request) -> AudioDevices:
     try:

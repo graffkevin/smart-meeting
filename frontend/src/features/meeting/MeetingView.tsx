@@ -25,6 +25,7 @@ import {
   IconListDetails,
   IconPlayerStopFilled,
   IconSend,
+  IconSettings,
   IconSparkles,
   IconTrash,
   IconVolumeOff,
@@ -41,6 +42,7 @@ import {
   askMeeting,
   deleteAudio,
   deleteMeeting,
+  openPermissionSettings,
   renameSpeaker,
   setMeetingTags,
   stopMeeting,
@@ -97,6 +99,7 @@ const LivePanel = ({ startedAt, live, captured, onStop, stopping }: LivePanelPro
   const [now, setNow] = useState(Date.now());
   const { t } = useTranslation();
   const { data: devices } = useQuery(audioDevicesQueryOptions());
+  const openSettings = useMutation({ mutationFn: () => openPermissionSettings() });
   useInterval(() => setNow(Date.now()), 1000, { autoInvoke: true });
   const known = [...(devices?.sources ?? []), ...(devices?.sinks ?? [])];
   const deviceLabel = (name: string, auto: boolean) => {
@@ -148,7 +151,24 @@ const LivePanel = ({ startedAt, live, captured, onStop, stopping }: LivePanelPro
         <Alert tone="warning">{t('meeting.micError', { error: captured.mic.error })}</Alert>
       )}
       {isDefined(captured) && isDefined(captured.remote) && isDefined(captured.remote.error) && (
-        <Alert tone="warning">{t('meeting.remoteError', { error: captured.remote.error })}</Alert>
+        <Alert tone="warning">
+          <Stack gap="sm">
+            <Typography variant="body1">{t('meeting.remoteError', { error: captured.remote.error })}</Typography>
+            {captured.remote.permission_needed && (
+              <>
+                <Typography variant="body1">{t('meeting.permissionSteps')}</Typography>
+                <Stack direction="row">
+                  <Button
+                    icon={IconSettings}
+                    label={t('meeting.openPermissionSettings')}
+                    loading={openSettings.isPending}
+                    onClick={() => openSettings.mutate()}
+                  />
+                </Stack>
+              </>
+            )}
+          </Stack>
+        </Alert>
       )}
     </Stack>
   );

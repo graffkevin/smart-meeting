@@ -180,6 +180,9 @@ const fr = {
     systemDefault: 'par défaut',
     micError: "Votre micro n'est pas capté : {{error}}",
     remoteError: "Le son des participants n'est pas capté : {{error}}",
+    permissionSteps:
+      'Cliquez ci-dessous, activez « Terminal » (ou « Smart Meeting » si vous le lancez depuis le Dock), puis choisissez « Quitter et rouvrir ».',
+    openPermissionSettings: 'Ouvrir les réglages',
     importing: 'Transcription du fichier',
     transcribing: 'Transcription des dernières phrases…',
     analyzing: "L'IA locale rédige le compte rendu…",

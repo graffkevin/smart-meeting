@@ -112,6 +112,18 @@
         }
       }
     },
+    "/api/audio/permission-settings": {
+      "post": {
+        "summary": "Open Permission Settings",
+        "description": "macOS: open the settings where the capture of the system audio is allowed.",
+        "operationId": "open_permission_settings",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
     "/api/audio/devices": {
       "get": {
         "summary": "Audio Devices",
@@ -957,6 +969,11 @@
               }
             ],
             "title": "Error"
+          },
+          "permission_needed": {
+            "type": "boolean",
+            "title": "Permission Needed",
+            "default": false
           }
         },
         "type": "object",

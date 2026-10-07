@@ -10,11 +10,12 @@ Not tested on a real Mac yet.
 
 import asyncio
 import logging
+import subprocess
 import threading
 
 import numpy as np
 
-from smart_meeting.audio.backend import OnAudio
+from smart_meeting.audio.backend import OnAudio, PermissionNeeded
 from smart_meeting.audio.threaded import ThreadedCapture
 from smart_meeting.messages import tr
 from smart_meeting.models import AudioDevice, AudioDevices, Source
@@ -69,7 +70,7 @@ class SystemAudioCapture(ThreadedCapture):
 
         content = _wait(SCK.SCShareableContent.getShareableContentWithCompletionHandler_)
         if not content.displays():
-            raise RuntimeError(tr("macos_permission"))
+            raise PermissionNeeded(tr("macos_permission"))
         content_filter = SCK.SCContentFilter.alloc().initWithDisplay_excludingWindows_(
             content.displays()[0], []
         )
@@ -109,11 +110,11 @@ def _wait(method, has_result: bool = True, timeout: float = 10):
 
     method(handler)
     if not done.wait(timeout):
-        raise RuntimeError(f"{tr('macos_no_answer')} {tr('macos_permission')}")
+        raise PermissionNeeded(f"{tr('macos_no_answer')} {tr('macos_permission')}")
     args = outcome["args"]
     error = args[-1]
     if error is not None:
-        raise RuntimeError(f"{error.localizedDescription()} {tr('macos_permission')}")
+        raise PermissionNeeded(f"{error.localizedDescription()} {tr('macos_permission')}")
     return args[0] if has_result else None
 
 
@@ -139,8 +140,18 @@ def _make_output(on_samples):
     return AudioOutput.alloc().init()
 
 
+# System Settings > Privacy & Security > Screen & System Audio Recording
+PERMISSION_SETTINGS = (
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+)
+
+
 class MacBackend:
     name = "macos"
+
+    def open_permission_settings(self) -> None:
+        """Open the settings where the user allows the capture of the system audio."""
+        subprocess.Popen(["open", PERMISSION_SETTINGS])
 
     async def list_devices(self) -> AudioDevices:
         import sounddevice as sd

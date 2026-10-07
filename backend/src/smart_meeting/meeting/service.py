@@ -23,7 +23,7 @@ from typing import Literal
 
 import numpy as np
 
-from smart_meeting.audio.backend import AudioBackend, Capture, get_backend
+from smart_meeting.audio.backend import AudioBackend, Capture, PermissionNeeded, get_backend
 from smart_meeting.audio.decode import decode_audio
 from smart_meeting.audio.segmenter import Utterance, UtteranceSegmenter, silero_vad
 from smart_meeting.config import Settings
@@ -105,8 +105,10 @@ class SourceStream:
     # Automatic mode: follow the device applications use instead of a fixed one.
     auto: bool = False
     capture: Capture | None = None
-    # Why this source could not be captured (the meeting goes on with the other one).
+    # Why this source could not be captured (the meeting goes on with the other one), and
+    # whether the system needs the user's permission for it
     error: str | None = None
+    permission_needed: bool = False
     segmenter: UtteranceSegmenter | None = None
     # Meeting time (s) of the first sample received, to align both sources.
     offset_s: float | None = None
@@ -404,6 +406,7 @@ class MeetingService:
             except Exception as exc:
                 logger.exception("Could not start %s capture", stream.source)
                 stream.error = str(exc) or type(exc).__name__
+                stream.permission_needed = isinstance(exc, PermissionNeeded)
         if all(stream.error for stream in recording.streams.values()):
             errors = " ; ".join(f"{s.source} : {s.error}" for s in recording.streams.values())
             exc = RuntimeError(tr("no_audio_source", errors=errors))
@@ -444,7 +447,10 @@ class MeetingService:
             return None
         return {
             source: CapturedDevice(
-                device=stream.capture.target, auto=stream.auto, error=stream.error
+                device=stream.capture.target,
+                auto=stream.auto,
+                error=stream.error,
+                permission_needed=stream.permission_needed,
             )
             for source, stream in recording.streams.items()
         }
@@ -484,10 +490,11 @@ class MeetingService:
         stream.capture = self._new_capture(recording, stream, target)
         try:
             await stream.capture.start()
-            stream.error = None
+            stream.error, stream.permission_needed = None, False
         except Exception as exc:
             logger.exception("Could not switch %s capture to %s", stream.source, target)
             stream.error = str(exc) or type(exc).__name__
+            stream.permission_needed = isinstance(exc, PermissionNeeded)
         self._publish_devices(recording)
 
     async def _abort(self, recording: Recording, exc: Exception) -> None:

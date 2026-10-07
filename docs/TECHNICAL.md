@@ -42,7 +42,9 @@ The Quit button stops at once (a recording is stopped and its transcription fini
 | Windows | WASAPI loopback of the chosen output | WASAPI | not tested yet |
 | macOS | ScreenCaptureKit (whole system audio) | CoreAudio | not tested yet |
 
-If one source cannot be captured, the meeting goes on with the other one and the interface tells why. In automatic
+If one source cannot be captured, the meeting goes on with the other one and the interface tells why. On macOS, a
+capture blocked by the "Screen & System Audio Recording" permission is flagged (`permission_needed`): the interface
+then offers a button that opens that pane of System Settings (`POST /api/audio/permission-settings`). In automatic
 mode, the devices the applications actually use are followed during the meeting (a call starting later, a headset
 plugged in).
 

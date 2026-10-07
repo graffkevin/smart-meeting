@@ -168,3 +168,29 @@ def test_meeting_starts_with_its_tags(tmp_path):
         return svc.db.get_meeting(meeting.id).tags
 
     assert asyncio.run(run()) == ["Atlas", "lot 2"]
+
+
+def test_one_blocked_source_is_flagged_for_the_permission(tmp_path, monkeypatch):
+    from smart_meeting.audio.backend import PermissionNeeded
+
+    original = FakeCapture.start
+
+    async def start(self):
+        if self.target == "out-dev":
+            raise PermissionNeeded("macOS doit autoriser Smart Meeting")
+        await original(self)
+
+    monkeypatch.setattr(FakeCapture, "start", start)
+
+    async def run():
+        svc = make_service(tmp_path, FakeBackend())
+        meeting = await svc.start(StartMeetingRequest(title="t"))
+        captured = svc.captured_devices(meeting.id)
+        await svc.stop(meeting.id)
+        svc._whisper_ready.set()
+        while svc.active:
+            await asyncio.sleep(0.01)
+        return captured
+
+    captured = asyncio.run(run())
+    assert captured["remote"].permission_needed and not captured["mic"].permission_needed
