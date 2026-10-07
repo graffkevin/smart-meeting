@@ -16,7 +16,30 @@ async def pw_dump() -> list[dict[str, Any]]:
     stdout, stderr = await proc.communicate()
     if proc.returncode != 0:
         raise RuntimeError(f"pw-dump failed: {stderr.decode().strip()}")
-    return json.loads(stdout)
+    return read_pw_dump(stdout.decode())
+
+
+def read_pw_dump(text: str) -> list[dict[str, Any]]:
+    """Objects of a `pw-dump` output. Its first JSON array lists every object; when objects change
+    while it runs (a capture starting or stopping, a call joining), it appends more arrays: an
+    object again (updated) or `{"id": n, "info": null}` (removed). They are applied in order."""
+    decoder = json.JSONDecoder()
+    objects: dict[int, dict[str, Any]] = {}
+    position = 0
+    while (position := _skip_spaces(text, position)) < len(text):
+        document, position = decoder.raw_decode(text, position)
+        for obj in document:
+            if obj.get("info") is None and "type" not in obj:
+                objects.pop(obj["id"], None)
+            else:
+                objects[obj["id"]] = obj
+    return list(objects.values())
+
+
+def _skip_spaces(text: str, position: int) -> int:
+    while position < len(text) and text[position].isspace():
+        position += 1
+    return position
 
 
 async def list_devices() -> AudioDevices:

@@ -1,3 +1,5 @@
+import json
+
 from smart_meeting.audio.pipewire_devices import parse_pw_dump
 
 
@@ -123,3 +125,21 @@ def test_resolve_in_use_prefers_the_call_output_and_can_skip_defaults():
     assert resolve_in_use(dump) == ("headset-mic", "headset-out")
     no_apps = [DEFAULTS, device(1, "builtin-out", "Audio/Sink")]
     assert resolve_in_use(no_apps, fallback_to_defaults=False) == (None, None)
+
+
+def test_reads_a_pw_dump_that_changed_while_running():
+    """pw-dump 1.0 appends arrays for the objects removed or changed while it runs."""
+    from smart_meeting.audio.pipewire_devices import read_pw_dump
+
+    sink = {"id": 50, "type": "PipeWire:Interface:Node", "info": {"props": {"node.name": "a"}}}
+    stream = {"id": 94, "type": "PipeWire:Interface:Node", "info": {"props": {"node.name": "b"}}}
+    renamed = {**sink, "info": {"props": {"node.name": "a2"}}}
+    text = (
+        json.dumps([sink, stream], indent=2)
+        + "\n"
+        + json.dumps([{"id": 94, "info": None}], indent=2)
+        + "\n"
+        + json.dumps([renamed])
+        + "\n"
+    )
+    assert read_pw_dump(text) == [renamed]
