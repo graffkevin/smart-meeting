@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
-# Smart Meeting launcher for Linux and macOS (used by the Linux desktop entry); `make run` does
-# the same. Installs uv if needed; the app then checks the system, builds the interface and
+# Smart Meeting launcher, the same command everywhere: `./smart-meeting` on Linux and macOS (also
+# used by the Linux desktop entry), `.\smart-meeting` on Windows (runs smart-meeting.cmd); `make run`
+# does the same. Installs uv if needed; the app then checks the system, builds the interface and
 # installs Ollama and the AI model itself. Ctrl+C, or the Quit button, stops everything.
 set -euo pipefail
 
 ROOT="$(dirname "$(readlink -f "$0")")"
+
+# Git Bash or Cygwin on Windows: the Windows launcher does the same with the Windows tools.
+case "$(uname -s)" in
+  MINGW* | MSYS* | CYGWIN*) exec cmd.exe //c "$(cygpath -w "$ROOT/smart-meeting.cmd")" "$@" ;;
+esac
 export PATH="$HOME/.local/bin:$PATH"
 
 if ! command -v uv >/dev/null; then

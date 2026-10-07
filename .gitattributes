@@ -1,0 +1,4 @@
+# Launchers: Unix line endings for the shell script, Windows ones for the batch file, whatever
+# the settings of the machine that clones the repository.
+smart-meeting text eol=lf
+*.cmd text eol=crlf

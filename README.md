@@ -14,21 +14,24 @@ meeting names follow it). Architecture and design choices: [docs/ARCHITECTURE.md
 
 ## Install
 
-Linux, macOS and Windows: clone the repository, then `make run`. The first run installs everything else.
+Linux, macOS and Windows: clone the repository, then run `./smart-meeting` (`.\smart-meeting` on Windows). The
+first run installs everything else. No `make` needed: `make run` does the same, for those who have it.
 
 | System | Install once | Run |
 |---|---|---|
-| **Ubuntu** (22.10+, PipeWire) | `sudo apt install git make` (often already there) | `make run`, `./smart-meeting` or the app menu (`make desktop`) |
-| **macOS** (13 Ventura+) | `xcode-select --install` (git, make) | `make run` |
-| **Windows** 10/11 | `winget install Git.Git ezwinports.make` | `make run` |
+| **Ubuntu** (22.10+, PipeWire) | `sudo apt install git` (often already there) | `./smart-meeting`, or the app menu (`make desktop`) |
+| **macOS** (13 Ventura+) | `xcode-select --install` (git) | `./smart-meeting` in the Terminal |
+| **Windows** 10/11 | `winget install Git.Git` | `.\smart-meeting` in PowerShell or the command prompt, or double-click `smart-meeting.cmd` |
 
 ```bash
 git clone https://github.com/graffkevin/smart-meeting.git
 cd smart-meeting
-make run
+./smart-meeting          # Windows: .\smart-meeting
 ```
 
-`make run` detects the system and installs, without admin rights:
+On Windows, `.\smart-meeting` runs `smart-meeting.cmd`, and so does `./smart-meeting` in Git Bash.
+
+The launcher detects the system and installs, without admin rights:
 
 | Component | How |
 |---|---|
@@ -42,8 +45,7 @@ make run
 > model 1.6 GB), 10 to 30 minutes depending on the connection. Later runs start in seconds. If Ollama and the model are
 > already installed, none of this is downloaded again.
 
-The app is usable during the downloads: recording works, the AI features arrive at the end. `make info` shows what
-was detected.
+The app is usable during the downloads: recording works, the AI features arrive at the end.
 
 ### Audio capture per system
 
@@ -64,7 +66,7 @@ captured, the meeting goes on with the other one and the interface tells why; im
 | How | Command |
 |---|---|
 | **Applications menu** (Linux) | Super key, type "Smart Meeting" (after `make desktop`; can be pinned to the dock) |
-| **Terminal** (any system) | `make run` in the project folder (or `./smart-meeting` on Linux and macOS) |
+| **Terminal** (any system) | `./smart-meeting` in the project folder (`.\smart-meeting` on Windows, or `make run`) |
 | **Browser**, if already running | http://127.0.0.1:8417 |
 
 The local server starts, with Ollama if it is not running yet, and the interface opens in a tab of the default

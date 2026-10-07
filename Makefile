@@ -1,5 +1,6 @@
-# Works on Linux, macOS and Windows (GNU make: `winget install ezwinports.make` on Windows).
-# `make run` is all a user needs: missing pieces (uv, Bun, Ollama, models) are installed on first run.
+# Development tasks (GNU make; on Windows `winget install ezwinports.make`). Users do not need make:
+# `./smart-meeting` (`.\smart-meeting` on Windows) starts the app like `make run`, and installs
+# what is missing on first run (uv, Bun, Ollama, models).
 
 ifeq ($(OS),Windows_NT)
   PLATFORM := windows
