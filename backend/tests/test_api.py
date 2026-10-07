@@ -80,7 +80,7 @@ def test_ask_answers_from_the_transcript(client):
     service = client.app.state.service
     seen = {}
 
-    async def fake_ask(title, segments, question):
+    async def fake_ask(title, segments, question, notes=None):
         seen.update(title=title, texts=[s.text for s in segments], question=question)
         return "Vous devez rédiger la note."
 
@@ -145,3 +145,29 @@ def test_rename_to_nothing_uses_the_date(client):
     meeting_id = add_transcribed_meeting(client)
     title = client.patch(f"/api/meetings/{meeting_id}", json={"title": "  "}).json()["title"]
     assert title.startswith("Réunion du ")
+
+
+def test_naming_a_speaker_renames_passages_and_action_owners(client):
+    from smart_meeting.models import ActionItem, MeetingAnalysis
+
+    db = client.app.state.service.db
+    meeting = db.create_meeting("Point", None, None, keep_audio=False)
+    for speaker, text in [("Intervenant 1", "Je fais la note."), ("Intervenant 2", "Merci.")]:
+        db.add_segment(
+            meeting.id, Segment(source="remote", speaker=speaker, start_s=0, end_s=1, text=text)
+        )
+    action = ActionItem(task="La note", owner="Intervenant 1", deadline=None, quote="la note")
+    empty = {"summary": "", "decisions": [], "questions": [], "risks": [], "technical_topics": []}
+    db.save_analysis(meeting.id, MeetingAnalysis(**empty, actions=[action]))
+
+    body = {"old": "Intervenant 1", "new": "Paul"}
+    assert client.put(f"/api/meetings/{meeting.id}/speakers", json=body).status_code == 204
+    detail = client.get(f"/api/meetings/{meeting.id}").json()
+    assert [s["speaker"] for s in detail["segments"]] == ["Paul", "Intervenant 2"]
+    assert detail["analysis"]["actions"][0]["owner"] == "Paul"
+
+    # Giving an existing name merges both speakers
+    body = {"old": "Intervenant 2", "new": "Paul"}
+    client.put(f"/api/meetings/{meeting.id}/speakers", json=body)
+    detail = client.get(f"/api/meetings/{meeting.id}").json()
+    assert {s["speaker"] for s in detail["segments"]} == {"Paul"}

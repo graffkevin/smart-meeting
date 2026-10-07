@@ -73,6 +73,13 @@ CREATE TABLE IF NOT EXISTS actions (
     quote      TEXT,
     verified   INTEGER NOT NULL DEFAULT 0
 );
+-- Notes of the local AI on the old parts of a long meeting, reused by the next questions
+CREATE TABLE IF NOT EXISTS notes (
+    meeting_id INTEGER NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+    digest     TEXT NOT NULL,          -- of the part's transcript and of the notes prompt
+    text       TEXT NOT NULL,
+    PRIMARY KEY (meeting_id, digest)
+);
 """
 
 
@@ -267,23 +274,41 @@ class Database:
         with self._connect() as conn:
             conn.execute("DELETE FROM meetings WHERE id = ?", (meeting_id,))
 
-    def fail_interrupted_meetings(self) -> None:
-        """Meetings left in a running state by a crash or restart can never complete."""
+    def fail_interrupted_meetings(self, resumed: int | None = None) -> None:
+        """Meetings left in a running state by a crash or restart can never complete (except
+        `resumed`, the one a restart for a frozen transcription goes on recording)."""
         with self._connect() as conn:
             conn.execute(
                 "UPDATE meetings SET status = ?, error = ?, ended_at = COALESCE(ended_at, ?)"
-                " WHERE status IN (?, ?)",
+                " WHERE status IN (?, ?) AND id IS NOT ?",
                 (
                     MeetingStatus.ERROR,
                     tr("interrupted"),
                     now_iso(),
                     MeetingStatus.RECORDING,
                     MeetingStatus.TRANSCRIBING,
+                    resumed,
                 ),
             )
             conn.execute(
                 "UPDATE meetings SET status = ? WHERE status = ?",
                 (MeetingStatus.TRANSCRIBED, MeetingStatus.ANALYZING),
+            )
+
+    # Notes on the old parts of long meetings
+
+    def get_note(self, meeting_id: int, digest: str) -> str | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT text FROM notes WHERE meeting_id = ? AND digest = ?", (meeting_id, digest)
+            ).fetchone()
+        return row["text"] if row else None
+
+    def save_note(self, meeting_id: int, digest: str, text: str) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO notes (meeting_id, digest, text) VALUES (?, ?, ?)",
+                (meeting_id, digest, text),
             )
 
     # Segments
@@ -303,6 +328,51 @@ class Database:
                 ),
             )
         return segment.model_copy(update={"id": cursor.lastrowid})
+
+    def split_segment(self, segment_id: int, parts: list[Segment]) -> None:
+        """Replace a segment by several (a sentence said by two speakers)."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT meeting_id FROM segments WHERE id = ?", (segment_id,)
+            ).fetchone()
+            if not row:
+                return
+            conn.execute("DELETE FROM segments WHERE id = ?", (segment_id,))
+            conn.executemany(
+                "INSERT INTO segments (meeting_id, source, speaker, start_s, end_s, text)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    (row["meeting_id"], p.source, p.speaker, p.start_s, p.end_s, p.text)
+                    for p in parts
+                ],
+            )
+
+    def set_speakers(self, speakers: dict[int, str]) -> None:
+        """Speaker of each segment (by id), once the voices are regrouped."""
+        with self._connect() as conn:
+            conn.executemany(
+                "UPDATE segments SET speaker = ? WHERE id = ?",
+                [(name, segment_id) for segment_id, name in speakers.items()],
+            )
+
+    def rename_speaker(self, meeting_id: int, old: str, new: str) -> None:
+        """Everywhere in the meeting: its passages, the owners of its actions."""
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE segments SET speaker = ? WHERE meeting_id = ? AND speaker = ?",
+                (new, meeting_id, old),
+            )
+            conn.execute(
+                "UPDATE actions SET owner = ? WHERE meeting_id = ? AND owner = ?",
+                (new, meeting_id, old),
+            )
+        analysis = self.get_analysis(meeting_id)
+        if analysis:
+            actions = [
+                a.model_copy(update={"owner": new}) if a.owner == old else a
+                for a in analysis.actions
+            ]
+            self.save_analysis(meeting_id, analysis.model_copy(update={"actions": actions}))
 
     def list_segments(self, meeting_id: int) -> list[Segment]:
         with self._connect() as conn:

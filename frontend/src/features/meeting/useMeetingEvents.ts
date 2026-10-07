@@ -67,7 +67,9 @@ const useMeetingEvents = (meetingId: number): LiveState => {
           partials: { ...state.partials, [source]: { source, speaker, start_s, text } },
         }));
       }
-      if (event.type === 'status') queryClient.invalidateQueries({ queryKey: ['meeting', meetingId] });
+      // Speakers regrouped or renamed: the whole transcript changes
+      if (event.type === 'status' || event.type === 'speakers')
+        queryClient.invalidateQueries({ queryKey: ['meeting', meetingId] });
       if (event.type === 'levels') setLiveState((state) => ({ ...state, levels: event.levels, queue: event.queue }));
       if (event.type === 'devices') setLiveState((state) => ({ ...state, devices: event.devices }));
       if (event.type === 'progress')

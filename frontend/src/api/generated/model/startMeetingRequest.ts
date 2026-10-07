@@ -11,4 +11,5 @@ export interface StartMeetingRequest {
   language?: string;
   /** @maxItems 30 */
   tags?: string[];
+  room?: boolean;
 }

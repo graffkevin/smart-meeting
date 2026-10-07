@@ -22,6 +22,7 @@ export * from './meetingListItem';
 export * from './meetingStatus';
 export * from './preferences';
 export * from './preferencesUiLanguage';
+export * from './renameSpeakerRequest';
 export * from './segment';
 export * from './segmentSource';
 export * from './setupStepInfo';

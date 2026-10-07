@@ -15,5 +15,6 @@ export interface Preferences {
   mic_device?: string | null;
   output_device?: string | null;
   keep_audio?: boolean;
+  room?: boolean;
   ui_language?: PreferencesUiLanguage;
 }

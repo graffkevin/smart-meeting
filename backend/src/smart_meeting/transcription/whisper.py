@@ -7,7 +7,7 @@ import site
 import sys
 import unicodedata
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -36,6 +36,8 @@ class TranscribedPiece:
     start_s: float  # relative to the utterance start
     end_s: float
     text: str
+    # (start, end, word) of imported files: a sentence can then be split between two speakers
+    words: list[tuple[float, float, str]] = field(default_factory=list)
 
 
 def preload_cuda_libraries() -> None:
@@ -184,6 +186,7 @@ class WhisperTranscriber:
                     initial_prompt=self.settings.whisper_glossary or None,
                     temperature=TEMPERATURES,
                     without_timestamps=False,
+                    word_timestamps=True,
                 )
                 for s in segments:
                     # Resumed after running out of memory: skip what was already given
@@ -192,7 +195,8 @@ class WhisperTranscriber:
                     ):
                         continue
                     state["last_end"] = s.end
-                    if not on_piece(TranscribedPiece(s.start, s.end, s.text.strip())):
+                    words = [(w.start, w.end, w.word) for w in s.words or []]
+                    if not on_piece(TranscribedPiece(s.start, s.end, s.text.strip(), words)):
                         return
                 return
             except RuntimeError as exc:

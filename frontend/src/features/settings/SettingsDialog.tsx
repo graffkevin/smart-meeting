@@ -33,6 +33,7 @@ const SettingsForm = ({ preferences, onSaved }: SettingsFormProps) => {
       mic: preferences.mic_device ?? AUTO_DEVICE,
       output: preferences.output_device ?? AUTO_DEVICE,
       keepAudio: preferences.keep_audio ?? false,
+      room: preferences.room ?? false,
     },
     onSubmit: ({ value }) =>
       save.mutate({
@@ -42,6 +43,7 @@ const SettingsForm = ({ preferences, onSaved }: SettingsFormProps) => {
         mic_device: value.mic === AUTO_DEVICE ? null : value.mic,
         output_device: value.output === AUTO_DEVICE ? null : value.output,
         keep_audio: value.keepAudio,
+        room: value.room,
         ui_language: preferences.ui_language,
       }),
   });
@@ -127,6 +129,16 @@ const SettingsForm = ({ preferences, onSaved }: SettingsFormProps) => {
             onChange={field.handleChange}
             label={t('settings.keepAudio')}
             description={t('settings.keepAudioHelp')}
+          />
+        )}
+      </Field>
+      <Field name="room">
+        {(field) => (
+          <Checkbox
+            checked={field.state.value}
+            onChange={field.handleChange}
+            label={t('settings.room')}
+            description={t('settings.roomHelp')}
           />
         )}
       </Field>

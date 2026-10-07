@@ -23,6 +23,7 @@ export type MeetingEvent =
   | { type: 'levels'; levels: AudioLevels; queue: number }
   | { type: 'devices'; devices: Partial<Record<AudioSource, CapturedDevice>> }
   | { type: 'progress'; done_s: number; total_s: number | null }
+  | { type: 'speakers' }
   | ({ type: 'partial' } & PartialText);
 
 const isMeetingStatus = (value: unknown): value is MeetingStatus =>
@@ -44,6 +45,7 @@ export const isMeetingEvent = (value: unknown): value is MeetingEvent => {
   if (value.type === 'status') return isMeetingStatus(value.status);
   if (value.type === 'levels') return isLevels(value.levels) && isFiniteNumber(value.queue);
   if (value.type === 'devices') return isRecord(value.devices);
+  if (value.type === 'speakers') return true;
   if (value.type === 'partial')
     return (
       (value.source === 'mic' || value.source === 'remote') &&

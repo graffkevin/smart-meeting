@@ -15,6 +15,7 @@ from smart_meeting import watchdog  # noqa: E402
 from smart_meeting.api.routes import router  # noqa: E402
 from smart_meeting.config import get_settings  # noqa: E402
 from smart_meeting.db import Database  # noqa: E402
+from smart_meeting.meeting import safety  # noqa: E402
 from smart_meeting.meeting.events import EventHub  # noqa: E402
 from smart_meeting.meeting.service import MeetingService  # noqa: E402
 
@@ -26,15 +27,23 @@ FRONTEND_DIST = Path(__file__).resolve().parents[3] / "frontend" / "dist"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    watchdog.start(asyncio.get_running_loop(), settings.data_dir)
+    services: list[MeetingService] = []  # the watchdog starts before the service exists
+    watchdog.start(
+        asyncio.get_running_loop(),
+        settings.data_dir,
+        on_frozen=lambda: services and services[0].restart_if_recording(),
+    )
     # Lets the launcher replace this server if it ever freezes.
     pid_file = watchdog.pid_path(settings.data_dir)
     pid_file.write_text(str(os.getpid()))
     db = Database(settings.db_path)
-    db.fail_interrupted_meetings()
+    # Restarted because the transcription froze: that meeting goes on
+    resume = safety.take_resume(settings.data_dir)
+    db.fail_interrupted_meetings(resumed=resume["meeting_id"] if resume else None)
     service = MeetingService(settings, db, EventHub())
+    services.append(service)
     app.state.service = service
-    service.startup()
+    service.startup(resume)
     yield
     await service.shutdown()
     pid_file.unlink(missing_ok=True)

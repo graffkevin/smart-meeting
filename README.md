@@ -68,8 +68,8 @@ captured, the meeting goes on with the other one and the interface tells why; im
 | **Browser**, if already running | http://127.0.0.1:8417 |
 
 The local server starts, with Ollama if it is not running yet, and the interface opens in a tab of the default
-browser. An already open Smart Meeting page is reused, and a page left open after a stop reloads itself on the next
-start. The app is this local web page, served by your own machine: nothing goes through the Internet.
+browser. Starting it again while it runs opens a new tab, and a page left open after a stop reloads itself on the
+next start (no extra tab then). The app is this local web page, served by your own machine: nothing goes through the Internet.
 
 If a running Smart Meeting no longer responds, starting it again replaces it after about 15 seconds: what was already
 transcribed is kept. The Python stacks of the frozen server are saved in `hang-traces.log` in the data folder (on
@@ -90,10 +90,21 @@ transcription finished first), like `Ctrl+C` in the terminal.
 2. The transcript appears live, word by word: the sentence being spoken shows in grey (fast draft, refreshed about
    every 1.5 s), then its final, more accurate version replaces it at the pause. The transcript scrolls in a panel on
    the right.
+   **Who speaks**: the other participants are told apart by their voices, without names ("Intervenant 1",
+   "Intervenant 2"…, each with its colored dot); the labels are checked again once the meeting ends. Double-click a
+   label to name that person in the whole meeting, minutes included; giving the name of another speaker merges both
+   (one voice split in two). In a **meeting room** (setting), the people around your microphone are told apart too.
+   Two people speaking without any pause in between may end up under one label.
 3. **Ask the meeting**, during or after: summary, my actions, decisions in one click, or any question ("what do I
    have to do?"). The local AI answers from the transcript only, gives the time of the passages, and says when the
    information is not there. Questions and answers are kept with the meeting; recent questions are suggested.
 4. **Stop**: the transcription finishes, then the AI writes the minutes.
+
+**Long meetings** (2 or 3 hours): the AI reads the whole meeting, not only what fits in its memory (about 45 minutes
+of transcript with the default `SM_OLLAMA_NUM_CTX=16384`). The minutes are written part by part, then summed up in
+one. For a question, the old parts are first turned into short dated notes, kept with the meeting: the first
+question on a long meeting takes a few minutes more, the next ones are quick. The AI only runs when asked and at the
+end, never during the whole meeting.
 5. **Copy the minutes (Markdown)**, or the whole transcript.
 
 ### Import a video or an audio file
@@ -125,7 +136,7 @@ kept, and `ollama.log`. To back up the history, copy the `.db` while the app is 
 
 The **⚙ settings** button of the header sets, without restarting: your name (your sentences, and "I" for the AI),
 a vocabulary of names and acronyms that helps the transcription, the default language, the microphone, the headset,
-and whether the raw audio is kept. The **AI - model** dot of the header tells whether the local AI runs (green,
+whether the raw audio is kept, and the meeting room mode (several people on your microphone). The **AI - model** dot of the header tells whether the local AI runs (green,
 orange, red), with a button to restart it when it is not green.
 
 Advanced settings: `SM_*` variables in `config.env` of the configuration folder (Linux: `~/.config/smart-meeting/`,
@@ -145,6 +156,10 @@ SM_PORT=8417                        # local port of the interface
 ```
 
 The vocabulary makes a clear difference on proper names and acronyms, which Whisper otherwise often mishears.
+
+**AI instructions**: the prompts are Markdown files in `backend/src/smart_meeting/llm/prompts/` (minutes, questions),
+read at each call: an edit applies at once. To change one without touching the repository, put a file of the same
+name in `prompts/` of the configuration folder (Linux: `~/.config/smart-meeting/prompts/analysis_system.md`).
 
 ## Develop
 
@@ -178,4 +193,6 @@ weights.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). Speakers are told apart with the [WeSpeaker](https://github.com/wenet-e2e/wespeaker) ResNet34-LM
+model (VoxCeleb), [CC BY 4.0](https://huggingface.co/Wespeaker/wespeaker-voxceleb-resnet34-LM), downloaded on first
+use.

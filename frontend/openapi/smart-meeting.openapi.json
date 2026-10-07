@@ -416,6 +416,49 @@
         }
       }
     },
+    "/api/meetings/{meeting_id}/speakers": {
+      "put": {
+        "summary": "Rename Speaker",
+        "description": "Names a speaker (\"Intervenant 2\" -> \"Paul\") in the whole meeting, during or after it.\nGiving the name of another speaker merges both (a voice wrongly split in two).",
+        "operationId": "rename_speaker",
+        "parameters": [
+          {
+            "name": "meeting_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Meeting Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameSpeakerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tags": {
       "get": {
         "summary": "List Tags",
@@ -1441,6 +1484,11 @@
             "title": "Keep Audio",
             "default": false
           },
+          "room": {
+            "type": "boolean",
+            "title": "Room",
+            "default": false
+          },
           "ui_language": {
             "type": "string",
             "enum": [
@@ -1454,6 +1502,29 @@
         "type": "object",
         "title": "Preferences",
         "description": "Settings of the interface, applied without restart (see preferences.py)."
+      },
+      "RenameSpeakerRequest": {
+        "properties": {
+          "old": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Old"
+          },
+          "new": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "New"
+          }
+        },
+        "type": "object",
+        "required": [
+          "old",
+          "new"
+        ],
+        "title": "RenameSpeakerRequest",
+        "description": "Every passage of `old` gets `new`; an existing name merges both speakers."
       },
       "Segment": {
         "properties": {
@@ -1598,6 +1669,11 @@
             "maxItems": 30,
             "title": "Tags",
             "default": []
+          },
+          "room": {
+            "type": "boolean",
+            "title": "Room",
+            "default": false
           }
         },
         "type": "object",

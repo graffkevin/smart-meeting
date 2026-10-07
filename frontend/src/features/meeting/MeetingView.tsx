@@ -41,6 +41,7 @@ import {
   askMeeting,
   deleteAudio,
   deleteMeeting,
+  renameSpeaker,
   setMeetingTags,
   stopMeeting,
   updateMeeting,
@@ -280,6 +281,10 @@ const MeetingView = ({ meetingId }: MeetingViewProps) => {
     mutationFn: (title: string) => updateMeeting(meetingId, { title }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['meeting', meetingId] }),
   });
+  const nameSpeaker = useMutation({
+    mutationFn: ({ old, name }: { old: string; name: string }) => renameSpeaker(meetingId, { old, new: name }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['meeting', meetingId] }),
+  });
   const removeAudio = useMutation({
     mutationFn: () => deleteAudio(meetingId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['meeting', meetingId] }),
@@ -463,6 +468,7 @@ const MeetingView = ({ meetingId }: MeetingViewProps) => {
                   live={recording}
                   partials={recording ? Object.values(live.partials).filter(isDefined) : []}
                   height={TRANSCRIPT_PANEL_HEIGHT}
+                  onRenameSpeaker={(old, name) => nameSpeaker.mutate({ old, name })}
                 />
               </Stack>
             </Card>

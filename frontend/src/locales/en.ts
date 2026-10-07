@@ -88,6 +88,9 @@ const en: Translation = {
     automatic: 'Automatic ({{device}})',
     keepAudio: 'Keep the audio recording',
     keepAudioHelp: 'Otherwise the audio is never written to disk: only the transcript is kept.',
+    room: 'Meeting room',
+    roomHelp:
+      'Several people speak into my microphone: they are told apart by their voices, like the remote participants, instead of all being "me".',
     save: 'Save',
   },
   sources: {
@@ -236,6 +239,7 @@ const en: Translation = {
     partial: '{{text}}…',
     copy: 'Copy the whole transcript',
     copied: 'Transcript copied',
+    renameSpeaker: 'Double-click to name this speaker in the whole meeting (a name already used merges them)',
   },
 };
 

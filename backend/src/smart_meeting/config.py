@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     vad_threshold: float = 0.5
     vad_min_silence_ms: int = 700
     vad_max_utterance_s: float = 20.0
+    # A Whisper computation longer than this during a meeting means it is stuck: the server
+    # restarts itself and resumes the meeting (a sentence takes a few seconds at most).
+    stall_restart_s: float = 90.0
 
     # Whisper
     # auto: large-v3-turbo with an NVIDIA GPU, small on CPU (Mac, PC without GPU) to keep up

@@ -28,6 +28,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fr": "Un import est déjà en cours",
         "en": "A file is already being imported",
     },
+    "speaker_label": {"fr": "Intervenant {n}", "en": "Speaker {n}"},
     "interrupted": {
         "fr": "Interrompue (redémarrage du serveur)",
         "en": "Interrupted (server restarted)",

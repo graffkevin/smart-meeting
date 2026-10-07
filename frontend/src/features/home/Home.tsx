@@ -113,6 +113,7 @@ const RecordForm = ({ preferences }: RecordFormProps) => {
         mic_device: preferences.mic_device ?? null,
         remote_device: preferences.output_device ?? null,
         keep_audio: preferences.keep_audio ?? false,
+        room: preferences.room ?? false,
         language: values.language,
         tags: values.tags,
       }),

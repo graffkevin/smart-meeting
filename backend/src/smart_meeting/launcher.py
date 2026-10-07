@@ -263,8 +263,9 @@ def run() -> None:
     sock = None if owner else bind_port(args.port) or replace_frozen_server(url, args.port)
     if sock is None:
         logger.info("Already running at %s", url)
+        # Asked for explicitly: show a page even if one is open, maybe hidden in another window.
         if not args.no_window:
-            open_unless_already_open(url)
+            open_window(url)
         return
 
     from smart_meeting.main import FRONTEND_DIST

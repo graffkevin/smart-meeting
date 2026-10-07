@@ -10,11 +10,14 @@ import signal
 import sys
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 STALL_S = 10.0  # the launcher waits longer before replacing a frozen server
+# Frozen this long while recording: the server restarts and resumes the meeting (on_frozen).
+RESTART_S = 60.0
 
 
 def traces_path(data_dir: Path) -> Path:
@@ -32,7 +35,12 @@ def page_marker_path(data_dir: Path) -> Path:
     return data_dir / "page-open"
 
 
-def start(loop: asyncio.AbstractEventLoop, data_dir: Path, stall_s: float = STALL_S) -> None:
+def start(
+    loop: asyncio.AbstractEventLoop,
+    data_dir: Path,
+    stall_s: float = STALL_S,
+    on_frozen: Callable[[], None] | None = None,
+) -> None:
     data_dir.mkdir(parents=True, exist_ok=True)
     # Kept open for the life of the process: faulthandler writes to its file descriptor.
     traces = traces_path(data_dir).open("a", encoding="utf-8")
@@ -63,5 +71,7 @@ def start(loop: asyncio.AbstractEventLoop, data_dir: Path, stall_s: float = STAL
                 traces.flush()
                 faulthandler.dump_traceback(file=traces, all_threads=True)
                 traces.flush()
+            if on_frozen and stalled_s >= RESTART_S:
+                on_frozen()  # restarts the process when a meeting is being recorded
 
     threading.Thread(target=watch, name="loop-watchdog", daemon=True).start()

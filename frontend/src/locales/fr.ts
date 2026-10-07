@@ -86,6 +86,9 @@ const fr = {
     automatic: 'Automatique ({{device}})',
     keepAudio: "Garder l'enregistrement audio",
     keepAudioHelp: "Sinon, l'audio n'est jamais écrit sur le disque : seule la transcription est conservée.",
+    room: 'Réunion en salle',
+    roomHelp:
+      "Plusieurs personnes parlent dans mon micro : elles sont distinguées par leur voix, comme les participants à distance, au lieu d'être toutes « moi ».",
     save: 'Enregistrer',
   },
   sources: {
@@ -234,6 +237,8 @@ const fr = {
     partial: '{{text}}…',
     copy: 'Copier toute la transcription',
     copied: 'Transcription copiée',
+    renameSpeaker:
+      'Double-cliquez pour nommer cet intervenant dans toute la réunion (un nom déjà utilisé les fusionne)',
   },
 };
 

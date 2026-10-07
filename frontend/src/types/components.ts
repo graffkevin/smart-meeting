@@ -32,6 +32,8 @@ export interface TranscriptProps {
   partials?: PartialText[];
   /** Height of the scrolling panel, in pixels */
   height: number;
+  /** Names a speaker in the whole meeting (giving an existing name merges both); without it, names are read-only */
+  onRenameSpeaker?: (old: string, name: string) => void;
 }
 
 /** Questions about a meeting, answered by the local AI from its transcript */

@@ -22,3 +22,6 @@ export const TRANSCRIPT_PANEL_HEIGHT = 640;
 
 /** Statuses during which the meeting page listens to live events */
 export const LIVE_STATUSES: MeetingStatus[] = ['recording', 'transcribing', 'analyzing'];
+
+/** Colors of the speakers' dots in the transcript, in order of first appearance */
+export const SPEAKER_TONES: Tone[] = ['primary', 'accent', 'success', 'warning', 'muted'];

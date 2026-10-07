@@ -13,6 +13,7 @@ import type {
   MeetingDetail,
   MeetingListItem,
   Preferences,
+  RenameSpeakerRequest,
   StartMeetingRequest,
   TagCount,
   TagsRequest,
@@ -409,6 +410,47 @@ return smartMeetingClient<Meeting>(getSetMeetingTagsUrl(meetingId),
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
     body: JSON.stringify(tagsRequest)
+  }
+);}
+
+
+
+export const getRenameSpeakerUrl = (meetingId: number,) => {
+
+
+
+
+  return `/api/meetings/${meetingId}/speakers`
+}
+
+/**
+ * Names a speaker ("Intervenant 2" -> "Paul") in the whole meeting, during or after it.
+ * Giving the name of another speaker merges both (a voice wrongly split in two).
+ * @summary Rename Speaker
+ */
+export const renameSpeaker = async (meetingId: number,
+    renameSpeakerRequest: RenameSpeakerRequest, options?: Parameters<typeof smartMeetingClient>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return smartMeetingClient<void>(getRenameSpeakerUrl(meetingId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(renameSpeakerRequest)
   }
 );}
 

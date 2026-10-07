@@ -99,6 +99,15 @@ class StartMeetingRequest(BaseModel):
     # "auto": detected, sticky (a few foreign words do not switch it); or a code (fr, en…).
     language: str = "auto"
     tags: list[str] = Field(default=[], max_length=30)
+    # Meeting room: several people around the microphone, told apart like the remote ones.
+    room: bool = False
+
+
+class RenameSpeakerRequest(BaseModel):
+    """Every passage of `old` gets `new`; an existing name merges both speakers."""
+
+    old: str = Field(min_length=1, max_length=80)
+    new: str = Field(min_length=1, max_length=80)
 
 
 class UpdateMeetingRequest(BaseModel):
@@ -114,6 +123,7 @@ class Preferences(BaseModel):
     mic_device: str | None = None  # None: automatic
     output_device: str | None = None  # None: automatic
     keep_audio: bool = False
+    room: bool = False  # several people around the microphone
     ui_language: Literal["fr", "en"] = "fr"  # interface, AI answers and minutes
 
 

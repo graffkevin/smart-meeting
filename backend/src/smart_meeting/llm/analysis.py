@@ -7,62 +7,35 @@ Guardrails against invented content:
   transcript are reset to null, and actions whose quote cannot be found are flagged.
 """
 
+import hashlib
+import json
+import logging
+import math
 import re
 import unicodedata
+from collections.abc import Callable
+from pathlib import Path
 
 import httpx
 
-from smart_meeting.config import Settings
+from smart_meeting.config import CONFIG_FILE, Settings
+from smart_meeting.db import Database
 from smart_meeting.models import MeetingAnalysis, Segment
 
-SYSTEM_PROMPT = """Tu es un assistant qui rédige le compte rendu d'une réunion professionnelle \
-à partir de sa transcription automatique (qui peut contenir des erreurs de reconnaissance).
-
-Règles impératives :
-- N'utilise QUE des informations présentes dans la transcription. N'invente rien.
-- Décision = choix acté ("on a décidé de…", "on part sur…", "c'est validé"). Une décision va \
-dans "decisions", jamais dans "actions", même si elle implique du travail.
-- Action = tâche qu'une personne s'engage à faire ou dont elle est chargée ("je vais…", \
-"X s'en occupe", "peux-tu…"). Sans tâche à faire par quelqu'un, ce n'est pas une action.
-- "owner" : uniquement une personne explicitement désignée ou qui s'engage elle-même \
-("je vais…" prononcé par {user_name} => "{user_name}"). Sinon null.
-- "deadline" : uniquement une échéance explicitement prononcée, recopiée telle quelle \
-(ex. "vendredi", "fin octobre"). Sinon null.
-- "quote" : recopie exactement le passage de la transcription qui mentionne l'action.
-- Une piste seulement évoquée n'est ni une décision ni une action.
-- Listes vides si rien ne correspond. Rédige tout le contenu en {answer_language}, \
-de manière concise.
-- Les interlocuteurs distants sont tous étiquetés "{remote_name}" : ne leur attribue \
-pas de nom propre sauf s'ils se nomment explicitement."""
-
-USER_PROMPT = """Titre de la réunion : {title}
-
-Transcription (horodatage depuis le début de la réunion) :
-{transcript}"""
+# Prompts: Markdown files next to this module, read at each call (edits apply without restart).
+# A file of the same name in the user config folder replaces the default one.
+PROMPTS_DIR = Path(__file__).parent / "prompts"
+USER_PROMPTS_DIR = CONFIG_FILE.parent / "prompts"
 
 
-ASK_PROMPT = """Tu réponds aux questions sur une réunion professionnelle, à partir de sa \
-transcription automatique (qui peut contenir des erreurs de reconnaissance, et peut être en cours).
+def prompt(name: str) -> str:
+    """Template `name` (e.g. "analysis_system"), without its leading HTML comment."""
+    custom = USER_PROMPTS_DIR / f"{name}.md"
+    text = (custom if custom.exists() else PROMPTS_DIR / f"{name}.md").read_text(encoding="utf-8")
+    return re.sub(r"\A\s*<!--.*?-->\s*", "", text, flags=re.S).strip()
 
-Règles impératives :
-- Réponds UNIQUEMENT avec ce que dit la transcription. Si l'information n'y est pas, dis-le \
-simplement, sans inventer.
-- La personne qui pose la question est {user_name} : ses propres phrases sont étiquetées \
-"{user_name}". "je", "moi", "mes" désignent {user_name}.
-- Les autres participants sont étiquetés "{remote_name}".
-- Sois exhaustif : relis toute la transcription. Pour une question sur des tâches, actions ou \
-décisions, liste CHACUNE d'elles, une par ligne commençant par "- ", même si elles sont dispersées.
-- Termine chaque point par l'horodatage [hh:mm:ss] du passage sur lequel il s'appuie.
-- Réponds en {answer_language}, de façon concise, en t'adressant directement à {user_name}."""
 
 ANSWER_LANGUAGES = {"fr": "français", "en": "anglais (English)"}
-
-ASK_USER_PROMPT = """Titre de la réunion : {title}
-
-Transcription :
-{transcript}
-
-Question : {question}"""
 
 
 def format_timestamp(seconds: float) -> str:
@@ -129,26 +102,128 @@ def ground_analysis(analysis: MeetingAnalysis, transcript: str, user_name: str) 
 # Duration estimates of the local AI, refined after each call with the speeds Ollama reports.
 CHARS_PER_TOKEN = 3.5  # French text
 PROMPT_OVERHEAD_TOKENS = 600  # instructions and JSON schema
-EXPECTED_OUTPUT_TOKENS = {"ask": 200, "analysis": 700}
+EXPECTED_OUTPUT_TOKENS = {"ask": 200, "analysis": 700, "notes": 300, "summary": 250}
+# Room kept in the context for the answer, and margin on the characters-per-token ratio.
+RESERVED_OUTPUT_TOKENS = {"ask": 1000, "analysis": 2000}
+CONTEXT_MARGIN = 0.9
+# Long meeting, questions: old parts become notes, the part in progress is read word for word.
+# A part is this share of the context, which leaves room for the notes of about 3 hours.
+NOTES_PART_SHARE = 0.6
 LOAD_ESTIMATE_S = 4.0  # model loaded into memory before the first answer
 SPEED_SMOOTHING = 0.5  # weight of the last measure in the running speeds
+
+
+def split_transcript(segments: list[Segment], max_chars: int) -> list[list[Segment]]:
+    """Consecutive parts of at most `max_chars` of transcript (whole sentences). The parts of a
+    growing meeting stay the same: only the last one changes."""
+    parts: list[list[Segment]] = [[]]
+    size = 0
+    for segment in segments:
+        line = len(format_transcript([segment])) + 1
+        if parts[-1] and size + line > max_chars:
+            parts.append([])
+            size = 0
+        parts[-1].append(segment)
+        size += line
+    return parts
+
+
+def _span(part: list[Segment]) -> dict[str, str]:
+    return {"start": format_timestamp(part[0].start_s), "end": format_timestamp(part[-1].end_s)}
+
+
+def _unique(items: list, key: Callable[[object], str]) -> list:
+    seen: set[str] = set()
+    kept = []
+    for item in items:
+        if (k := key(item)) not in seen:
+            seen.add(k)
+            kept.append(item)
+    return kept
+
+
+def merge_analyses(parts: list[MeetingAnalysis], summary: str) -> MeetingAnalysis:
+    """The analyses of the parts of a long meeting as one, without repeated items."""
+    lists = {
+        name: _unique([i for p in parts for i in getattr(p, name)], _normalize)
+        for name in ("decisions", "questions", "risks", "technical_topics")
+    }
+    actions = _unique(
+        [a for p in parts for a in p.actions], lambda a: _normalize(f"{a.task} {a.owner or ''}")
+    )
+    return MeetingAnalysis(summary=summary, actions=actions, **lists)
+
+
+class NotesCache:
+    """Notes on the old parts of a meeting, kept between questions (by digest of the part).
+    This one forgets them; the service keeps them in the database."""
+
+    def get(self, digest: str) -> str | None:
+        return None
+
+    def put(self, digest: str, notes: str) -> None:
+        pass
+
+
+class MeetingNotes(NotesCache):
+    def __init__(self, db: Database, meeting_id: int) -> None:
+        self.db, self.meeting_id = db, meeting_id
+
+    def get(self, digest: str) -> str | None:
+        return self.db.get_note(self.meeting_id, digest)
+
+    def put(self, digest: str, notes: str) -> None:
+        self.db.save_note(self.meeting_id, digest, notes)
+
+
+logger = logging.getLogger(__name__)
 
 
 class OllamaClient:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        # Tokens per second, starting from a modest laptop GPU, then measured.
-        self.prompt_rate = 400.0
-        self.eval_rate = 12.0
+        # Tokens per second: measured on this computer, kept between launches (ai-speed.json);
+        # the first time, a model mostly on the CPU (a 7B model does not fit in 4 GB of GPU).
+        self.prompt_rate = 80.0
+        self.eval_rate = 5.0
+        self._speeds_path = settings.data_dir / "ai-speed.json"
+        try:
+            saved = json.loads(self._speeds_path.read_text(encoding="utf-8"))
+            if saved.get("model") == settings.ollama_model:
+                self.prompt_rate = float(saved["prompt_rate"])
+                self.eval_rate = float(saved["eval_rate"])
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
 
-    def estimate_s(self, transcript_chars: int, kind: str) -> float:
-        """Expected duration of a question ("ask") or a report ("analysis"), in seconds."""
-        prompt_tokens = transcript_chars / CHARS_PER_TOKEN + PROMPT_OVERHEAD_TOKENS
+    def budget_chars(self, kind: str) -> int:
+        """Transcript characters that fit in the context of the model, for this kind of call."""
+        tokens = (
+            self.settings.ollama_num_ctx - PROMPT_OVERHEAD_TOKENS - RESERVED_OUTPUT_TOKENS[kind]
+        )
+        return int(tokens * CHARS_PER_TOKEN * CONTEXT_MARGIN)
+
+    def estimate_s(self, transcript_chars: int, kind: str, notes_chars: int = 0) -> float:
+        """Expected duration of a question ("ask") or a report ("analysis"), in seconds. A long
+        report is written part by part, then summed up; `notes_chars`: old parts of the meeting
+        still to turn into notes before a question."""
+        parts = 1
+        output_tokens = EXPECTED_OUTPUT_TOKENS[kind]
+        if kind == "analysis" and transcript_chars > self.budget_chars("analysis"):
+            parts = math.ceil(transcript_chars / self.budget_chars("analysis"))
+            output_tokens = parts * output_tokens + EXPECTED_OUTPUT_TOKENS["summary"]
+        if notes_chars:
+            notes = math.ceil(notes_chars / self.notes_part_chars())
+            parts += notes
+            output_tokens += notes * EXPECTED_OUTPUT_TOKENS["notes"]
+        prompt_tokens = (transcript_chars + notes_chars) / CHARS_PER_TOKEN
         return (
             LOAD_ESTIMATE_S
-            + prompt_tokens / self.prompt_rate
-            + EXPECTED_OUTPUT_TOKENS[kind] / self.eval_rate
+            + (prompt_tokens + parts * PROMPT_OVERHEAD_TOKENS) / self.prompt_rate
+            + output_tokens / self.eval_rate
         )
+
+    def notes_part_chars(self) -> int:
+        return int(self.budget_chars("ask") * NOTES_PART_SHARE)
 
     def _measure(self, metrics: dict) -> None:
         """Running speeds from the counters of an Ollama answer (durations in nanoseconds)."""
@@ -161,6 +236,16 @@ class OllamaClient:
                 measured = tokens / (nanoseconds / 1e9)
                 current = getattr(self, attribute)
                 setattr(self, attribute, current + SPEED_SMOOTHING * (measured - current))
+        speeds = {
+            "model": self.settings.ollama_model,
+            "prompt_rate": round(self.prompt_rate, 1),
+            "eval_rate": round(self.eval_rate, 2),
+        }
+        try:
+            self._speeds_path.parent.mkdir(parents=True, exist_ok=True)
+            self._speeds_path.write_text(json.dumps(speeds), encoding="utf-8")
+        except OSError:
+            logger.warning("Could not save the AI speeds", exc_info=True)
 
     def _client(self, timeout: float) -> httpx.AsyncClient:
         # trust_env=False: never route transcripts through the HTTP proxy from the environment.
@@ -211,24 +296,98 @@ class OllamaClient:
         }
 
     async def analyze(self, title: str, segments: list[Segment]) -> MeetingAnalysis:
+        """Minutes of the meeting. Longer than the context: each part is analyzed on its own, the
+        lists are merged and the summaries of the parts summed up in one."""
+        title = title or "(sans titre)"
         transcript = format_transcript(segments)
-        content = await self._chat(
-            SYSTEM_PROMPT.format(**self._names()),
-            USER_PROMPT.format(title=title or "(sans titre)", transcript=transcript),
-            response_format=analysis_schema(),
+        system = prompt("analysis_system").format(**self._names())
+        parts = split_transcript(segments, self.budget_chars("analysis"))
+        if len(parts) == 1:
+            user = prompt("analysis_user").format(title=title, transcript=transcript)
+            content = await self._chat(system, user, response_format=analysis_schema())
+            analysis = MeetingAnalysis.model_validate_json(content)
+            return ground_analysis(analysis, transcript, self.settings.user_name)
+        analyses = []
+        for number, part in enumerate(parts, 1):
+            user = prompt("analysis_part").format(
+                title=title, part=number, parts=len(parts), transcript=format_transcript(part),
+                **_span(part),
+            )  # fmt: skip
+            content = await self._chat(system, user, response_format=analysis_schema())
+            analyses.append(MeetingAnalysis.model_validate_json(content))
+        summaries = "\n\n".join(
+            "{start} - {end} :\n".format(**_span(part)) + analysis.summary
+            for part, analysis in zip(parts, analyses, strict=True)
         )
-        analysis = MeetingAnalysis.model_validate_json(content)
-        return ground_analysis(analysis, transcript, self.settings.user_name)
+        summary = await self._chat(
+            prompt("summary_system").format(**self._names()),
+            prompt("summary_user").format(title=title, summaries=summaries),
+        )
+        merged = merge_analyses(analyses, summary.strip())
+        return ground_analysis(merged, transcript, self.settings.user_name)
 
-    async def ask(self, title: str, segments: list[Segment], question: str) -> str:
-        """Answer a question about the meeting, from its transcript only (it may be in progress)."""
+    def old_parts(self, segments: list[Segment]) -> tuple[list[list[Segment]], list[Segment]]:
+        """A long meeting for a question: its old parts (read as notes), and the recent one."""
+        if len(format_transcript(segments)) <= self.budget_chars("ask"):
+            return [], segments
+        *old, recent = split_transcript(segments, self.notes_part_chars())
+        return old, recent
+
+    def _notes_digest(self, title: str, part: list[Segment]) -> str:
+        # A renamed speaker or an edited prompt changes the digest: the notes are written again.
+        text = "\n".join((prompt("notes_system"), title, format_transcript(part)))
+        return hashlib.sha256(text.encode()).hexdigest()
+
+    def missing_notes_chars(self, title: str, segments: list[Segment], cache: NotesCache) -> int:
+        """Transcript of the old parts not yet turned into notes (duration of the next question)."""
+        old, _ = self.old_parts(segments)
+        return sum(
+            len(format_transcript(part))
+            for part in old
+            if cache.get(self._notes_digest(title, part)) is None
+        )
+
+    async def _notes(self, title: str, part: list[Segment], cache: NotesCache) -> str:
+        digest = self._notes_digest(title, part)
+        notes = cache.get(digest)
+        if notes is None:
+            notes = (
+                await self._chat(
+                    prompt("notes_system").format(**self._names()),
+                    prompt("notes_user").format(
+                        title=title, transcript=format_transcript(part), **_span(part)
+                    ),
+                )
+            ).strip()
+            cache.put(digest, notes)
+        return notes
+
+    async def ask(
+        self, title: str, segments: list[Segment], question: str, cache: NotesCache | None = None
+    ) -> str:
+        """Answer a question about the meeting, from its transcript only (it may be in progress).
+        Longer than the context: the old parts are given as notes, written once and kept."""
+        title = title or "(sans titre)"
+        old, recent = self.old_parts(segments)
+        transcript = format_transcript(recent)
+        if old:
+            cache = cache or NotesCache()
+            notes = [
+                "### {start} - {end}\n".format(**_span(part))
+                + await self._notes(title, part, cache)
+                for part in old
+            ]
+            transcript = "\n\n".join(
+                [
+                    "Notes sur les parties anciennes de la réunion :",
+                    *notes,
+                    "Transcription mot à mot depuis {start} :".format(**_span(recent)),
+                    transcript,
+                ]
+            )
         return (
             await self._chat(
-                ASK_PROMPT.format(**self._names()),
-                ASK_USER_PROMPT.format(
-                    title=title or "(sans titre)",
-                    transcript=format_transcript(segments),
-                    question=question,
-                ),
+                prompt("ask_system").format(**self._names()),
+                prompt("ask_user").format(title=title, transcript=transcript, question=question),
             )
         ).strip()

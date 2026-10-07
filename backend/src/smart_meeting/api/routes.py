@@ -30,6 +30,7 @@ from smart_meeting.models import (
     MeetingDetail,
     MeetingListItem,
     Preferences,
+    RenameSpeakerRequest,
     SetupStepInfo,
     StartMeetingRequest,
     TagCount,
@@ -160,7 +161,7 @@ def get_meeting(request: Request, meeting_id: int) -> MeetingDetail:
         analysis=svc.db.get_analysis(meeting_id),
         has_audio=svc.audio_path(meeting_id).exists(),
         captured=svc.captured_devices(meeting_id),
-        estimates=svc.estimates(segments),
+        estimates=svc.estimates(meeting, segments),
         analysis_elapsed_s=svc.analysis_elapsed_s(meeting_id),
         questions=svc.db.list_questions(meeting_id),
     )
@@ -183,6 +184,15 @@ def set_meeting_tags(request: Request, meeting_id: int, body: TagsRequest) -> Me
     get_meeting_or_404(svc, meeting_id)
     svc.db.set_tags(meeting_id, body.tags)
     return get_meeting_or_404(svc, meeting_id)
+
+
+@router.put("/meetings/{meeting_id}/speakers", status_code=204)
+def rename_speaker(request: Request, meeting_id: int, body: RenameSpeakerRequest) -> None:
+    """Names a speaker ("Intervenant 2" -> "Paul") in the whole meeting, during or after it.
+    Giving the name of another speaker merges both (a voice wrongly split in two)."""
+    svc = service(request)
+    get_meeting_or_404(svc, meeting_id)
+    svc.rename_speaker(meeting_id, body.old, body.new)
 
 
 @router.get("/tags")

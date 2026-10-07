@@ -54,6 +54,17 @@ Choix par rapport à la proposition initiale :
   change. Sur ce poste, la sortie par défaut est l'adaptateur Unitek et non le casque USB : le mode automatique évite
   de capter la mauvaise sortie.
 - **Diarisation gratuite Moi / Interlocuteur** : deux flux séparés, donc chaque segment est étiqueté par sa source.
+- **Longues réunions** (`llm/analysis.py`) : au-delà du contexte d'Ollama (taille tirée de `SM_OLLAMA_NUM_CTX`), le
+  compte rendu est fait par parties (listes fusionnées sans doublon, un appel de plus pour un résumé unique, citations
+  vérifiées sur toute la transcription). Pour une question, les parties anciennes deviennent des notes horodatées
+  (table `notes`, clé = empreinte du texte de la partie et du prompt, donc refaites après un renommage), la partie
+  récente reste mot à mot. Aucune IA en continu : seulement à la demande et à la fin.
+- **Intervenants distingués par la voix** (`speakers.py`) : une empreinte vocale par phrase (WeSpeaker ResNet34-LM
+  en ONNX, filterbanks Kaldi en numpy, sans PyTorch, ~60 ms par phrase sur le CPU, dans son propre thread à côté de
+  Whisper), rattachée en direct à la voix la plus proche (cosinus ≥ 0,45) ; à l'arrêt, les voix proches (≥ 0,40) sont
+  fusionnées et les phrases réaffectées. Micro : « Moi », sauf en mode salle de réunion. Fichier importé : tours de
+  parole coupés aux pauses de 300 ms, phrases de Whisper coupées au mot près quand la voix change. Le nom affiché est
+  dans `segments.speaker` ; renommer met à jour segments, actions et compte rendu (un nom existant fusionne).
   Avec un casque, il n'y a pas d'écho du distant dans le micro.
 
 ## 4. Difficultés techniques et choix
@@ -109,7 +120,8 @@ smart-meeting/
 │   │   ├── audio/                # backend.py (interface), pipewire*.py, windows.py, macos.py, threaded.py,
 │   │   │                         # decode.py (PyAV), segmenter.py (VAD)
 │   │   ├── transcription/whisper.py
-│   │   ├── llm/analysis.py       # Ollama, prompt, garde-fous
+│   │   ├── llm/analysis.py       # Ollama, garde-fous, longues réunions par parties ; prompts dans llm/prompts/*.md
+│   │   ├── speakers.py           # empreintes vocales, regroupement des intervenants
 │   │   └── meeting/              # service.py (orchestration), events.py, report.py (Markdown)
 │   └── tests/
 └── frontend/                     # React 19 + TypeScript + Vite + Bun, règles strictes (voir le README)
@@ -135,6 +147,7 @@ smart-meeting/
 | `segments` | id, meeting_id, source (`mic`/`remote`), speaker, start_s, end_s, text |
 | `decisions` | id, meeting_id, text |
 | `actions` | id, meeting_id, task, owner, deadline, quote, verified |
+| `notes` | meeting_id, digest, text (notes de l'IA sur les parties anciennes des longues réunions) |
 
 `start_s`/`end_s` sont en secondes depuis le début de la réunion. L'heure affichée vaut `started_at + start_s`.
 `analysis_json` garde l'analyse complète (questions, risques, points techniques). Décisions et actions sont aussi
