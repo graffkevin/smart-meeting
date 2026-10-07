@@ -17,7 +17,7 @@
     "api:generate": "bun --bun orval"
   },
   "dependencies": {
-    "@ign-junn/design-system": "^0.22.0",
+    "@ign-junn/design-system": "^0.23.0",
     "@mantine/core": "^9.6.2",
     "@mantine/hooks": "^9.6.2",
     "@tabler/icons-react": "^3.48.0",
