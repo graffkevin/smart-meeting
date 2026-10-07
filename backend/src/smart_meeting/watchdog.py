@@ -25,6 +25,13 @@ def pid_path(data_dir: Path) -> Path:
     return data_dir / "server.pid"
 
 
+def page_marker_path(data_dir: Path) -> Path:
+    """Present while a page may come back to the server: written when a page opens, removed when the
+    server stops because none is left. A page still open after a quit or a crash reconnects by
+    itself, so the next launch waits for it instead of opening another tab."""
+    return data_dir / "page-open"
+
+
 def start(loop: asyncio.AbstractEventLoop, data_dir: Path, stall_s: float = STALL_S) -> None:
     data_dir.mkdir(parents=True, exist_ok=True)
     # Kept open for the life of the process: faulthandler writes to its file descriptor.

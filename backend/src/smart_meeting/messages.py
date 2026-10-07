@@ -160,6 +160,17 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Port {port} is taken but nothing answers on it. Close the application using it, or"
         " choose another port with --port or SM_PORT.",
     },
+    "starting_title": {"fr": "Smart Meeting démarre…", "en": "Smart Meeting is starting…"},
+    "starting_detail": {
+        "fr": "L'application s'ouvrira ici dans quelques secondes.",
+        "en": "The app will open here in a few seconds.",
+    },
+    "starting_slow": {
+        "fr": "C'est plus long que d'habitude : l'interface est peut-être en cours de mise à jour."
+        " Si rien ne change d'ici une minute, relancez Smart Meeting.",
+        "en": "This takes longer than usual: the interface may be updating. If nothing changes"
+        " within a minute, start Smart Meeting again.",
+    },
     "port_taken": {
         "fr": "Le port {port} est utilisé par une autre application. Choisissez-en un autre avec"
         " --port ou SM_PORT.",

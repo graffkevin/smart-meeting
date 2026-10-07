@@ -49,3 +49,14 @@ def test_replaces_a_frozen_server(monkeypatch, tmp_path):
     assert launcher.replace_frozen_server("http://x/", 1) == "socket"
     assert killed == [4242]
     assert not launcher.pid_path(tmp_path).exists()
+
+
+def test_the_starting_page_goes_to_the_app_once_it_answers(monkeypatch, tmp_path):
+    from smart_meeting.config import Settings
+
+    monkeypatch.setattr(launcher, "get_settings", lambda: Settings(data_dir=tmp_path))
+    monkeypatch.setattr(launcher, "tr", lambda key: f"<{key}>")
+    page = launcher.write_starting_page("http://127.0.0.1:8417/", tmp_path / "data").read_text()
+    assert "const app = 'http://127.0.0.1:8417/';" in page
+    assert "&lt;starting_title&gt;" in page  # texts are escaped
+    assert "$" not in page.split("<script>")[0]  # every placeholder filled

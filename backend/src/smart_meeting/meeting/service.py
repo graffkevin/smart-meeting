@@ -40,6 +40,7 @@ from smart_meeting.preferences import PreferencesStore
 from smart_meeting.provision import OllamaProvisioner
 from smart_meeting.transcription.language import LanguageTracker
 from smart_meeting.transcription.whisper import TranscribedPiece, WhisperTranscriber
+from smart_meeting.watchdog import page_marker_path
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +182,7 @@ class MeetingService:
 
     def page_opened(self) -> None:
         self.ui_connections += 1
+        page_marker_path(self.settings.data_dir).touch()
 
     def page_closed(self, on_unused: Callable[[], None] | None) -> None:
         """Last page closed: call `on_unused` (stop the app) once nothing is running."""

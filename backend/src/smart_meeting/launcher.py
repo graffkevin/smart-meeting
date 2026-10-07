@@ -2,12 +2,14 @@
 and open the app. Same behavior on Linux, macOS and Windows."""
 
 import argparse
+import html
 import logging
 import os
 import platform
 import shutil
 import signal
 import socket
+import string
 import subprocess
 import sys
 import threading
@@ -21,9 +23,12 @@ import httpx
 from smart_meeting.config import get_settings
 from smart_meeting.messages import tr
 from smart_meeting.preferences import PreferencesStore
-from smart_meeting.watchdog import STALL_S, pid_path, traces_path
+from smart_meeting.watchdog import STALL_S, page_marker_path, pid_path, traces_path
 
 logger = logging.getLogger("smart_meeting.launcher")
+
+# A page left open retries every 2 s (PRESENCE_RETRY_MS in the frontend): enough to see it back.
+RECONNECT_WAIT_S = 3
 
 
 def _health(url: str) -> dict | None:
@@ -121,6 +126,26 @@ def open_unless_already_open(url: str, wait_s: float = 0) -> None:
             open_window(url)
             return
         time.sleep(0.5)
+
+
+def write_starting_page(url: str, data_dir: Path) -> Path:
+    """The page shown while the server starts, in the interface language: it goes to the app as
+    soon as the server answers."""
+    source = Path(__file__).parent / "starting.html"
+    template = string.Template(source.read_text(encoding="utf-8"))
+    page = data_dir / "starting.html"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    page.write_text(
+        template.safe_substitute(
+            lang=get_settings().ui_language,
+            url=url,
+            title=html.escape(tr("starting_title")),
+            detail=html.escape(tr("starting_detail")),
+            slow=html.escape(tr("starting_slow")),
+        ),
+        encoding="utf-8",
+    )
+    return page
 
 
 def check_system() -> None:
@@ -244,18 +269,23 @@ def run() -> None:
 
     from smart_meeting.main import FRONTEND_DIST
 
+    data_dir = get_settings().data_dir
+    page_left_open = page_marker_path(data_dir).exists()
+    # No page to come back: show one at once, it waits for the server (the build can take a while).
+    if not args.no_window and not page_left_open:
+        open_window(write_starting_page(url, data_dir).as_uri())
+
     check_system()
     build_frontend_if_needed(FRONTEND_DIST.parent)
 
     def open_when_ready() -> None:
         for _ in range(100):
             if _port_owner(url) == "smart-meeting":
-                # Leave time for a page left open from a previous run to reconnect.
-                open_unless_already_open(url, wait_s=5)
+                open_unless_already_open(url, wait_s=RECONNECT_WAIT_S)
                 return
             time.sleep(0.2)
 
-    if not args.no_window:
+    if not args.no_window and page_left_open:
         threading.Thread(target=open_when_ready, daemon=True).start()
 
     import uvicorn
@@ -267,5 +297,11 @@ def run() -> None:
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=args.port))
     # Quit button: on Windows a signal would kill the process without a graceful shutdown.
     app.state.request_exit = lambda: setattr(server, "should_exit", True)
-    app.state.stop_when_unused = app.state.request_exit
+
+    def stop_unused() -> None:
+        # No page left: the next launch opens one at once instead of waiting for it.
+        page_marker_path(data_dir).unlink(missing_ok=True)
+        app.state.request_exit()
+
+    app.state.stop_when_unused = stop_unused
     server.run(sockets=[sock])
