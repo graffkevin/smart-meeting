@@ -38,7 +38,7 @@ Choix par rapport à la proposition initiale :
   dépendance C à compiler. `sounddevice`/PortAudio ne voit pas proprement les monitors. FFmpeg n'apporte rien ici.
 - **Segmentation par pauses (VAD)** plutôt que des chunks fixes (voir §4).
 - **SQLite via `sqlite3`** (sans ORM) : 4 tables, requêtes simples.
-- **Front aux règles strictes** (voir le README) : design system (Mantine), TanStack Query/Form, i18next, client Orval généré, routeur
+- **Front aux règles strictes** (voir docs/TECHNICAL.md) : design system (Mantine), TanStack Query/Form, i18next, client Orval généré, routeur
   par hash (le backend sert une seule page).
 
 ## 3. Capturer le micro et ce que j'entends dans le casque
@@ -129,7 +129,7 @@ smart-meeting/
 │   │   ├── speakers.py           # empreintes vocales, regroupement des intervenants
 │   │   └── meeting/              # service.py (orchestration), events.py, report.py (Markdown)
 │   └── tests/
-└── frontend/                     # React 19 + TypeScript + Vite + Bun, règles strictes (voir le README)
+└── frontend/                     # React 19 + TypeScript + Vite + Bun, règles strictes (voir docs/TECHNICAL.md)
     ├── openapi/                  # schéma OpenAPI exporté du backend (make api)
     ├── scripts/                  # contrôles des règles (check:rules)
     └── src/
