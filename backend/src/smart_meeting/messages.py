@@ -155,6 +155,25 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fr": "Construction de l'interface impossible (voir les messages ci-dessus).",
         "en": "Cannot build the interface (see the messages above).",
     },
+    "shortcut_linux": {
+        "fr": "Smart Meeting est dans le menu des applications ({path}). Pour l'avoir dans le"
+        " dock : touche Super, tapez « Smart Meeting », clic droit, « Épingler au dock ».",
+        "en": "Smart Meeting is in the applications menu ({path}). To keep it in the dock: Super"
+        ' key, type "Smart Meeting", right-click, "Pin to Dash".',
+    },
+    "shortcut_macos": {
+        "fr": "Smart Meeting est dans vos Applications ({path}). Pour l'avoir dans le Dock :"
+        " glissez-le du Finder vers le Dock.",
+        "en": "Smart Meeting is in your Applications ({path}). To keep it in the Dock: drag it"
+        " from the Finder to the Dock.",
+    },
+    "shortcut_windows": {
+        "fr": "Smart Meeting est dans le menu Démarrer ({path}). Pour l'avoir dans la barre des"
+        " tâches : menu Démarrer, clic droit sur Smart Meeting, « Épingler à la barre des"
+        " tâches ».",
+        "en": "Smart Meeting is in the Start menu ({path}). To keep it in the taskbar: Start"
+        ' menu, right-click Smart Meeting, "Pin to taskbar".',
+    },
     "port_unresponsive": {
         "fr": "Le port {port} est occupé mais rien n'y répond. Fermez l'application qui l'utilise,"
         " ou choisissez un autre port avec --port ou SM_PORT.",

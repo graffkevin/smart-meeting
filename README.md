@@ -19,7 +19,7 @@ first run installs everything else. No `make` needed: `make run` does the same, 
 
 | System | Install once | Run |
 |---|---|---|
-| **Ubuntu** (22.10+, PipeWire) | `sudo apt install git` (often already there) | `./smart-meeting`, or the app menu (`make desktop`) |
+| **Ubuntu** (22.10+, PipeWire) | `sudo apt install git` (often already there) | `./smart-meeting`, or the app menu (see below) |
 | **macOS** (13 Ventura+) | `xcode-select --install` (git) | `./smart-meeting` in the Terminal |
 | **Windows** 10/11 | `winget install Git.Git` | `.\smart-meeting` in PowerShell or the command prompt, or double-click `smart-meeting.cmd` |
 
@@ -59,13 +59,45 @@ On **macOS**, the first recording asks for the "Screen & System Audio Recording"
 Smart Meeting: grant it in System Settings > Privacy & Security, then restart. If one of the two sources cannot be
 captured, the meeting goes on with the other one and the interface tells why; importing a file works in every case.
 
+## How it works
+
+1. **Start Smart Meeting** (its icon, or `./smart-meeting`): it opens as a page of your browser.
+2. **Click "Start recording"**, with a meeting name if you like, then start your call (Teams, Meet, Zoom…).
+   Smart Meeting listens to your microphone and to what plays in your headset, whatever the call app.
+3. **Follow the transcript** on the right, live: your sentences on one side, the others on the other, each person
+   with a colored dot ("Intervenant 1", "Intervenant 2"…). Double-click a name to replace it ("Paul").
+4. **Ask the meeting**, at any time: "Summary", "My actions", "Decisions" in one click, or your own question.
+5. **Click "Stop recording"**: the local AI writes the minutes (summary, decisions, actions with who and when, questions,
+   risks). "Copy the minutes" gives them as Markdown.
+6. **Find your meetings** in the history panel on the right, by date or by tag, with a search on everything said.
+
+Also: **import a video or an audio file** (a replay, a webinar) from the home page; the ⚙ **settings** hold your name,
+a vocabulary of names and acronyms, the microphone and headset, and the meeting room mode. Closing the tab stops the
+app once nothing is running; nothing said is lost even if something goes wrong (see below).
+
+### Put it in your dock or taskbar
+
+Run once, in the project folder:
+
+```bash
+./smart-meeting --install          # Windows: .\smart-meeting --install
+```
+
+| System | Where it goes | To pin it |
+|---|---|---|
+| **Ubuntu** | applications menu | Super key, type "Smart Meeting", right-click, **Pin to Dash** (Épingler au dock) |
+| **macOS** | `~/Applications/Smart Meeting.app` | drag it from the Finder (Go > Home > Applications) to the **Dock** |
+| **Windows** | Start menu | Start menu, right-click **Smart Meeting**, **Pin to taskbar** |
+
+The icon starts Smart Meeting without a terminal; run `--install` again if you move the project folder.
+
 ## Use
 
 ### Start
 
 | How | Command |
 |---|---|
-| **Applications menu** (Linux) | Super key, type "Smart Meeting" (after `make desktop`; can be pinned to the dock) |
+| **Dock, taskbar, applications menu** | after `./smart-meeting --install` (see [Put it in your dock or taskbar](#put-it-in-your-dock-or-taskbar)) |
 | **Terminal** (any system) | `./smart-meeting` in the project folder (`.\smart-meeting` on Windows, or `make run`) |
 | **Browser**, if already running | http://127.0.0.1:8417 |
 

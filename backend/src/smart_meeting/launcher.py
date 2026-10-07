@@ -251,8 +251,20 @@ def run() -> None:
     parser = argparse.ArgumentParser(description="Local meeting transcription and analysis")
     parser.add_argument("--port", type=int, default=get_settings().port)
     parser.add_argument("--no-window", action="store_true", help="do not open the app window")
+    parser.add_argument(
+        "--install",
+        action="store_true",
+        help="add Smart Meeting to the applications, to pin it to the dock or the taskbar",
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    if args.install:
+        from smart_meeting import shortcut
+
+        where = shortcut.install(Path(__file__).resolve().parents[3])
+        system = {"darwin": "macos", "win32": "windows"}.get(sys.platform, "linux")
+        print(tr(f"shortcut_{system}", path=where))
+        return
     # Messages in the language chosen in the interface (saved preferences)
     PreferencesStore(get_settings())
 

@@ -67,11 +67,5 @@ api: uv ## Regenerate the frontend API client from the backend OpenAPI schema
 	$(UV) run --directory backend python -c "import json; from smart_meeting.main import app; print(json.dumps(app.openapi(), indent=2))" > frontend/openapi/smart-meeting.openapi.json
 	cd frontend && bun run api:generate
 
-desktop: ## Linux: add Smart Meeting to the applications menu
-ifeq ($(PLATFORM),linux)
-	mkdir -p $(HOME)/.local/share/applications
-	sed "s|@ROOT@|$(CURDIR)|g" packaging/smart-meeting.desktop > $(HOME)/.local/share/applications/smart-meeting.desktop
-	@echo "Ajouté au menu des applications."
-else
-	@echo "make desktop n'est disponible que sous Linux ; lancez Smart Meeting avec : make run"
-endif
+desktop: ## Add Smart Meeting to the applications (menu, Applications, Start menu), to pin it
+	./smart-meeting --install
