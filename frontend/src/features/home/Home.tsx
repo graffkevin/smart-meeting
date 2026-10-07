@@ -202,6 +202,7 @@ const RecordForm = ({ preferences }: RecordFormProps) => {
           <Button variant="subtle" size="xs" icon={IconSettings} label={t('sources.edit')} onClick={openSettings} />
         </Stack>
         <Typography variant="caption">{t('home.startHint')}</Typography>
+        <Typography variant="caption">{t('home.safety')}</Typography>
         {start.isError && (
           <Alert tone="danger" title={t('home.startError')}>
             {start.error.message}

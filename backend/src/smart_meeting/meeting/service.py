@@ -14,7 +14,6 @@ import re
 import shutil
 import sys
 import time
-import wave
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -111,7 +110,10 @@ class SourceStream:
     segmenter: UtteranceSegmenter | None = None
     # Meeting time (s) of the first sample received, to align both sources.
     offset_s: float | None = None
-    wav: wave.Wave_write | None = None
+    # Raw audio on disk, in meeting time (see safety.py), and samples received since the
+    # capture (re)started
+    track: safety.SafetyTrack | None = None
+    received: int = 0
     previous_text: str = ""
     language: LanguageTracker = field(default_factory=LanguageTracker)
     peak_rms: float = 0.0
@@ -367,8 +369,6 @@ class MeetingService:
             if stream.auto:
                 targets[stream.source] = in_use[stream.source]
             stream.segmenter = self._new_segmenter()
-            if request.keep_audio:
-                stream.wav = self._open_wav(meeting.id, stream.source)
             stream.capture = self._new_capture(recording, stream, targets[stream.source])
 
         voices_file = self.pending.folder(meeting.id) / "voices.json"
@@ -475,27 +475,12 @@ class MeetingService:
             stream.error = str(exc) or type(exc).__name__
         self._publish_devices(recording)
 
-    def _open_wav(self, meeting_id: int, source: Source) -> wave.Wave_write:
-        directory = self.audio_path(meeting_id)
-        directory.mkdir(parents=True, exist_ok=True)
-        # Resumed after a restart: the audio before it is kept in its own file
-        path = directory / f"{source}.wav"
-        for number in itertools.count(2):
-            if not path.exists():
-                break
-            path = directory / f"{source}-{number}.wav"
-        wav = wave.open(str(path), "wb")
-        wav.setnchannels(1)
-        wav.setsampwidth(2)
-        wav.setframerate(self.settings.sample_rate)
-        return wav
-
     async def _abort(self, recording: Recording, exc: Exception) -> None:
         for stream in recording.streams.values():
             if stream.capture:
                 await stream.capture.stop()
-            if stream.wav:
-                stream.wav.close()
+            if stream.track:
+                stream.track.close()
         self._set_status(recording.meeting_id, MeetingStatus.ERROR, error=str(exc))
         self.active = None
 
@@ -504,8 +489,13 @@ class MeetingService:
         if stream.offset_s is None:
             elapsed = asyncio.get_running_loop().time() - recording.started
             stream.offset_s = max(0.0, elapsed - len(samples) / sample_rate)
-        if stream.wav:
-            stream.wav.writeframes((samples * 32767).astype(np.int16).tobytes())
+            stream.received = 0
+        at_s = stream.offset_s + stream.received / sample_rate
+        stream.received += len(samples)
+        if stream.track is None:
+            folder = self.audio_path(recording.meeting_id)
+            stream.track = safety.SafetyTrack(folder, stream.source, at_s, sample_rate)
+        stream.track.write(samples, at_s)
         stream.peak_rms = max(stream.peak_rms, float(np.sqrt(np.mean(samples**2))))
         for utterance in stream.segmenter.push(samples):
             self._enqueue(recording, stream, utterance)
@@ -625,8 +615,8 @@ class MeetingService:
         # The sentence being spoken is kept too
         for stream in recording.streams.values():
             self._flush(recording, stream)
-            if stream.wav:
-                stream.wav.close()
+            if stream.track:
+                stream.track.close()
         request = (recording.request or StartMeetingRequest()).model_dump()
         safety.save_resume(self.settings.data_dir, recording.meeting_id, request)
 
@@ -648,17 +638,25 @@ class MeetingService:
                         self._set_status(meeting.id, MeetingStatus.ERROR, error=tr("interrupted"))
         await self._whisper_ready.wait()
         await self._voices_loaded.wait()
-        for meeting_id in self.pending.meetings():
-            if meeting_id != resumed:
-                await self._transcribe_left_over(meeting_id)
+        audio_dirs = self.settings.audio_dir.glob("*") if self.settings.audio_dir.exists() else []
+        candidates = {
+            *self.pending.meetings(),
+            *(int(d.name) for d in audio_dirs if d.name.isdigit()),
+        }
+        for meeting_id in sorted(candidates - {resumed}):
+            meeting = self.db.get_meeting(meeting_id)
+            if meeting is None:
+                self.pending.remove(meeting_id)
+            elif meeting_id in self.pending.meetings() or (
+                meeting.status == MeetingStatus.ERROR and meeting.error == tr("interrupted")
+            ):
+                await self._complete_interrupted(meeting_id)
 
-    async def _transcribe_left_over(self, meeting_id: int) -> None:
-        """Sentences of an interrupted meeting that were never transcribed."""
+    async def _complete_interrupted(self, meeting_id: int) -> None:
+        """A meeting interrupted by a crash: its sentences left waiting, then the speech of its
+        safety tracks that was never transcribed."""
         sentences = self.pending.load(meeting_id)
-        if not self.db.get_meeting(meeting_id) or not sentences:
-            self.pending.remove(meeting_id)
-            return
-        logger.info("Transcribing %s sentences left by meeting %s", len(sentences), meeting_id)
+        logger.info("Completing meeting %s (%s sentences left)", meeting_id, len(sentences))
         # Their voices are not known: numbered after the speakers already in the meeting
         label = re.compile(re.escape(speaker_label(0)).replace("0", r"(\d+)"))
         known = [label.fullmatch(s.speaker or "") for s in self.db.list_segments(meeting_id)]
@@ -681,12 +679,43 @@ class MeetingService:
                     recording, stream, sentence.start_s, Utterance(0, sentence.audio)
                 )
             sentence.path.unlink(missing_ok=True)
+        await self._transcribe_missing(recording)
         self._store_speakers(meeting_id, recording.voices)
         self.pending.remove(meeting_id)
+        self._drop_tracks(meeting_id)
         # Complete again: the minutes are written with everything that was said
         transcript = format_transcript(self.db.list_segments(meeting_id))
         self._set_status(meeting_id, MeetingStatus.TRANSCRIBED, transcript=transcript, error=None)
         self._spawn(self.analyze(meeting_id))
+
+    async def _transcribe_missing(self, recording: Recording) -> None:
+        """Last check of a meeting: speech of the safety tracks with no transcribed sentence
+        (lost to a freeze, a restart or a crash) is transcribed and put in its place."""
+        loop = asyncio.get_running_loop()
+        folder = self.audio_path(recording.meeting_id)
+        segments = self.db.list_segments(recording.meeting_id)
+        found = 0
+        for source, stream in recording.streams.items():
+            sentences = [(s.start_s, s.end_s) for s in segments if s.source == source]
+            tracks = safety.load_tracks(folder, source)
+            if not tracks:
+                continue
+            missing = await loop.run_in_executor(
+                self._executor, safety.missing_speech, tracks, sentences, self._new_segmenter,
+                self.settings.sample_rate,
+            )  # fmt: skip
+            for start_s, audio in missing:
+                await self._transcribe_utterance(recording, stream, start_s, Utterance(0, audio))
+            found += len(missing)
+        if found:
+            logger.warning("Meeting %s: %s passages missing from the transcript recovered",
+                           recording.meeting_id, found)  # fmt: skip
+
+    def _drop_tracks(self, meeting_id: int) -> None:
+        """The safety tracks are only kept when the user keeps the audio."""
+        meeting = self.db.get_meeting(meeting_id)
+        if meeting and not meeting.keep_audio:
+            shutil.rmtree(self.audio_path(meeting_id), ignore_errors=True)
 
     async def _transcribe_utterance(
         self, recording: Recording, stream: SourceStream, offset_s: float, utterance: Utterance
@@ -746,8 +775,8 @@ class MeetingService:
             await asyncio.gather(*(s.capture.stop() for s in recording.streams.values()))
         for stream in recording.streams.values():
             self._flush(recording, stream)
-            if stream.wav:
-                stream.wav.close()
+            if stream.track:
+                stream.track.close()
         recording.queue.put_nowait(None)
         self._spawn(self._finish(recording))
         meeting = self.db.get_meeting(meeting_id)
@@ -763,7 +792,9 @@ class MeetingService:
         finally:
             self.active = None
         meeting_id = recording.meeting_id
+        await self._transcribe_missing(recording)
         self.pending.remove(meeting_id)  # everything is transcribed
+        self._drop_tracks(meeting_id)
         self._store_speakers(meeting_id, recording.voices)
         transcript = format_transcript(self.db.list_segments(meeting_id))
         self._set_status(meeting_id, MeetingStatus.TRANSCRIBED, transcript=transcript)

@@ -156,8 +156,17 @@ normalisées pour de futures requêtes transverses.
 Statuts : `recording → transcribing → transcribed → analyzing → done` (ou `error`). Une analyse en échec revient à
 `transcribed` avec un message, et peut être relancée.
 
-**Audio** : par défaut, il n'est **jamais écrit sur disque** (traité en mémoire). Avec l'option « Conserver l'audio »,
-deux WAV 16 kHz sont écrits dans `~/.local/share/smart-meeting/audio/<id>/`, supprimables depuis l'interface.
+**Audio** : pendant la réunion, une **piste de secours** par source est toujours écrite (`meeting/safety.py`) dans
+`~/.local/share/smart-meeting/audio/<id>/<source>-<début en ms>.wav`, en temps de réunion (le silence comble un
+changement de périphérique), en-tête à jour et tampon vidé à chaque écriture. À la fin, `_transcribe_missing` cherche
+(VAD) la parole des zones sans phrase transcrite (au moins 2 s, à 1 s de marge des phrases) et la transcrit à sa place.
+Les pistes sont ensuite effacées, sauf avec l'option « Garder l'audio » (supprimables depuis l'interface).
+
+**Rien de perdu** : OpenBLAS limité à un thread par calcul (son pool de threads se bloquait et figeait Whisper) ;
+chaque phrase en attente est écrite dans `pending/<id>/` jusqu'à sa transcription ; un calcul de Whisper de plus de
+90 s (`SM_STALL_RESTART_S`) ou une boucle figée 60 s relance le processus (`os.execv`), qui reprend la même réunion
+(`resume.json`, voix connues dans `voices.json`) ; après un crash, le démarrage suivant complète la réunion
+interrompue (phrases en attente puis pistes).
 
 ### Endpoints (`/api`)
 

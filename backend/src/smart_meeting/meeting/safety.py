@@ -1,5 +1,9 @@
 """Nothing said is lost, even if the server freezes or crashes during a meeting.
 
+- The raw audio of each source is always written to disk while recording (a safety track, in
+  meeting time). Once the meeting ends, any speech in it that has no transcribed sentence (a
+  freeze, a restart, a crash) is transcribed and put in its place. The tracks are then deleted,
+  unless the user keeps the audio.
 - Every sentence waiting for Whisper is written to disk (`pending/<meeting>/`) and removed once
   transcribed: after a crash, the next start transcribes what was left.
 - If the transcription stops progressing, the server restarts itself and resumes the same meeting
@@ -13,12 +17,19 @@ import shutil
 import sys
 import time
 import wave
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+# Speech of a safety track is looked for where no sentence was transcribed for this long; a
+# sentence covers this much more around it (Whisper's times are a bit shorter than the speech).
+MIN_MISSING_S = 2.0
+COVER_MARGIN_S = 1.0
+WAV_HEADER_BYTES = 44  # the wave module writes the classic header
 
 # A restart older than this is not resumed (the user may have stopped everything since).
 RESUME_MAX_AGE_S = 600
@@ -106,3 +117,75 @@ def restart_process() -> None:
         args.append("--no-window")
     logging.shutdown()
     os.execv(sys.executable, [sys.executable, *args])
+
+
+class SafetyTrack:
+    """Raw audio of a source, sample i at meeting time `start_s + i / rate`: silence fills the
+    time a device switch takes. The header is kept up to date and every write flushed, so a
+    crash loses nothing that was received."""
+
+    def __init__(self, folder: Path, source: str, start_s: float, sample_rate: int) -> None:
+        folder.mkdir(parents=True, exist_ok=True)
+        self.path = folder / f"{source}-{round(start_s * 1000):010d}.wav"
+        self.start_s = start_s
+        self.rate = sample_rate
+        self.frames = 0
+        self._wav = wave.open(str(self.path), "wb")
+        self._wav.setnchannels(1)
+        self._wav.setsampwidth(2)
+        self._wav.setframerate(sample_rate)
+
+    def write(self, samples: np.ndarray, at_s: float) -> None:
+        gap = round((at_s - self.start_s) * self.rate) - self.frames
+        if gap > self.rate // 20:  # more than 50 ms behind: a capture restart
+            self._wav.writeframes(np.zeros(gap, np.int16).tobytes())
+            self.frames += gap
+        self._wav.writeframes((np.clip(samples, -1, 1) * 32767).astype(np.int16).tobytes())
+        self.frames += len(samples)
+        self._wav._file.flush()  # type: ignore[attr-defined]
+
+    def close(self) -> None:
+        self._wav.close()
+
+
+def load_tracks(folder: Path, source: str) -> list[tuple[float, np.ndarray]]:
+    """(meeting time of the first sample, audio) of the safety tracks of a source. Read without
+    trusting the header: a track cut by a crash is read up to its last sample."""
+    tracks = []
+    for path in sorted(folder.glob(f"{source}-*.wav")):
+        try:
+            start_s = int(path.stem.rsplit("-", 1)[1]) / 1000
+            data = path.read_bytes()[WAV_HEADER_BYTES:]
+        except (OSError, ValueError, IndexError):
+            continue
+        audio = np.frombuffer(data[: len(data) // 2 * 2], np.int16).astype(np.float32) / 32768
+        tracks.append((start_s, audio))
+    return tracks
+
+
+def missing_speech(
+    tracks: list[tuple[float, np.ndarray]],
+    sentences: list[tuple[float, float]],
+    new_segmenter: Callable,
+    rate: int,
+) -> list[tuple[float, np.ndarray]]:
+    """Speech of the tracks where no sentence was transcribed: (meeting time, audio) each."""
+    covered = sorted((start - COVER_MARGIN_S, end + COVER_MARGIN_S) for start, end in sentences)
+    found = []
+    for track_start, audio in tracks:
+        track_end = track_start + len(audio) / rate
+        cursor = track_start
+        for start, end in [*covered, (track_end, track_end)]:
+            if start - cursor >= MIN_MISSING_S:
+                first = int((cursor - track_start) * rate)
+                piece = audio[first : int((min(start, track_end) - track_start) * rate)]
+                segmenter = new_segmenter()
+                utterances = [
+                    u for i in range(0, len(piece), 30 * rate)
+                    for u in segmenter.push(piece[i : i + 30 * rate])
+                ] + segmenter.flush()  # fmt: skip
+                found += [(cursor + u.start_s(rate), u.audio) for u in utterances]
+            cursor = max(cursor, end)
+            if cursor >= track_end:
+                break
+    return found

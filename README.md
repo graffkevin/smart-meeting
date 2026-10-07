@@ -71,9 +71,20 @@ The local server starts, with Ollama if it is not running yet, and the interface
 browser. Starting it again while it runs opens a new tab, and a page left open after a stop reloads itself on the
 next start (no extra tab then). The app is this local web page, served by your own machine: nothing goes through the Internet.
 
-If a running Smart Meeting no longer responds, starting it again replaces it after about 15 seconds: what was already
-transcribed is kept. The Python stacks of the frozen server are saved in `hang-traces.log` in the data folder (on
-Linux and macOS, `kill -USR1 <pid>` writes them on demand, the pid being in `server.pid`).
+### Nothing said is lost
+
+- **The sound is recorded on your computer during the meeting, just in case**: one track per source (microphone,
+  headset) in `audio/<id>/` of the data folder. When the meeting ends, any speech in these tracks that has no sentence
+  in the transcript is transcribed and put in its place. The tracks are then deleted, unless you keep the audio.
+- Every sentence waiting for the transcription is also on disk until it is transcribed.
+- If the transcription gets stuck (a computation longer than 90 s, `SM_STALL_RESTART_S`) or the server stops
+  answering for 60 s during a meeting, Smart Meeting restarts by itself and goes on recording **the same meeting**,
+  about one second later. After a crash, the next start completes the interrupted meeting from what is on disk.
+- If a running Smart Meeting no longer responds, starting it again replaces it after about 15 seconds.
+- The Python stacks of a frozen server are saved in `hang-traces.log` in the data folder (on Linux and macOS,
+  `kill -USR1 <pid>` writes them on demand, the pid being in `server.pid`), to find the cause.
+
+A 3-hour meeting takes about 700 MB of disk space during the meeting (16 kHz mono, two sources).
 
 ### Stop
 
@@ -128,8 +139,9 @@ in the headset during a recording works too.
 | macOS | `~/Library/Application Support/smart-meeting/` |
 | Windows | `%LOCALAPPDATA%\smart-meeting\` |
 
-It holds `smart-meeting.db` (meetings, transcripts, minutes, questions, tags), `audio/<id>/` if the raw audio was
-kept, and `ollama.log`. To back up the history, copy the `.db` while the app is stopped; to move it, set
+It holds `smart-meeting.db` (meetings, transcripts, minutes, questions, tags), `audio/<id>/` (the sound of the meeting
+being recorded, or of a meeting whose audio you kept), `pending/<id>/` (sentences waiting for the transcription), and
+`ollama.log`. To back up the history, copy the `.db` while the app is stopped; to move it, set
 `SM_DATA_DIR=/path` in `config.env`.
 
 ## Settings
@@ -188,7 +200,8 @@ The frontend (`frontend/`) follows strict rules:
 
 No audio and no transcript ever leaves the machine. The API only listens on `127.0.0.1`, calls to Ollama ignore the
 proxy, a remote Ollama URL is refused, and the Ollama started by the app runs with its cloud features disabled
-(`OLLAMA_NO_CLOUD=1`). By default, the raw audio is never written to disk. Downloads only fetch software and model
+(`OLLAMA_NO_CLOUD=1`). The sound is only written to disk during the meeting, in the data folder, and deleted once
+everything is transcribed, unless you keep it. Downloads only fetch software and model
 weights.
 
 ## License

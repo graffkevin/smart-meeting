@@ -57,6 +57,8 @@ const en: Translation = {
     start: 'Start recording',
     starting: 'Starting…',
     startHint: 'Then start your call (Teams, Meet, Zoom…): Smart Meeting adapts.',
+    safety:
+      'Nothing said is lost: the sound is recorded on your computer during the meeting, just in case. If the transcription falls behind, it restarts by itself and catches up on what is missing, then this sound is deleted (unless you choose to keep it).',
     startError: 'Cannot start',
     inProgress: 'A meeting is being recorded',
     join: 'Back to the meeting',
@@ -87,7 +89,8 @@ const en: Translation = {
     outputHelp: 'What you hear: the voice of the other participants.',
     automatic: 'Automatic ({{device}})',
     keepAudio: 'Keep the audio recording',
-    keepAudioHelp: 'Otherwise the audio is never written to disk: only the transcript is kept.',
+    keepAudioHelp:
+      'Otherwise the sound is only kept during the meeting, just in case, then deleted once everything is transcribed: only the transcript is kept.',
     room: 'Meeting room',
     roomHelp:
       'Several people speak into my microphone: they are told apart by their voices, like the remote participants, instead of all being "me".',

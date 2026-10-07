@@ -159,7 +159,8 @@ def get_meeting(request: Request, meeting_id: int) -> MeetingDetail:
         meeting=meeting,
         segments=segments,
         analysis=svc.db.get_analysis(meeting_id),
-        has_audio=svc.audio_path(meeting_id).exists(),
+        # Safety tracks of a meeting being recorded are not "kept audio"
+        has_audio=meeting.keep_audio and svc.audio_path(meeting_id).exists(),
         captured=svc.captured_devices(meeting_id),
         estimates=svc.estimates(meeting, segments),
         analysis_elapsed_s=svc.analysis_elapsed_s(meeting_id),

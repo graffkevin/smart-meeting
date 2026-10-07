@@ -55,6 +55,8 @@ const fr = {
     start: "Démarrer l'enregistrement",
     starting: 'Démarrage…',
     startHint: 'Lancez ensuite votre visio (Teams, Meet, Zoom…) : Smart Meeting s’adapte.',
+    safety:
+      "Rien de ce qui se dit n'est perdu : le son est enregistré sur votre ordinateur pendant la réunion, au cas où. Si la transcription décroche, elle reprend toute seule et rattrape ce qui manque, puis ce son est effacé (sauf si vous choisissez de le garder).",
     startError: 'Impossible de démarrer',
     inProgress: 'Une réunion est en cours',
     join: 'Reprendre la réunion',
@@ -85,7 +87,8 @@ const fr = {
     outputHelp: 'Ce que vous entendez : la voix des autres participants.',
     automatic: 'Automatique ({{device}})',
     keepAudio: "Garder l'enregistrement audio",
-    keepAudioHelp: "Sinon, l'audio n'est jamais écrit sur le disque : seule la transcription est conservée.",
+    keepAudioHelp:
+      "Sinon, le son n'est gardé que pendant la réunion, au cas où, puis effacé une fois tout transcrit : seule la transcription est conservée.",
     room: 'Réunion en salle',
     roomHelp:
       "Plusieurs personnes parlent dans mon micro : elles sont distinguées par leur voix, comme les participants à distance, au lieu d'être toutes « moi ».",

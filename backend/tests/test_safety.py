@@ -104,7 +104,6 @@ def test_a_stuck_transcription_restarts_and_resumes_the_meeting(tmp_path, monkey
 
     svc = asyncio.run(restarted())
     assert [s.text for s in svc.db.list_segments(meeting_id)] == ["Bonjour"]
-    assert (svc.audio_path(meeting_id) / "mic-2.wav").exists()  # audio before kept apart
 
 
 def test_sentences_left_by_a_crash_are_transcribed_at_the_next_start(tmp_path):
@@ -121,3 +120,62 @@ def test_sentences_left_by_a_crash_are_transcribed_at_the_next_start(tmp_path):
     assert [(s.speaker, s.start_s) for s in segments] == [("Moi", 12.5)]
     assert svc.db.get_meeting(meeting_id).status != MeetingStatus.ERROR  # complete again
     assert not svc.pending.folder(meeting_id).exists()
+
+
+class SegmentAll:
+    """Fake VAD: any loud enough piece is one sentence."""
+
+    def push(self, audio):
+        return [Utterance(0, audio)] if len(audio) and np.abs(audio).max() > 0.05 else []
+
+    def flush(self):
+        return []
+
+
+class SegmentNothing:
+    def push(self, audio):
+        return []
+
+    def flush(self):
+        return []
+
+
+def test_a_safety_track_is_in_meeting_time_and_readable_after_a_crash(tmp_path):
+    track = safety.SafetyTrack(tmp_path, "mic", 10.0, 16000)
+    track.write(np.full(16000, 0.5, np.float32), 10.0)
+    track.write(np.full(16000, 0.5, np.float32), 13.0)  # capture restarted: 2 s of silence
+    # not closed, like a crash
+    [(start, audio)] = safety.load_tracks(tmp_path, "mic")
+    assert start == 10.0 and len(audio) == 4 * 16000
+    assert audio[16000 : 3 * 16000].max() == 0 and audio[-1] > 0.4
+
+
+def test_missing_speech_is_only_where_nothing_was_transcribed():
+    audio = np.zeros(60 * 16000, np.float32)
+    audio[5 * 16000 : 8 * 16000] = 0.5  # transcribed
+    audio[30 * 16000 : 33 * 16000] = 0.5  # lost
+    found = safety.missing_speech([(100.0, audio)], [(105.0, 108.0)], SegmentAll, 16000)
+    # The fake VAD gives the whole uncovered stretch after the sentence (and its margin)
+    [(start, lost)] = found
+    assert start == 109.0
+    assert lost[(130 - 109) * 16000] == 0.5
+
+
+def test_speech_lost_during_the_meeting_is_recovered_at_the_end(tmp_path):
+    async def run():
+        svc = ready_service(tmp_path)
+        segmenter = {"cls": SegmentNothing}  # live: the sentence is lost
+        svc._new_segmenter = lambda: segmenter["cls"]()
+        meeting = await svc.start(StartMeetingRequest(title="t"))
+        stream = svc.active.streams["mic"]
+        for _ in range(30):  # 3 s of speech, in 100 ms blocks
+            svc._on_audio(svc.active, stream, np.full(1600, 0.5, np.float32))
+        segmenter["cls"] = SegmentAll  # the final check finds it
+        await svc.stop(meeting.id)
+        await wait_for(lambda: svc.active is None)
+        await wait_for(lambda: svc.db.get_meeting(meeting.id).status != MeetingStatus.TRANSCRIBING)
+        return svc, meeting.id
+
+    svc, meeting_id = asyncio.run(run())
+    assert [s.text for s in svc.db.list_segments(meeting_id)] == ["Bonjour"]
+    assert not svc.audio_path(meeting_id).exists()  # tracks deleted: audio not kept
