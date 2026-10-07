@@ -136,10 +136,17 @@ const fr = {
   },
   history: {
     view: 'Affichage',
-    viewAll: 'Toutes',
+    viewByDate: 'Par date',
     viewByTag: 'Par tag',
     group: '{{tag}} ({{count}})',
     title: 'Vos réunions',
+    caption: 'Historique',
+    fold: 'Replier l’historique',
+    unfold: 'Afficher l’historique',
+    periods: {
+      today: 'Aujourd’hui',
+      yesterday: 'Hier',
+    },
     search: 'Rechercher dans vos réunions',
     searchPlaceholder: 'Un mot, un nom, un sujet…',
     empty: 'Vos réunions apparaîtront ici après votre premier enregistrement.',

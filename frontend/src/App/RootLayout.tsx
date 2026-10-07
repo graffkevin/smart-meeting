@@ -6,11 +6,12 @@ import {
   ColorSchemeToggle,
   isDefined,
   Page,
+  PageWithPreview,
   Stack,
   Tooltip,
   Typography,
 } from '@ign-junn/design-system';
-import { IconSettings, IconShieldLock } from '@tabler/icons-react';
+import { IconHistory, IconSettings, IconShieldLock } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Outlet, useMatch } from 'react-router';
@@ -18,6 +19,7 @@ import { ROUTES } from '@/constants/routes';
 import SettingsDialogProvider from '@/contexts/settings/SettingsDialogProvider';
 import useSettingsDialog from '@/contexts/settings/useSettingsDialog';
 import TabsProvider from '@/contexts/tabs/TabsProvider';
+import History from '@/features/history/History';
 import SettingsDialog from '@/features/settings/SettingsDialog';
 import LanguageSwitch from '@/features/shell/LanguageSwitch';
 import MeetingTabs from '@/features/shell/MeetingTabs';
@@ -34,9 +36,11 @@ const SettingsButton = () => {
   return <Button iconOnly icon={IconSettings} label={t('settings.open')} variant="subtle" onClick={open} />;
 };
 
-/** Header (brand, local badge, models, settings, theme, quit) and the current page, or the stopped state once quit */
+/** Header (brand, local badge, models, settings, theme, quit) and the current page, or the stopped state once quit;
+ * the history of the meetings in the panel on the right, open at launch */
 const Layout = () => {
   const [quitState, setQuitState] = useState<QuitState>('running');
+  const [historyOpen, setHistoryOpen] = useState(true);
   const { t } = useTranslation();
   // The meeting page has two columns (transcript panel on the right): a wider page
   const meetingPage = useMatch(ROUTES.meeting);
@@ -44,7 +48,15 @@ const Layout = () => {
   const stopping = quitState === 'quitting';
 
   return (
-    <Box mih="100vh">
+    <PageWithPreview
+      open={historyOpen && quitState === 'running'}
+      onOpenChange={setHistoryOpen}
+      icon={IconHistory}
+      caption={t('history.caption')}
+      title={t('history.title')}
+      labels={{ fold: t('history.fold'), unfold: t('history.unfold') }}
+      preview={quitState === 'running' && <History />}
+    >
       {/* Fixed bar: header and tabs stay visible while the page scrolls */}
       <Box pos="sticky" top={0} bg="var(--mantine-color-body)" style={{ zIndex: 'var(--mantine-z-index-app)' }}>
         <Stack component="header" direction="row" align="center" gap="sm" px="lg" py="sm">
@@ -94,7 +106,7 @@ const Layout = () => {
           </Card>
         )}
       </Page>
-    </Box>
+    </PageWithPreview>
   );
 };
 

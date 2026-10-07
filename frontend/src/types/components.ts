@@ -10,6 +10,8 @@ import type { AudioSource, LiveState, PartialText } from '@/types/events';
 /** A meeting of the history: opened by a click, deleted from its trash button */
 export interface MeetingCardProps {
   meeting: MeetingListItem;
+  /** The meeting is on screen: outlined */
+  active: boolean;
   onOpen: () => void;
   onDelete: () => void;
 }

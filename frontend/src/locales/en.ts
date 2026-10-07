@@ -138,10 +138,17 @@ const en: Translation = {
   },
   history: {
     view: 'View',
-    viewAll: 'All',
+    viewByDate: 'By date',
     viewByTag: 'By tag',
     group: '{{tag}} ({{count}})',
     title: 'Your meetings',
+    caption: 'History',
+    fold: 'Fold the history',
+    unfold: 'Show the history',
+    periods: {
+      today: 'Today',
+      yesterday: 'Yesterday',
+    },
     search: 'Search your meetings',
     searchPlaceholder: 'A word, a name, a topic…',
     empty: 'Your meetings will show here after your first recording.',

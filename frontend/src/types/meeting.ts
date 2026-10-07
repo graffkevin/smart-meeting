@@ -34,7 +34,18 @@ export interface RenameValues {
 }
 
 /** How the history lists the meetings */
-export type HistoryView = 'all' | 'byTag';
+export type HistoryView = 'byDate' | 'byTag';
+
+/** Day of the history a meeting falls in, from its start: today, yesterday, or an earlier day (named by its date) */
+export type HistoryPeriod = 'today' | 'yesterday' | 'day';
+
+/** Meetings of a day in the history, newest first (`day`: its midnight, for its label) */
+export interface DateGroup {
+  key: string;
+  period: HistoryPeriod;
+  day: Date;
+  meetings: MeetingListItem[];
+}
 
 /** Meetings of a tag in the history (a meeting with several tags is in several groups) */
 export interface TagGroup {

@@ -16,6 +16,11 @@ describe('format', () => {
     expect(format.clock('2026-10-02T10:31:00Z', 4, 'fr-FR')).toMatch(/:31:04$/);
   });
 
+  it('names a day of the history, capitalised, with its year when asked', () => {
+    expect(format.day(new Date(2026, 9, 5), 'fr-FR', false)).toBe('Lundi 5 octobre');
+    expect(format.day(new Date(2025, 9, 5), 'fr-FR', true)).toBe('Dimanche 5 octobre 2025');
+  });
+
   it('uses a file name without its extension as title', () => {
     expect(format.fileTitle('Point projet.Atlas.mp4')).toBe('Point projet.Atlas');
   });

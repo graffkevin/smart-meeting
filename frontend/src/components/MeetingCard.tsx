@@ -6,8 +6,8 @@ import { STATUS_TONES } from '@/constants/meeting';
 import type { MeetingCardProps } from '@/types/components';
 import format from '@/utils/format';
 
-/** A meeting of the history: title, status, date, duration or file, number of actions, summary */
-const MeetingCard = ({ meeting, onOpen, onDelete }: MeetingCardProps) => {
+/** A meeting of the history (outlined while on screen): title, status, date, duration or file, number of actions, summary */
+const MeetingCard = ({ meeting, active, onOpen, onDelete }: MeetingCardProps) => {
   const { t, i18n } = useTranslation();
   const { title, status, started_at, ended_at, source_file, action_count, summary, tags = [] } = meeting;
   const durationBadge = isDefined(ended_at) && (
@@ -17,7 +17,7 @@ const MeetingCard = ({ meeting, onOpen, onDelete }: MeetingCardProps) => {
   );
 
   return (
-    <Card padding="md">
+    <Card padding="md" highlighted={active}>
       <Stack direction="row" gap="md" align="flex-start">
         <UnstyledButton onClick={onOpen} flex={1} miw={0}>
           <Stack gap="xxs">

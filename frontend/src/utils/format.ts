@@ -18,6 +18,17 @@ const format = {
   /** Date and time of a meeting */
   date: (iso: string, locale: string) =>
     new Date(iso).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }),
+  /** Day of a history group, capitalised ("Lundi 5 octobre"), with its year when asked */
+  day: (date: Date, locale: string, withYear: boolean) => {
+    const text = date.toLocaleDateString(locale, {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      ...(withYear ? { year: 'numeric' } : {}),
+    });
+
+    return text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
+  },
   /** File name without its extension, as a default title */
   fileTitle: (name: string) => name.replace(/\.[^.]+$/, ''),
   /** Whole transcript as text, one `[time] Speaker : text` line per sentence (for the clipboard) */

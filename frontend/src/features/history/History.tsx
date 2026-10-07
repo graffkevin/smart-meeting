@@ -1,6 +1,7 @@
 import {
   Card,
   CollapsibleSection,
+  Divider,
   isDefined,
   SegmentedSwitch,
   Stack,
@@ -12,14 +13,18 @@ import { IconSearch } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useMatch } from 'react-router';
 import type { MeetingListItem } from '@/api/generated/model/meetingListItem';
 import { deleteMeeting } from '@/api/generated/smartMeetingApi';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import MeetingCard from '@/components/MeetingCard';
 import { SEARCH_DEBOUNCE_MS } from '@/constants/app';
+import { ROUTES } from '@/constants/routes';
 import useOpenMeeting from '@/hooks/useOpenMeeting';
 import meetingListQueryOptions from '@/services/meetingListQueryOptions';
-import type { HistoryView, TagGroup } from '@/types/meeting';
+import type { DateGroup, HistoryView, TagGroup } from '@/types/meeting';
+import format from '@/utils/format';
+import byDate from '@/utils/history';
 
 /** Groups of meetings by tag, alphabetically, meetings without tag last */
 const byTag = (meetings: MeetingListItem[], untagged: string): TagGroup[] => {
@@ -30,12 +35,14 @@ const byTag = (meetings: MeetingListItem[], untagged: string): TagGroup[] => {
   return without.length > 0 ? [...groups, { tag: untagged, meetings: without }] : groups;
 };
 
-/** History of the meetings, newest first or grouped by tag, searchable in titles, tags, summaries and transcripts */
+/** History of the meetings (the content of the side panel), by day with a divider each, or grouped by tag; searchable
+ * in titles, tags, summaries and transcripts; the meeting on screen is outlined */
 const History = () => {
   const [search, setSearch] = useState('');
-  const [view, setView] = useState<HistoryView>('all');
+  const [view, setView] = useState<HistoryView>('byDate');
   const [toDelete, setToDelete] = useState<MeetingListItem | null>(null);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const shown = useMatch(ROUTES.meeting);
   const [debouncedSearch] = useDebouncedValue(search, SEARCH_DEBOUNCE_MS);
   const queryClient = useQueryClient();
   const { data: meetings, error } = useQuery(meetingListQueryOptions(debouncedSearch));
@@ -48,10 +55,15 @@ const History = () => {
   });
   const openMeeting = useOpenMeeting();
   const emptyText = search === '' ? t('history.empty') : t('history.noResult', { query: search });
+  const dayLabel = ({ period, day }: DateGroup) =>
+    period === 'day'
+      ? format.day(day, i18n.language, day.getFullYear() !== new Date().getFullYear())
+      : t(`history.periods.${period}`);
   const card = (meeting: MeetingListItem) => (
     <MeetingCard
       key={meeting.id}
       meeting={meeting}
+      active={shown?.params.meetingId === String(meeting.id)}
       onOpen={() => openMeeting(meeting.id)}
       onDelete={() => setToDelete(meeting)}
     />
@@ -59,37 +71,38 @@ const History = () => {
 
   return (
     <Stack gap="sm">
-      <Stack direction="row" gap="md" align="center" justify="space-between" wrap="wrap">
-        <Typography variant="h5">{t('history.title')}</Typography>
-        <Stack direction="row" gap="sm" align="center" wrap="wrap">
-          <SegmentedSwitch<HistoryView>
-            label={t('history.view')}
-            options={[
-              { value: 'all', label: t('history.viewAll') },
-              { value: 'byTag', label: t('history.viewByTag') },
-            ]}
-            value={view}
-            onChange={setView}
-            size="sm"
-          />
-          <TextField
-            type="search"
-            icon={IconSearch}
-            label={t('history.search')}
-            hideLabel
-            placeholder={t('history.searchPlaceholder')}
-            value={search}
-            onChange={setSearch}
-          />
-        </Stack>
-      </Stack>
+      <TextField
+        type="search"
+        icon={IconSearch}
+        label={t('history.search')}
+        hideLabel
+        placeholder={t('history.searchPlaceholder')}
+        value={search}
+        onChange={setSearch}
+      />
+      <SegmentedSwitch<HistoryView>
+        label={t('history.view')}
+        options={[
+          { value: 'byDate', label: t('history.viewByDate') },
+          { value: 'byTag', label: t('history.viewByTag') },
+        ]}
+        value={view}
+        onChange={setView}
+        size="sm"
+      />
       {isDefined(error) && <Typography variant="error">{error.message}</Typography>}
       {isDefined(meetings) && meetings.length === 0 && (
         <Card padding="lg">
           <Typography variant="description">{emptyText}</Typography>
         </Card>
       )}
-      {view === 'all' && meetings?.map(card)}
+      {view === 'byDate' &&
+        byDate(meetings ?? []).map((group) => (
+          <Stack key={group.key} gap="sm">
+            <Divider label={dayLabel(group)} />
+            {group.meetings.map(card)}
+          </Stack>
+        ))}
       {view === 'byTag' &&
         byTag(meetings ?? [], t('tags.untagged')).map((group) => (
           <CollapsibleSection
