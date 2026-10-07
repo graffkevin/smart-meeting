@@ -22,7 +22,7 @@ import {
   IconSparkles,
 } from '@tabler/icons-react';
 import { useForm } from '@tanstack/react-form';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { AudioDevice } from '@/api/generated/model/audioDevice';
 import { importMeeting, startMeeting } from '@/api/generated/smartMeetingApi';
@@ -106,6 +106,7 @@ const RecordForm = ({ preferences }: RecordFormProps) => {
   const { t } = useTranslation();
   const { data: devices } = useQuery(audioDevicesQueryOptions());
   const { data: knownTags } = useQuery(tagsQueryOptions());
+  const queryClient = useQueryClient();
   const start = useMutation({
     mutationFn: (values: StartFormValues) =>
       startMeeting({
@@ -117,7 +118,11 @@ const RecordForm = ({ preferences }: RecordFormProps) => {
         language: values.language,
         tags: values.tags,
       }),
-    onSuccess: (meeting) => openMeeting(meeting.id),
+    // The history shows the new meeting at once
+    onSuccess: (meeting) => {
+      queryClient.invalidateQueries({ queryKey: ['meetings'] });
+      openMeeting(meeting.id);
+    },
   });
   const { Field, handleSubmit } = useForm({
     defaultValues: {
@@ -243,10 +248,14 @@ const RecordPanel = () => {
 const ImportPanel = () => {
   const { t } = useTranslation();
   const { data: health } = useQuery(healthQueryOptions());
+  const queryClient = useQueryClient();
   const upload = useMutation({
     mutationFn: ({ file, title, language }: ImportFormValues) =>
       isDefined(file) ? importMeeting({ file, title, language }) : Promise.reject(new Error(t('importFile.error'))),
-    onSuccess: (meeting) => openMeeting(meeting.id),
+    onSuccess: (meeting) => {
+      queryClient.invalidateQueries({ queryKey: ['meetings'] });
+      openMeeting(meeting.id);
+    },
   });
   const { Field, Subscribe, handleSubmit, setFieldValue } = useForm({
     defaultValues: IMPORT_DEFAULTS,

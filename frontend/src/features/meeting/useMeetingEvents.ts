@@ -70,6 +70,8 @@ const useMeetingEvents = (meetingId: number): LiveState => {
       // Speakers regrouped or renamed: the whole transcript changes
       if (event.type === 'status' || event.type === 'speakers')
         queryClient.invalidateQueries({ queryKey: ['meeting', meetingId] });
+      // The history shows the status and the summary of each meeting
+      if (event.type === 'status') queryClient.invalidateQueries({ queryKey: ['meetings'] });
       if (event.type === 'levels') setLiveState((state) => ({ ...state, levels: event.levels, queue: event.queue }));
       if (event.type === 'devices') setLiveState((state) => ({ ...state, devices: event.devices }));
       if (event.type === 'progress')
