@@ -20,4 +20,5 @@ fi
 
 extras=()
 command -v nvidia-smi >/dev/null && nvidia-smi -L >/dev/null 2>&1 && extras=(--extra cuda)
-exec uv run --quiet --directory "$ROOT/backend" "${extras[@]}" smart-meeting "$@"
+# ${extras[@]+...}: an empty array is "unbound" for the bash 3.2 of macOS under `set -u`
+exec uv run --quiet --directory "$ROOT/backend" ${extras[@]+"${extras[@]}"} smart-meeting "$@"
