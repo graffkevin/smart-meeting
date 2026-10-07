@@ -212,3 +212,18 @@ def test_questions_on_a_long_meeting_reuse_the_notes_of_old_parts(monkeypatch):
     assert client.missing_notes_chars("Point", segments, cache) == 0
     asyncio.run(client.ask("Point", segments, "Et les décisions ?", cache))
     assert len(calls) == notes_calls + 2  # no new notes
+
+
+def test_during_a_meeting_the_model_stays_loaded():
+    from smart_meeting.config import Settings
+    from smart_meeting.llm.analysis import OllamaClient
+
+    client = OllamaClient(Settings())
+    assert "keep_alive" not in client._payload("s", "u")
+    client.during_meeting = lambda: True
+    payload = client._payload("s", "u")
+    assert payload["keep_alive"] == "30m"
+    assert "num_thread" not in payload["options"]  # Ollama chooses, unless set
+    assert payload["options"]["num_ctx"] == client.settings.ollama_num_ctx  # no reload
+    client.settings.ollama_meeting_threads = 4
+    assert client._payload("s", "u")["options"]["num_thread"] == 4

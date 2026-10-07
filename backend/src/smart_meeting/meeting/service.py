@@ -155,6 +155,7 @@ class MeetingService:
         self.voice_printer = VoicePrinter()
         self.voices_error: str | None = None
         self.ollama = OllamaClient(settings)
+        self.ollama.during_meeting = lambda: self.active is not None
         self.provisioner = OllamaProvisioner(settings)
         self.whisper_state: Literal["loading", "ready", "error"] = "loading"
         self.whisper_detail: str | None = None
@@ -998,8 +999,10 @@ class MeetingService:
         # A long meeting: the old parts not yet turned into notes make the next question longer
         notes = MeetingNotes(self.db, meeting.id)
         missing = self.ollama.missing_notes_chars(meeting.title, segments, notes)
+        # During the meeting, the model kept loaded only reads what was said since the last question
+        new_chars = max(0, chars - self.ollama.cached_chars) if self.active else chars
         return AiEstimates(
-            ask_s=round(self.ollama.estimate_s(chars, "ask", notes_chars=missing), 1),
+            ask_s=round(self.ollama.estimate_s(new_chars, "ask", notes_chars=missing), 1),
             analysis_s=round(self.ollama.estimate_s(chars, "analysis"), 1),
         )
 

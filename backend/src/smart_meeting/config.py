@@ -72,6 +72,12 @@ class Settings(BaseSettings):
     ollama_model: str = "qwen2.5:7b"
     ollama_num_ctx: int = 16384
     ollama_timeout_s: float = 900.0
+    # During a meeting, the model stays loaded between questions: its prompt cache makes the next
+    # question read only the new sentences. CPU threads of the AI during a meeting: 0 lets Ollama
+    # choose (measured: fewer threads did not speed up the transcription, the memory bandwidth
+    # is the limit when the model runs on the CPU).
+    ollama_meeting_threads: int = 0
+    ollama_meeting_keep_alive: str = "30m"
     # Safety net: transcripts must never leave the machine unless explicitly allowed.
     allow_remote_llm: bool = False
 

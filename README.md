@@ -118,6 +118,11 @@ of transcript with the default `SM_OLLAMA_NUM_CTX=16384`). The minutes are writt
 one. For a question, the old parts are first turned into short dated notes, kept with the meeting: the first
 question on a long meeting takes a few minutes more, the next ones are quick. The AI only runs when asked and at the
 end, never during the whole meeting.
+
+**During a meeting**, the AI model stays loaded for 30 minutes after a question (`SM_OLLAMA_MEETING_KEEP_ALIVE`): the
+next question only reads what was said since. Without a large GPU the AI runs on the CPU and is slow (a question
+on a 30-minute meeting: about 5 minutes on an 8-core laptop, mostly to write the answer); the live transcription
+goes on meanwhile.
 5. **Copy the minutes (Markdown)**, or the whole transcript.
 
 ### Import a video or an audio file
@@ -164,6 +169,7 @@ SM_WHISPER_GLOSSARY="Atlas, OAuth, Kubernetes."  # names and acronyms to recogni
 SM_WHISPER_MODEL=auto               # or large-v3-turbo / medium / small
 SM_WHISPER_PARTIAL_MODEL=auto       # live draft: small next to the main model on GPU, none to disable
 SM_OLLAMA_MODEL=qwen2.5:7b
+SM_OLLAMA_MEETING_THREADS=4         # AI threads during a meeting (default: chosen by Ollama)
 SM_OLLAMA_BIN=/path/to/ollama       # if Ollama is not on the PATH
 SM_DATA_DIR=~/.local/share/smart-meeting
 SM_PORT=8417                        # local port of the interface

@@ -59,6 +59,11 @@ Choix par rapport à la proposition initiale :
   vérifiées sur toute la transcription). Pour une question, les parties anciennes deviennent des notes horodatées
   (table `notes`, clé = empreinte du texte de la partie et du prompt, donc refaites après un renommage), la partie
   récente reste mot à mot. Aucune IA en continu : seulement à la demande et à la fin.
+- **IA pendant la réunion** : `keep_alive` = 30 min sur chaque appel à Ollama, donc le cache de prompt fait relire
+  à la question suivante seulement les nouvelles phrases (le prompt commence par la transcription, qui ne fait que
+  grandir). `SM_OLLAMA_MEETING_THREADS` peut limiter ses threads, désactivé par défaut : mesuré sur un i7 8 cœurs,
+  6 threads au lieu du choix d'Ollama n'accélèrent pas la transcription (bande passante mémoire). Sur ce PC, une
+  question prend ~5 min, surtout pour écrire la réponse (~5 tokens/s).
 - **Intervenants distingués par la voix** (`speakers.py`) : une empreinte vocale par phrase (WeSpeaker ResNet34-LM
   en ONNX, filterbanks Kaldi en numpy, sans PyTorch, ~60 ms par phrase sur le CPU, dans son propre thread à côté de
   Whisper), rattachée en direct à la voix la plus proche (cosinus ≥ 0,45) ; à l'arrêt, les voix proches (≥ 0,40) sont

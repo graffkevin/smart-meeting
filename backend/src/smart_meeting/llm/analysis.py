@@ -182,6 +182,10 @@ logger = logging.getLogger(__name__)
 class OllamaClient:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
+        # Set by the service: a meeting is being recorded (the live transcription comes first)
+        self.during_meeting: Callable[[], bool] = lambda: False
+        # Transcript already read by the model kept loaded during the meeting (prompt cache)
+        self.cached_chars = 0
         # Tokens per second: measured on this computer, kept between launches (ai-speed.json);
         # the first time, a model mostly on the CPU (a 7B model does not fit in 4 GB of GPU).
         self.prompt_rate = 80.0
@@ -263,7 +267,7 @@ class OllamaClient:
             return None
         return [m["name"] for m in response.json().get("models", [])]
 
-    async def _chat(self, system: str, user: str, response_format: dict | None = None) -> str:
+    def _payload(self, system: str, user: str, response_format: dict | None = None) -> dict:
         payload = {
             "model": self.settings.ollama_model,
             "messages": [
@@ -273,8 +277,17 @@ class OllamaClient:
             "stream": False,
             "options": {"temperature": 0, "num_ctx": self.settings.ollama_num_ctx},
         }
+        if self.during_meeting():
+            payload["keep_alive"] = self.settings.ollama_meeting_keep_alive
+            # Same value for the whole meeting: Ollama reloads the model when it changes
+            if self.settings.ollama_meeting_threads > 0:
+                payload["options"]["num_thread"] = self.settings.ollama_meeting_threads
         if response_format is not None:
             payload["format"] = response_format
+        return payload
+
+    async def _chat(self, system: str, user: str, response_format: dict | None = None) -> str:
+        payload = self._payload(system, user, response_format)
         async with self._client(timeout=self.settings.ollama_timeout_s) as client:
             response = await client.post("/api/chat", json=payload)
         if response.is_error:
@@ -385,9 +398,10 @@ class OllamaClient:
                     transcript,
                 ]
             )
-        return (
-            await self._chat(
-                prompt("ask_system").format(**self._names()),
-                prompt("ask_user").format(title=title, transcript=transcript, question=question),
-            )
-        ).strip()
+        answer = await self._chat(
+            prompt("ask_system").format(**self._names()),
+            prompt("ask_user").format(title=title, transcript=transcript, question=question),
+        )
+        # The next question during the meeting starts from this transcript, already read
+        self.cached_chars = len(transcript) if self.during_meeting() else 0
+        return answer.strip()
