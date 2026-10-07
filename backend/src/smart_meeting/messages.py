@@ -57,10 +57,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "System audio (every output)",
     },
     "macos_permission": {
-        "fr": "Autorisez « Enregistrement de l'écran et de l'audio système » pour votre terminal"
-        " dans Réglages Système > Confidentialité et sécurité, puis relancez Smart Meeting.",
-        "en": 'Allow "Screen & System Audio Recording" for your terminal in System Settings >'
-        " Privacy & Security, then restart Smart Meeting.",
+        "fr": "Dans Réglages Système > Confidentialité et sécurité > Enregistrement de l'écran et"
+        " de l'audio système, activez l'application qui lance Smart Meeting (Terminal, iTerm, ou"
+        " Smart Meeting depuis le Dock ; bouton + si elle n'y est pas). Quittez-la complètement"
+        " (⌘Q), puis relancez Smart Meeting.",
+        "en": "In System Settings > Privacy & Security > Screen & System Audio Recording, turn on"
+        " the application that starts Smart Meeting (Terminal, iTerm, or Smart Meeting from the"
+        " Dock; + button if it is not listed). Quit it completely (⌘Q), then start Smart Meeting"
+        " again.",
     },
     "macos_no_answer": {
         "fr": "ScreenCaptureKit ne répond pas.",
