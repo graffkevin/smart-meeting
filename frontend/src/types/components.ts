@@ -3,6 +3,7 @@ import type { AskAnswer } from '@/api/generated/model/askAnswer';
 import type { CapturedDevice } from '@/api/generated/model/capturedDevice';
 import type { MeetingAnalysis } from '@/api/generated/model/meetingAnalysis';
 import type { MeetingListItem } from '@/api/generated/model/meetingListItem';
+import type { MeetingStorage } from '@/api/generated/model/meetingStorage';
 import type { Preferences } from '@/api/generated/model/preferences';
 import type { Segment } from '@/api/generated/model/segment';
 import type { AudioSource, LiveState, PartialText } from '@/types/events';
@@ -19,6 +20,11 @@ export interface MeetingCardProps {
 /** Report of a meeting, from the analysis of the local AI */
 export interface MeetingReportProps {
   analysis: MeetingAnalysis;
+}
+
+/** Where a meeting is kept on this computer */
+export interface StoragePathsProps {
+  storage: MeetingStorage;
 }
 
 /** Transcript as a conversation: my sentences on one side, the other participants on the other */

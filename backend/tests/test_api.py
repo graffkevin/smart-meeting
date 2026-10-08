@@ -175,3 +175,10 @@ def test_naming_a_speaker_renames_passages_and_action_owners(client):
 
 def test_permission_settings_only_exist_where_the_system_needs_them(client):
     assert client.post("/api/audio/permission-settings").status_code == 409  # not macOS
+
+
+def test_a_meeting_tells_where_it_is_kept(client):
+    meeting_id = add_transcribed_meeting(client)
+    storage = client.get(f"/api/meetings/{meeting_id}").json()["storage"]
+    assert storage["database"].endswith("smart-meeting.db")
+    assert storage["audio"] is None  # no audio kept

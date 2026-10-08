@@ -52,6 +52,7 @@ import AiStatus from '@/components/AiStatus';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import EstimatedProgress from '@/components/EstimatedProgress';
 import MeetingReport from '@/components/MeetingReport';
+import StoragePaths from '@/components/StoragePaths';
 import Transcript from '@/components/Transcript';
 import { DEFAULT_ESTIMATE_S, LEVEL_FLOOR_DB } from '@/constants/app';
 import {
@@ -450,6 +451,7 @@ const MeetingView = ({ meetingId }: MeetingViewProps) => {
                     />
                   </Stack>
                 )}
+                {finished && isDefined(detail.storage) && <StoragePaths storage={detail.storage} />}
               </Stack>
             </Card>
 

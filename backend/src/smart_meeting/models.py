@@ -162,6 +162,13 @@ class AiEstimates(BaseModel):
     analysis_s: float
 
 
+class MeetingStorage(BaseModel):
+    """Where a meeting is kept on this computer."""
+
+    database: str  # transcript, minutes, questions (SQLite)
+    audio: str | None = None  # folder of its audio, when kept
+
+
 class MeetingDetail(BaseModel):
     meeting: Meeting
     segments: list[Segment]
@@ -175,6 +182,7 @@ class MeetingDetail(BaseModel):
     analysis_elapsed_s: float | None = None
     # Questions asked to the local AI about this meeting, oldest first.
     questions: list["AskAnswer"] = []
+    storage: MeetingStorage | None = None
 
 
 class SetupStepInfo(BaseModel):

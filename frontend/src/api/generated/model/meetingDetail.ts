@@ -7,6 +7,7 @@ import type { AskAnswer } from './askAnswer';
 import type { CapturedDevice } from './capturedDevice';
 import type { Meeting } from './meeting';
 import type { MeetingAnalysis } from './meetingAnalysis';
+import type { MeetingStorage } from './meetingStorage';
 import type { Segment } from './segment';
 
 export interface MeetingDetail {
@@ -18,4 +19,5 @@ export interface MeetingDetail {
   estimates?: AiEstimates | null;
   analysis_elapsed_s?: number | null;
   questions?: AskAnswer[];
+  storage?: MeetingStorage | null;
 }

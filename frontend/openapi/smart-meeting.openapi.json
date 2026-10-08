@@ -1309,6 +1309,16 @@
             "type": "array",
             "title": "Questions",
             "default": []
+          },
+          "storage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MeetingStorage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -1452,6 +1462,31 @@
           "error"
         ],
         "title": "MeetingStatus"
+      },
+      "MeetingStorage": {
+        "properties": {
+          "database": {
+            "type": "string",
+            "title": "Database"
+          },
+          "audio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "database"
+        ],
+        "title": "MeetingStorage",
+        "description": "Where a meeting is kept on this computer."
       },
       "Preferences": {
         "properties": {
