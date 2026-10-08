@@ -252,11 +252,17 @@ def run() -> None:
     parser.add_argument("--port", type=int, default=get_settings().port)
     parser.add_argument("--no-window", action="store_true", help="do not open the app window")
     parser.add_argument(
+        "--app",
+        action="store_true",
+        help="started by the macOS app: it has its own interface, and stops this server",
+    )
+    parser.add_argument(
         "--install",
         action="store_true",
         help="add Smart Meeting to the applications, to pin it to the dock or the taskbar",
     )
     args = parser.parse_args()
+    args.no_window = args.no_window or args.app
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     if args.install:
         from smart_meeting import shortcut
@@ -289,7 +295,8 @@ def run() -> None:
         open_window(write_starting_page(url, data_dir).as_uri())
 
     check_system()
-    build_frontend_if_needed(FRONTEND_DIST.parent)
+    if not getattr(sys, "frozen", False):  # bundled in the macOS app: no web interface
+        build_frontend_if_needed(FRONTEND_DIST.parent)
 
     def open_when_ready() -> None:
         for _ in range(100):
@@ -316,5 +323,7 @@ def run() -> None:
         page_marker_path(data_dir).unlink(missing_ok=True)
         app.state.request_exit()
 
-    app.state.stop_when_unused = stop_unused
+    # macOS app: no page to wait for, quitting the app stops the server.
+    if not args.app:
+        app.state.stop_when_unused = stop_unused
     server.run(sockets=[sock])

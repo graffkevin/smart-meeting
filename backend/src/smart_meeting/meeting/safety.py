@@ -116,7 +116,8 @@ def restart_process() -> None:
     if Path(args[0]).name.startswith("smart-meeting") and "--no-window" not in args:
         args.append("--no-window")
     logging.shutdown()
-    os.execv(sys.executable, [sys.executable, *args])
+    # macOS app: sys.executable is the bundled server itself (argv[0]), not a Python interpreter
+    os.execv(sys.executable, args if getattr(sys, "frozen", False) else [sys.executable, *args])
 
 
 class SafetyTrack:

@@ -173,3 +173,19 @@ follows strict rules:
 
 The README screenshots come from a separate instance with fictional meetings (`SM_DATA_DIR` pointing to a demo
 folder), never from real meetings.
+
+## macOS app
+
+`macos/` holds a native app (SwiftUI, macOS 14+) for people who do not use a terminal: the same server, bundled
+inside it by PyInstaller (`packaging/macos/backend.spec`) and started with `--app`, behind a native interface
+(sidebar, inspector, settings window, menu bar icon while recording) that talks to the same HTTP API and
+WebSockets as the web interface.
+
+```bash
+make mac     # build/macos/Smart-Meeting-<version>.dmg, ad hoc signature (this Mac only)
+DEVELOPER_ID="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=smart-meeting make mac   # to distribute
+```
+
+`NOTARY_PROFILE` names notarization credentials stored once with `xcrun notarytool store-credentials`. To work on
+the interface, `cd macos && xcodegen` then open `SmartMeeting.xcodeproj`: a Debug build without the bundled server
+uses the one started with `./smart-meeting --no-window`. The server's log is in `~/Library/Logs/Smart Meeting/`.

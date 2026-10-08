@@ -16,3 +16,7 @@ frontend/node_modules/
 frontend/dist/
 *.tsbuildinfo
 
+
+# macOS app
+build/
+macos/SmartMeeting.xcodeproj/

@@ -20,7 +20,7 @@ UV := $(if $(shell uv --version 2>$(NULL)),uv,$(UV_LOCAL))
 EXTRAS := $(if $(shell nvidia-smi -L 2>$(NULL)),--extra cuda,)
 BACKEND := $(UV) run --directory backend $(EXTRAS)
 
-.PHONY: run install uv build dev dev-backend dev-frontend test lint check api desktop info
+.PHONY: run install uv build dev dev-backend dev-frontend test lint check api desktop info mac
 
 run: uv ## Start Smart Meeting (installs what is missing on first run)
 	$(BACKEND) smart-meeting
@@ -66,6 +66,9 @@ check: lint test ## Everything to run before committing
 api: uv ## Regenerate the frontend API client from the backend OpenAPI schema
 	$(UV) run --directory backend python -c "import json; from smart_meeting.main import app; print(json.dumps(app.openapi(), indent=2))" > frontend/openapi/smart-meeting.openapi.json
 	cd frontend && bun run api:generate
+
+mac: uv ## Build the macOS app and its disk image (build/macos/); DEVELOPER_ID and NOTARY_PROFILE to sign it
+	packaging/macos/build.sh
 
 desktop: ## Add Smart Meeting to the applications (menu, Applications, Start menu), to pin it
 	./smart-meeting --install
