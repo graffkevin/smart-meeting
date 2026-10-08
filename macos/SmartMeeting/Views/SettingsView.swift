@@ -33,8 +33,17 @@ struct SettingsView: View {
             Section("Audio") {
                 devicePicker(String(localized: "Micro"), help: String(localized: "Ce que vous dites."), selection: \.micDevice,
                              devices: app.devices?.sources ?? [], inUse: app.devices?.inUseSource)
-                devicePicker(String(localized: "Casque"), help: String(localized: "Ce que vous entendez : la voix des autres participants."), selection: \.outputDevice,
-                             devices: app.devices?.sinks ?? [], inUse: app.devices?.inUseSink)
+                if (app.devices?.sinks.count ?? 0) > 1 {
+                    devicePicker(String(localized: "Casque"), help: String(localized: "Ce que vous entendez : la voix des autres participants."), selection: \.outputDevice,
+                                 devices: app.devices?.sinks ?? [], inUse: app.devices?.inUseSink)
+                } else {
+                    LabeledContent {
+                        Text("Tout le son du Mac")
+                    } label: {
+                        Text("Son des participants")
+                        Text("Ce que le Mac joue est capté, quelle que soit la sortie : AirPods, casque, haut-parleurs…")
+                    }
+                }
                 Toggle(isOn: bind(\.room, false)) {
                     Text("Réunion en salle")
                     Text("Plusieurs personnes parlent dans mon micro : elles sont distinguées par leur voix, comme les participants à distance, au lieu d'être toutes « moi ».")
@@ -46,12 +55,13 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 520)
-        .frame(minHeight: 480)
+        .frame(width: 540)
+        .frame(minHeight: 680)
         .disabled(!loaded)
-        .task {
-            await app.reloadSettings()
-            if let preferences = app.preferences {
+        .task { await app.reloadSettings() }
+        // Filled once the settings arrive (the server may still be starting when the window opens)
+        .onChange(of: app.preferences, initial: true) { _, preferences in
+            if !loaded, let preferences {
                 draft = preferences
                 loaded = true
             }

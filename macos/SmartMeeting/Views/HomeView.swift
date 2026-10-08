@@ -160,7 +160,7 @@ struct RecordForm: View {
                 .disabled(starting || app.preferences == nil)
 
                 HStack(spacing: 6) {
-                    Text("Micro : \(micDescription) · Casque : \(outputDescription)")
+                    Text("Micro : \(micDescription) · Son des participants : \(outputDescription)")
                     Button("Modifier") { openSettings() }
                         .buttonStyle(.link)
                 }
@@ -201,6 +201,8 @@ struct RecordForm: View {
 
     private var outputDescription: String {
         let devices = app.devices
+        // macOS captures everything the Mac plays, whatever the output (AirPods, speakers…)
+        if (devices?.sinks.count ?? 0) <= 1 { return String(localized: "tout le son du Mac") }
         return app.describe(app.preferences?.outputDevice ?? devices?.inUseSink, in: devices?.sinks ?? [])
             ?? String(localized: "aucun")
     }

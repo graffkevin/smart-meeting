@@ -21,6 +21,8 @@ targets:
     settings:
       base:
         PRODUCT_NAME: Smart Meeting
+        # Apple silicon only, like the bundled server and Ollama
+        ARCHS: arm64
         PRODUCT_BUNDLE_IDENTIFIER: com.graffkevin.smartmeeting
         INFOPLIST_FILE: SmartMeeting/Info.plist
         CODE_SIGN_ENTITLEMENTS: SmartMeeting/SmartMeeting.entitlements

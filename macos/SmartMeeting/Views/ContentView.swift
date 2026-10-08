@@ -3,6 +3,7 @@ import SwiftUI
 /// Main window: the history in the sidebar, the home page or a meeting on the right
 struct ContentView: View {
     @Environment(AppModel.self) private var app
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         @Bindable var app = app
@@ -28,6 +29,10 @@ struct ContentView: View {
                 }
             }
         }
+        // App Store screenshots: SM_SCREEN=settings opens the settings at launch
+        .task {
+            if ProcessInfo.processInfo.environment["SM_SCREEN"] == "settings" { openSettings() }
+        }
         // A file dropped on the window is offered for import
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first else { return false }
@@ -52,17 +57,6 @@ struct SidebarView: View {
             Label("Nouvelle réunion", systemImage: "plus.circle")
                 .tag(Screen.home)
 
-            if let error = app.historyError {
-                Text(error).foregroundStyle(.red)
-            } else if app.meetings.isEmpty, app.health != nil {
-                Text(app.search.isEmpty
-                    ? String(localized: "Vos réunions apparaîtront ici après votre premier enregistrement.")
-                    : String(localized: "Aucune réunion ne parle de « \(app.search) »."))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
             switch app.historyView {
             case .byDate:
                 ForEach(History.byDate(app.meetings), id: \.day) { group in
@@ -78,9 +72,27 @@ struct SidebarView: View {
                 }
             }
         }
+        .overlay {
+            if let error = app.historyError {
+                ContentUnavailableView("Historique indisponible", systemImage: "exclamationmark.triangle", description: Text(error))
+            } else if app.meetings.isEmpty, app.health != nil {
+                if app.search.isEmpty {
+                    ContentUnavailableView("Aucune réunion", systemImage: "waveform",
+                                           description: Text("Vos réunions apparaîtront ici après votre premier enregistrement."))
+                } else {
+                    ContentUnavailableView.search(text: app.search)
+                }
+            }
+        }
         .searchable(text: $app.search, placement: .sidebar, prompt: Text("Un mot, un nom, un sujet…"))
         .safeAreaInset(edge: .bottom) { SidebarFooter() }
         .toolbar {
+            ToolbarItem {
+                SettingsLink {
+                    Label("Réglages", systemImage: "gearshape")
+                }
+                .help("Réglages (⌘,)")
+            }
             ToolbarItem {
                 Picker("Affichage", selection: $app.historyView) {
                     ForEach(HistoryView.allCases) { Text($0.label).tag($0) }
@@ -150,7 +162,7 @@ struct MeetingRow: View {
                     Text("· \(meeting.status.label)")
                 }
                 if let count = meeting.actionCount, count > 0 {
-                    Text("· \(count) actions")
+                    Text(count == 1 ? "· 1 action" : "· \(count) actions")
                 }
             }
             .font(.caption)

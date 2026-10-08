@@ -184,8 +184,14 @@ WebSockets as the web interface.
 ```bash
 make mac     # build/macos/Smart-Meeting-<version>.dmg, ad hoc signature (this Mac only)
 DEVELOPER_ID="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=smart-meeting make mac   # to distribute
+packaging/macos/build.sh --store   # build/macos/Smart-Meeting-<version>.pkg for the App Store (Transporter)
 ```
 
-`NOTARY_PROFILE` names notarization credentials stored once with `xcrun notarytool store-credentials`. To work on
+`NOTARY_PROFILE` names notarization credentials stored once with `xcrun notarytool store-credentials`. Ollama is
+bundled (`packaging/macos/fetch-ollama.sh`: a pinned release, arm64 only, without its MLX engine) since the App Store
+forbids downloading code; the models are still downloaded at first launch. The App Store build runs in the sandbox
+(`SmartMeeting.appstore.entitlements`, the server and Ollama inheriting it) and needs the "Apple Distribution" and
+"Mac Installer Distribution" certificates and a Mac App Store provisioning profile named "Smart Meeting App Store"
+(`STORE_PROFILE`). To work on
 the interface, `cd macos && xcodegen` then open `SmartMeeting.xcodeproj`: a Debug build without the bundled server
 uses the one started with `./smart-meeting --no-window`. The server's log is in `~/Library/Logs/Smart Meeting/`.

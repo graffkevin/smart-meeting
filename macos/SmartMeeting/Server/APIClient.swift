@@ -138,10 +138,6 @@ struct APIClient: Sendable {
         _ = try await send(request("POST", "api/ai/restart"))
     }
 
-    func openPermissionSettings() async throws {
-        _ = try await send(request("POST", "api/audio/permission-settings"))
-    }
-
     /// Sends a video or audio file to transcribe. The multipart body is written to a temporary file
     /// and streamed from it: recordings can weigh gigabytes.
     func importFile(_ file: URL, title: String, language: String) async throws -> Meeting {

@@ -258,7 +258,10 @@ struct LivePanel: View {
 
 /// The sound of the participants is not captured: why, and the way to allow it
 struct PermissionHelp: View {
-    @Environment(AppModel.self) private var app
+    /// System Settings > Privacy & Security > Screen & System Audio Recording
+    private static let permissionSettings =
+        URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
+
     let error: String
     let permissionNeeded: Bool
 
@@ -269,7 +272,7 @@ struct PermissionHelp: View {
                 Text("Cliquez ci-dessous, activez « Smart Meeting », puis choisissez « Quitter et rouvrir ».")
                     .foregroundStyle(.secondary)
                 Button("Ouvrir les réglages", systemImage: "gear") {
-                    Task { try? await app.api.openPermissionSettings() }
+                    NSWorkspace.shared.open(Self.permissionSettings)
                 }
             }
         }

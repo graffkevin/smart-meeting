@@ -88,6 +88,7 @@ final class AppModel {
                 if reloadNeeded {
                     reloadNeeded = false
                     await reloadAll()
+                    openRequestedScreen()
                 } else if previousActive != health?.activeMeetingId {
                     await reloadHistory()
                 }
@@ -97,6 +98,14 @@ final class AppModel {
                 reloadNeeded = true
             }
             try? await Task.sleep(for: .seconds(2))
+        }
+    }
+
+    /// Screen asked at launch, for the App Store screenshots: SM_SCREEN=meeting:<id>
+    private func openRequestedScreen() {
+        let requested = ProcessInfo.processInfo.environment["SM_SCREEN"] ?? ""
+        if requested.hasPrefix("meeting:"), let id = Int(requested.dropFirst("meeting:".count)) {
+            open(id)
         }
     }
 

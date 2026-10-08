@@ -86,9 +86,11 @@ struct TagEditor: View {
             ForEach(tags, id: \.self) { tag in
                 Chip(text: tag, color: .accentColor) { tags.removeAll { $0 == tag } }
             }
-            TextField("Ajouter un tag", text: $draft)
+            // Placeholder, not label: in a Form the title would become a label
+            TextField(text: $draft, prompt: Text("Ajouter un tag")) { Text("Ajouter un tag") }
+                .labelsHidden()
                 .textFieldStyle(.plain)
-                .frame(minWidth: 110)
+                .frame(minWidth: 140)
                 .onSubmit(add)
             let others = suggestions.filter { !tags.contains($0) }
             if !others.isEmpty {

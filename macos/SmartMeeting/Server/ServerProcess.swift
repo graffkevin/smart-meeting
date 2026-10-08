@@ -21,6 +21,12 @@ final class ServerProcess {
         return url.flatMap { FileManager.default.isExecutableFile(atPath: $0.path) ? $0 : nil }
     }
 
+    /// Ollama bundled in the app, given to the server (it installs it itself otherwise)
+    var ollama: URL? {
+        let url = Bundle.main.resourceURL?.appending(path: "ollama/ollama")
+        return url.flatMap { FileManager.default.isExecutableFile(atPath: $0.path) ? $0 : nil }
+    }
+
     /// Where the server writes its log: Help > Server log
     static let logFile = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
         .appending(path: "Logs/Smart Meeting/server.log")
@@ -62,6 +68,7 @@ final class ServerProcess {
         var environment = ProcessInfo.processInfo.environment
         environment["HF_HUB_DISABLE_TELEMETRY"] = "1"
         environment["PYTHONUNBUFFERED"] = "1"
+        if let ollama { environment["SM_OLLAMA_BIN"] = ollama.path }
         process.environment = environment
         if let log = Self.openLog() {
             process.standardOutput = log
