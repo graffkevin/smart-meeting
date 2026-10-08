@@ -41,7 +41,9 @@ if [ "$STORE" = YES ]; then
     # No get-task-allow (debugging), which Xcode adds to a plain build: refused by the App Store
     CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO)
 elif [ -n "${DEVELOPER_ID:-}" ]; then
-  signing=(CODE_SIGN_IDENTITY="$DEVELOPER_ID" OTHER_CODE_SIGN_FLAGS=--timestamp)
+  # Same without get-task-allow: refused by the notarization
+  signing=(CODE_SIGN_IDENTITY="$DEVELOPER_ID" OTHER_CODE_SIGN_FLAGS=--timestamp
+    CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO)
 else
   signing=(CODE_SIGN_IDENTITY=-)
 fi
