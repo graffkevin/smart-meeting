@@ -62,8 +62,13 @@ plugged in).
 
 - One voice print per sentence (WeSpeaker ResNet34-LM in ONNX, Kaldi filterbanks computed in numpy, no PyTorch, about
   60 ms per sentence on the CPU, in the Whisper thread).
-- Live, a sentence joins the closest known voice of its source (cosine similarity ≥ 0.45) or starts a new one. When
-  the meeting ends, voices closer than 0.40 are merged and every sentence goes to its closest final voice.
+- Live, a sentence starts a new voice only when it lasts at least 2 s and its cosine similarity to every known voice
+  of its source is under 0.35; otherwise it joins the closest one. When the meeting ends, voices closer than 0.40
+  are merged; a voice heard less than 30 s in all joins the closest main voice if their similarity is at least 0.20,
+  and always under 10 s; then every sentence goes to its closest final voice.
+- Calibration: a 2-person call gave 11 voices with the former thresholds (a sentence started a voice under 0.45, from
+  1 s), 10 of them under 25 s. On a real call mixed with the user's microphone (2 people, 1 709 s), the former
+  thresholds found 17 voices, these ones 3, each one 99 % a single person; a 4-voice sample keeps its 4 voices.
 - The microphone is "me", unless the **meeting room** setting is on. Voices of the two sources are never merged.
 - Imported files: speech turns are cut at 300 ms pauses, and Whisper's sentences are split word by word where the voice
   changes.

@@ -19,11 +19,19 @@ MODEL_REPO = "Wespeaker/wespeaker-voxceleb-resnet34-LM"
 MODEL_FILE = "voxceleb_resnet34_LM.onnx"
 SAMPLE_RATE = 16000
 
-# Cosine similarity between voice prints: above, same person. Live, a new voice needs a clear
-# difference; at the end, voices closer than REGROUP are merged (one person split in two).
-SAME_SPEAKER = 0.45
+# Cosine similarity between voice prints. Live, a sentence starts a new voice only when it is
+# long enough and unlike every known voice; at the end, voices closer than REGROUP are merged
+# (one person split in two). Calibrated on real calls (a 2-person call gave 11 voices before) and
+# on a 4-voice sample, kept apart.
+NEW_VOICE = 0.35
+MIN_NEW_VOICE_S = 2.0
 REGROUP = 0.40
-# Shorter utterances give unreliable prints: they join the closest voice, never start one.
+# A voice heard less than SMALL_VOICE_S in all joins the closest main voice if it looks like it
+# at all (a laugh, an "ok", the codec of a call); under TINY_VOICE_S it always does.
+SMALL_VOICE_S = 30.0
+ABSORB = 0.20
+TINY_VOICE_S = 10.0
+# Shorter utterances give unreliable prints: they keep their voice at the end.
 MIN_RELIABLE_S = 1.0
 
 
@@ -127,13 +135,11 @@ class OnlineVoices:
             similarity = float(voice.centroid @ voice_print)
             if similarity > score:
                 best, score = voice, similarity
-        if best is not None and (score >= SAME_SPEAKER or duration_s < MIN_RELIABLE_S):
+        if best is not None and (score >= NEW_VOICE or duration_s < MIN_NEW_VOICE_S):
             best.total = best.total + voice_print * duration_s
             best.duration_s += duration_s
             self.last = best.key
             return best.key
-        if duration_s < MIN_RELIABLE_S and self.last is not None:
-            return self.last
         return self._new(voice_print, duration_s, new_key)
 
     def _new(
@@ -164,6 +170,17 @@ def regroup(voices: list[Voice], spoken: list["Spoken"], threshold: float = REGR
         groups[keep] = groups[keep] + groups.pop(drop)
         weights[keep] += weights[drop]
         merged = {k: keep if v == drop else v for k, v in merged.items()}
+
+    def centroid(key: int) -> np.ndarray:
+        return groups[key] / (np.linalg.norm(groups[key]) or 1.0)
+
+    main = [k for k in groups if weights[k] >= SMALL_VOICE_S]
+    for small in [k for k in groups if weights[k] < SMALL_VOICE_S] if main else []:
+        target = max(main, key=lambda k: float(centroid(k) @ centroid(small)))
+        if weights[small] < TINY_VOICE_S or float(centroid(target) @ centroid(small)) >= ABSORB:
+            groups[target] = groups[target] + groups.pop(small)
+            weights[target] += weights[small]
+            merged = {k: target if v == small else v for k, v in merged.items()}
     keys = list(groups)
     centroids = np.stack([groups[k] / (np.linalg.norm(groups[k]) or 1.0) for k in keys])
     for utterance in spoken:

@@ -66,8 +66,10 @@ Choix par rapport à la proposition initiale :
   question prend ~5 min, surtout pour écrire la réponse (~5 tokens/s).
 - **Intervenants distingués par la voix** (`speakers.py`) : une empreinte vocale par phrase (WeSpeaker ResNet34-LM
   en ONNX, filterbanks Kaldi en numpy, sans PyTorch, ~60 ms par phrase sur le CPU, dans son propre thread à côté de
-  Whisper), rattachée en direct à la voix la plus proche (cosinus ≥ 0,45) ; à l'arrêt, les voix proches (≥ 0,40) sont
-  fusionnées et les phrases réaffectées. Micro : « Moi », sauf en mode salle de réunion. Fichier importé : tours de
+  Whisper). En direct, une phrase ne crée une voix que si elle dure au moins 2 s et ressemble à moins de 0,35 (cosinus)
+  à toutes les voix connues, sinon elle rejoint la plus proche ; à l'arrêt, les voix proches (≥ 0,40) sont fusionnées,
+  une voix de moins de 30 s rejoint la voix principale la plus proche si elle lui ressemble (≥ 0,20), toujours sous
+  10 s, et les phrases sont réaffectées (une visio à 2 personnes donnait 11 voix avec l'ancien réglage). Micro : « Moi », sauf en mode salle de réunion. Fichier importé : tours de
   parole coupés aux pauses de 300 ms, phrases de Whisper coupées au mot près quand la voix change. Le nom affiché est
   dans `segments.speaker` ; renommer met à jour segments, actions et compte rendu (un nom existant fusionne).
   Avec un casque, il n'y a pas d'écho du distant dans le micro.

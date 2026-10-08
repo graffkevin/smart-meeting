@@ -37,16 +37,32 @@ def test_sources_never_share_a_voice():
     assert voices.name(voices.assign("remote", ANNE, 3)) == "Intervenant 2"
 
 
-def test_regrouping_merges_a_split_voice_and_numbers_again():
+def test_a_new_voice_needs_a_long_and_clearly_different_sentence():
     voices = MeetingVoices(label)
-    spoken = []
-    # Same person, 0.43 apart (under the live threshold, over the final one), then someone else
-    for i, vector in enumerate([unit(1, 0), unit(1, 2.1), unit(0, 0, 1)]):
-        spoken.append(voices.assign("remote", vector, 3))
-        spoken[-1].segment_ids.append(i)
-    assert [voices.name(s) for s in spoken] == [label(1), label(2), label(3)]
-    voices.names[3] = "Paul"
-    assert voices.regroup() == {0: label(1), 1: label(1), 2: "Paul"}
+    names = [
+        voices.name(voices.assign("remote", vector, duration))
+        for vector, duration in [
+            (ANNE, 5),
+            (unit(1, 0, 2.1), 5),  # 0.43 like Anne: still Anne (a call codec, a cold)
+            (BRUNO, 1.5),  # unlike Anne, but too short to tell
+            (BRUNO, 3),  # unlike Anne and long enough: someone else
+        ]
+    ]
+    assert names == [label(1), label(1), label(1), label(2)]
+
+
+def test_small_voices_join_the_main_one_unless_clearly_someone_else(tmp_path):
+    voices = MeetingVoices(label)
+    spoken = [voices.assign("remote", ANNE, 3) for _ in range(20)]  # Anne, 60 s
+    spoken.append(voices.assign("remote", unit(1, 4), 3))  # 0.24 like Anne, 3 s: a laugh
+    spoken.append(voices.assign("remote", unit(0.25, 1), 3))  # 0.24 like Anne, 3 s: an "ok"
+    carla = unit(0, 0, 1)
+    spoken += [voices.assign("remote", carla, 4) for _ in range(5)]  # 20 s, unlike Anne
+    for number, utterance in enumerate(spoken):
+        utterance.segment_ids.append(number)
+    speakers = voices.regroup()
+    assert set(speakers.values()) == {label(1), label(2)}  # Anne and Carla, nobody invented
+    assert [speakers[n] for n in (20, 21, 22)] == [label(1), label(1), label(2)]
 
 
 def test_numbers_skip_names_given_by_the_user():
