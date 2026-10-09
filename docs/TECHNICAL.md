@@ -235,7 +235,8 @@ clone, the `.deb` of the release in `/opt/smart-meeting` (checked against the SH
 `pkexec apt-get install`), and refused during a meeting, an import or the minutes. The browser version then restarts
 through the launcher (new dependencies, new interface) and the page reloads itself; the Linux app stops the server and
 restarts itself. The macOS app only shows the page of the release: its bundled server does not know its version, so
-the app compares the release with its own.
+the app compares the release with its own. The Windows app shows the page too (its server knows its version, from the
+package metadata bundled with it): the new installer goes over the current version.
 
 ## Privacy
 
@@ -291,11 +292,23 @@ forbids downloading code; the models are still downloaded at first launch. The A
 the interface, `cd macos && xcodegen` then open `SmartMeeting.xcodeproj`: a Debug build without the bundled server
 uses the one started with `./smart-meeting --no-window`. The server's log is in `~/Library/Logs/Smart Meeting/`.
 
+**Windows app** (`windows/smart_meeting_win`, `packaging/windows`): `Smart Meeting.exe` opens a window (Edge
+WebView2, through pywebview, part of Windows 10 and 11) on the web interface, served by the server: the same
+executable started without a console (`--server`, PyInstaller bundle with the built interface), which writes to
+`%LOCALAPPDATA%\smart-meeting\server.log` and stops with the window (closing during a recording asks first). A server
+already answering (the browser version) is used and left running. The installer (Inno Setup, `smart-meeting.iss`)
+installs for the user, without admin rights, in `%LOCALAPPDATA%\Programs\Smart Meeting`, with a Start menu shortcut
+and an uninstaller. It is not signed (a code signing certificate is needed for that): SmartScreen asks to confirm the
+first launch. The CUDA libraries are not bundled (over 1 GB): with an NVIDIA card, Whisper runs on the CPU. Build on
+Windows with Git Bash, uv, Bun and Inno Setup 6: `packaging/windows/build.sh` (`make windows`); GitHub does it for
+every release, and installs and starts the result before adding it.
+
 **Releases, from any computer**: bump the version (`backend/pyproject.toml`, `frontend/package.json`,
 `macos/project.yml`), commit, then `make release`: it tags `v<version>` and pushes it. The `Release` workflow
 (`.github/workflows/release.yml`) then creates the release of the tag as a draft (unless there is one already), and
-builds in parallel the `.deb` on Ubuntu and the disk image on a GitHub Mac, signed with the Developer ID and
-notarized; both are added to the release. Write the notes and publish it:
+builds in parallel the `.deb` on Ubuntu, the Windows installer on a GitHub Windows machine (installed and started
+there first) and the disk image on a GitHub Mac, signed with the Developer ID and notarized; the three are added to
+the release. Write the notes and publish it:
 `gh release edit v<version> --notes-file notes.md --draft=false`. The workflow also runs by hand on an existing tag
 (`gh workflow run release.yml -f tag=v0.2.4`), or on `main` without a tag (files in the artifacts of the run only).
 

@@ -10,44 +10,41 @@ what, answers your questions about the meeting, and writes the minutes at the en
 
 ## Install
 
-**On macOS and Linux, use the app**: a real application in your Dock or applications menu, with its own window.
-The browser version is for Windows (and for development).
+Smart Meeting is a real application on the three systems, with its own window, in your Dock, applications menu or
+Start menu. The browser version is for development.
 
 | System | Install | Then |
 |---|---|---|
 | **macOS** 14+, Apple chip (M1 or later) | Download `Smart-Meeting-<version>.dmg` from the [Releases](https://github.com/graffkevin/smart-meeting/releases) page, open it and drag **Smart Meeting** to **Applications** | Open it from the Applications folder or the Dock |
 | **Ubuntu** 24.04+ (GNOME) | Download `smart-meeting_<version>_all.deb` from the [Releases](https://github.com/graffkevin/smart-meeting/releases) page, then `sudo apt install ./smart-meeting_<version>_all.deb` | Super key, type "Smart Meeting"; right-click, **Pin to Dash** to keep it in the dock |
-| **Windows** 10/11 | `winget install Git.Git`, then the commands below | `.\smart-meeting` in PowerShell, or double-click `smart-meeting.cmd`: it opens in your browser |
+| **Windows** 10/11 (64-bit) | Download `Smart-Meeting-Setup-<version>.exe` from the [Releases](https://github.com/graffkevin/smart-meeting/releases) page and run it (no admin rights needed). Windows may warn that the publisher is unknown: **More info**, then **Run anyway** | Start menu, **Smart Meeting**; right-click, **Pin to taskbar** |
 
-```bash
-# Windows
-git clone https://github.com/graffkevin/smart-meeting.git
-cd smart-meeting
-.\smart-meeting
-```
+The browser version, from a clone of the repository (development, or Windows without the installer):
+`git clone https://github.com/graffkevin/smart-meeting.git`, then `./smart-meeting` (Linux, macOS) or `.\smart-meeting`
+(Windows, with `winget install Git.Git` first).
 
 The first launch downloads about 8 GB (AI and transcription models): 10 to 30 minutes. You can already record
 meanwhile: everything said is transcribed as soon as the models are there. The next launches take a few seconds.
 Behind a company proxy, the apps use the proxy of the system settings.
 
 To update: from version 0.2.3, the app tells you when a new version is out. On Linux and in the browser version,
-**Update** installs it (the package asks for your password) and restarts; on a Mac, **Download** opens its page. Your
+**Update** installs it (the package asks for your password) and restarts; on a Mac and on Windows, **Download** opens
+its page: install it over the current one. Your
 meetings and settings are kept. Up to 0.2.2, install the new version by hand once, the same way (Windows: `git pull`,
-then launch again). Every release has both packages, built by GitHub: the `.deb` and the `.dmg`, signed and
-notarized by Apple (it opens without warning).
+then launch again). Every release has the three packages, built by GitHub: the `.deb`, the `.dmg`, signed and
+notarized by Apple (it opens without warning), and the Windows installer.
 
-To uninstall on Linux: `sudo apt remove smart-meeting` (your meetings stay in `~/.local/share/smart-meeting/`).
+To uninstall on Linux: `sudo apt remove smart-meeting` (your meetings stay in `~/.local/share/smart-meeting/`). On
+Windows: Settings > Apps > Smart Meeting > Uninstall (your meetings stay in `%LOCALAPPDATA%\smart-meeting`).
 From a clone of the repository, `./smart-meeting --install` puts the Linux app in the applications menu, with its
 icon, without the package.
 
-On Windows, to keep it in the taskbar: `.\smart-meeting --install`, then Start menu, right-click **Smart Meeting**,
-**Pin to taskbar**.
 
 ## Use it
 
 ### 1. Start a meeting
 
-Open Smart Meeting (on Windows, it opens in your browser). Give the meeting a name if you like, click **Start
+Open Smart Meeting. Give the meeting a name if you like, click **Start
 recording**, then start your call. Smart Meeting follows the microphone and the headset your call uses.
 
 ### 2. Follow, and ask
@@ -102,11 +99,12 @@ of releases on GitHub.
 
 ## Release a version
 
-From any computer, Linux included (the Mac app is built on GitHub):
+From any computer (the three packages are built on GitHub):
 
 1. Change the version in `backend/pyproject.toml`, `frontend/package.json` and `macos/project.yml`, and commit.
-2. `make release`: tags `v<version>` and pushes it. GitHub then builds the `.deb` and the signed, notarized `.dmg`
-   (about 5 minutes, `gh run watch`) and adds them to a draft release of that tag.
+2. `make release`: tags `v<version>` and pushes it. GitHub then builds the `.deb`, the signed and notarized `.dmg`
+   and the Windows installer, after installing and starting it on a Windows machine (about 10 minutes,
+   `gh run watch`), and adds them to a draft release of that tag.
 3. Write the notes and publish: `gh release edit v<version> --notes-file notes.md --draft=false`. The apps then offer
    the update.
 
