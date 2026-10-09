@@ -264,7 +264,7 @@ uses the one started with `./smart-meeting --no-window`. The server's log is in 
 
 **On GitHub, without a Mac at hand**: the `macOS app` workflow (`.github/workflows/macos.yml`) runs `build.sh` on a
 GitHub Mac, on every `v*` tag or by hand (Actions > macOS app > Run workflow, or
-`gh workflow run macos.yml -f tag=v0.2.1`), and adds the disk image to the release of the tag (created as a draft
+`gh workflow run macos.yml -f tag=v0.2.2`), and adds the disk image to the release of the tag (created as a draft
 if there is none). To sign and notarize it, store once these repository secrets, from the Mac holding the
 certificate:
 
