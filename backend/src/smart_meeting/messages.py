@@ -111,6 +111,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fr": "Rien n'a encore été transcrit : posez la question un peu plus tard.",
         "en": "Nothing has been transcribed yet: ask a little later.",
     },
+    "ai_too_slow": {
+        "fr": "l'IA a mis trop de temps à répondre. Réessayez, ou choisissez l'autre modèle "
+        "d'IA dans les paramètres",
+        "en": "the AI took too long to answer. Try again, or choose the other AI model in the "
+        "settings",
+    },
     "analysis_failed": {"fr": "Analyse impossible : {error}", "en": "Analysis failed: {error}"},
     "analysis_not_possible": {
         "fr": "Analyse impossible dans l'état « {status} »",

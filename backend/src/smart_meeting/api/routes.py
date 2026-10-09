@@ -270,6 +270,8 @@ async def ask_meeting(request: Request, meeting_id: int, body: AskRequest) -> As
     with conflict_as_409():
         try:
             answer = await svc.ask(meeting_id, question)
+        except httpx.TimeoutException as exc:
+            raise HTTPException(503, tr("ai_too_slow").capitalize()) from exc
         except (httpx.HTTPError, RuntimeError) as exc:
             raise HTTPException(503, tr("ai_unreachable", error=exc)) from exc
     return svc.db.add_question(meeting_id, question, answer)

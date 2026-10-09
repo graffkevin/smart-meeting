@@ -227,3 +227,27 @@ def test_during_a_meeting_the_model_stays_loaded():
     assert payload["options"]["num_ctx"] == client.settings.ollama_num_ctx  # no reload
     client.settings.ollama_meeting_threads = 4
     assert client._payload("s", "u")["options"]["num_thread"] == 4
+
+
+def test_lines_written_twice_are_kept_once():
+    decision = "Demander un GitLab à Camptocamp."
+    action = ActionItem(task="Relire la note", owner=None, deadline=None, quote="la note")
+    analysis = MeetingAnalysis(
+        summary="",
+        decisions=[decision, decision.upper(), "Autre décision"],
+        actions=[action, action],
+        questions=[],
+        risks=[],
+        technical_topics=["GitLab", "gitlab"],
+    )
+    result = ground_analysis(analysis, "Moi: je vais relire la note", "Moi")
+    assert result.decisions == [decision, "Autre décision"]
+    assert len(result.actions) == 1
+    assert result.technical_topics == ["GitLab"]
+
+
+def test_the_longest_minutes_stay_short():
+    schema = analysis_schema()
+    lists = [schema["properties"][name] for name in ("decisions", "questions", "risks")]
+    assert all(field["maxItems"] <= 10 and field["items"]["maxLength"] <= 300 for field in lists)
+    assert schema["properties"]["summary"]["maxLength"] <= 2000

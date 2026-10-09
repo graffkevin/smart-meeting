@@ -47,10 +47,14 @@ def format_transcript(segments: list[Segment]) -> str:
     return "\n".join(f"[{format_timestamp(s.start_s)}] {s.speaker}: {s.text}" for s in segments)
 
 
-SUMMARY_MAX_CHARS = 3000
-ITEM_MAX_CHARS = 300
-QUOTE_MAX_CHARS = 400
-LIST_MAX_ITEMS = 20
+# The longest minutes possible stay under MAX_OUTPUT_TOKENS: a few minutes, even repeated
+SUMMARY_MAX_CHARS = 1500
+ITEM_MAX_CHARS = 200
+NAME_MAX_CHARS = 60  # owner, deadline
+QUOTE_MAX_CHARS = 250
+LIST_MAX_ITEMS = 8
+ACTIONS_MAX_ITEMS = 10
+MAX_OUTPUT_TOKENS = 5000
 
 
 def analysis_schema() -> dict:
@@ -66,12 +70,14 @@ def analysis_schema() -> dict:
     for name, field in action["properties"].items():
         for option in field.get("anyOf", [field]):  # owner, deadline: a string or null
             if option["type"] == "string":
-                option["maxLength"] = QUOTE_MAX_CHARS if name == "quote" else ITEM_MAX_CHARS
+                option["maxLength"] = {"quote": QUOTE_MAX_CHARS, "task": ITEM_MAX_CHARS}.get(
+                    name, NAME_MAX_CHARS
+                )
     for name, field in schema["properties"].items():
         if name == "summary":
             field["maxLength"] = SUMMARY_MAX_CHARS
         else:
-            field["maxItems"] = LIST_MAX_ITEMS
+            field["maxItems"] = ACTIONS_MAX_ITEMS if name == "actions" else LIST_MAX_ITEMS
             if field["items"].get("type") == "string":
                 field["items"]["maxLength"] = ITEM_MAX_CHARS
     return schema
@@ -115,7 +121,16 @@ def ground_analysis(analysis: MeetingAnalysis, transcript: str, user_name: str) 
         actions.append(
             action.model_copy(update={"owner": owner, "deadline": deadline, "verified": verified})
         )
-    return analysis.model_copy(update={"actions": actions})
+    # A small model may write the same line several times
+    return analysis.model_copy(
+        update={
+            "actions": _unique(actions, lambda action: _normalize(action.task)),
+            **{
+                name: _unique(getattr(analysis, name), _normalize)
+                for name in ("decisions", "questions", "risks", "technical_topics")
+            },
+        }
+    )
 
 
 # Duration estimates of the local AI, refined after each call with the speeds Ollama reports.
@@ -323,6 +338,7 @@ class OllamaClient:
                 payload["options"]["num_thread"] = self.settings.ollama_meeting_threads
         if response_format is not None:
             payload["format"] = response_format
+            payload["options"]["num_predict"] = MAX_OUTPUT_TOKENS
         return payload
 
     async def _chat(self, system: str, user: str, response_format: dict | None = None) -> str:

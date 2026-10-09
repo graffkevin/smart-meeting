@@ -22,6 +22,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
+import httpx
 import numpy as np
 
 from smart_meeting.audio.backend import AudioBackend, Capture, PermissionNeeded, get_backend
@@ -1233,7 +1234,10 @@ class MeetingService:
             analysis = await self.ollama.analyze(meeting.title, segments)
         except Exception as exc:
             logger.exception("Analysis failed for meeting %s", meeting_id)
-            detail = str(exc) or type(exc).__name__
+            if isinstance(exc, httpx.TimeoutException):
+                detail = tr("ai_too_slow")
+            else:
+                detail = str(exc) or type(exc).__name__
             self._set_status(
                 meeting_id, MeetingStatus.TRANSCRIBED, error=tr("analysis_failed", error=detail)
             )
