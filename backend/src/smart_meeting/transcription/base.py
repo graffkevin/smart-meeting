@@ -79,6 +79,9 @@ class Transcriber:
     def load(self) -> None:
         raise NotImplementedError
 
+    def unload(self) -> None:
+        """Free the memory of the models; `load` again before transcribing."""
+
     def transcribe(
         self, audio: np.ndarray, tracker: LanguageTracker, previous_text: str = ""
     ) -> list[TranscribedPiece]:

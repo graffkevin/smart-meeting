@@ -131,7 +131,7 @@ export const getUpdatePreferencesUrl = () => {
 
 /**
  * Saved and applied at once: name and vocabulary for the next sentences, defaults for the next
- * meeting.
+ * meeting, the AI model (downloaded if missing).
  * @summary Update Preferences
  */
 export const updatePreferences = async (preferences: Preferences, options?: Parameters<typeof smartMeetingClient>[1]): Promise<Preferences> => {

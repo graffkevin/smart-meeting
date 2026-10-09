@@ -1,10 +1,11 @@
 import { Button, Checkbox, Dialog, isDefined, Select, Spinner, Stack, TextField } from '@ign-junn/design-system';
-import { IconHeadphones, IconLanguage, IconMicrophone, IconUser } from '@tabler/icons-react';
+import { IconHeadphones, IconLanguage, IconMicrophone, IconSparkles, IconUser } from '@tabler/icons-react';
 import { useForm } from '@tanstack/react-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { AudioDevice } from '@/api/generated/model/audioDevice';
 import type { Preferences } from '@/api/generated/model/preferences';
+import { PreferencesAiMode } from '@/api/generated/model/preferencesAiMode';
 import { updatePreferences } from '@/api/generated/smartMeetingApi';
 import { AUTO_DEVICE, TRANSCRIPTION_LANGUAGES } from '@/constants/app';
 import useSettingsDialog from '@/contexts/settings/useSettingsDialog';
@@ -34,6 +35,7 @@ const SettingsForm = ({ preferences, onSaved }: SettingsFormProps) => {
       output: preferences.output_device ?? AUTO_DEVICE,
       keepAudio: preferences.keep_audio ?? false,
       room: preferences.room ?? false,
+      aiMode: preferences.ai_mode ?? PreferencesAiMode.fast,
     },
     onSubmit: ({ value }) =>
       save.mutate({
@@ -44,6 +46,7 @@ const SettingsForm = ({ preferences, onSaved }: SettingsFormProps) => {
         output_device: value.output === AUTO_DEVICE ? null : value.output,
         keep_audio: value.keepAudio,
         room: value.room,
+        ai_mode: value.aiMode,
         ui_language: preferences.ui_language,
       }),
   });
@@ -119,6 +122,21 @@ const SettingsForm = ({ preferences, onSaved }: SettingsFormProps) => {
             options={deviceOptions(devices?.sinks ?? [], devices?.in_use_sink)}
             value={field.state.value}
             onChange={(value) => field.handleChange(value ?? AUTO_DEVICE)}
+          />
+        )}
+      </Field>
+      <Field name="aiMode">
+        {(field) => (
+          <Select<PreferencesAiMode>
+            label={t('settings.aiMode')}
+            description={t('settings.aiModeHelp')}
+            icon={IconSparkles}
+            options={Object.values(PreferencesAiMode).map((mode) => ({
+              value: mode,
+              label: t(`settings.aiModes.${mode}`),
+            }))}
+            value={field.state.value}
+            onChange={(value) => field.handleChange(value ?? PreferencesAiMode.fast)}
           />
         )}
       </Field>

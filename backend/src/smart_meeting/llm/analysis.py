@@ -47,6 +47,12 @@ def format_transcript(segments: list[Segment]) -> str:
     return "\n".join(f"[{format_timestamp(s.start_s)}] {s.speaker}: {s.text}" for s in segments)
 
 
+SUMMARY_MAX_CHARS = 3000
+ITEM_MAX_CHARS = 300
+QUOTE_MAX_CHARS = 400
+LIST_MAX_ITEMS = 20
+
+
 def analysis_schema() -> dict:
     schema = MeetingAnalysis.model_json_schema()
     action = schema["$defs"]["ActionItem"]
@@ -55,6 +61,19 @@ def analysis_schema() -> dict:
     quote = action["properties"]["quote"]
     action["properties"]["quote"] = {"type": "string", "description": quote["description"]}
     action["required"] = ["task", "owner", "deadline", "quote"]
+    # Bounded lengths, enforced while the model writes: a small model may otherwise repeat a
+    # sentence of a quote until the timeout
+    for name, field in action["properties"].items():
+        for option in field.get("anyOf", [field]):  # owner, deadline: a string or null
+            if option["type"] == "string":
+                option["maxLength"] = QUOTE_MAX_CHARS if name == "quote" else ITEM_MAX_CHARS
+    for name, field in schema["properties"].items():
+        if name == "summary":
+            field["maxLength"] = SUMMARY_MAX_CHARS
+        else:
+            field["maxItems"] = LIST_MAX_ITEMS
+            if field["items"].get("type") == "string":
+                field["items"]["maxLength"] = ITEM_MAX_CHARS
     return schema
 
 
@@ -193,7 +212,7 @@ class OllamaClient:
         self._speeds_path = settings.data_dir / "ai-speed.json"
         try:
             saved = json.loads(self._speeds_path.read_text(encoding="utf-8"))
-            if saved.get("model") == settings.ollama_model:
+            if saved.get("model") == settings.ai_model:
                 self.prompt_rate = float(saved["prompt_rate"])
                 self.eval_rate = float(saved["eval_rate"])
         except (OSError, ValueError, KeyError, TypeError):
@@ -241,7 +260,7 @@ class OllamaClient:
                 current = getattr(self, attribute)
                 setattr(self, attribute, current + SPEED_SMOOTHING * (measured - current))
         speeds = {
-            "model": self.settings.ollama_model,
+            "model": self.settings.ai_model,
             "prompt_rate": round(self.prompt_rate, 1),
             "eval_rate": round(self.eval_rate, 2),
         }
@@ -267,9 +286,29 @@ class OllamaClient:
             return None
         return [m["name"] for m in response.json().get("models", [])]
 
+    async def loaded_models(self) -> list[dict]:
+        """Models in memory (name, size, size_vram: the part on the graphics card); none if
+        Ollama is unreachable."""
+        try:
+            async with self._client(timeout=3) as client:
+                response = await client.get("/api/ps")
+                response.raise_for_status()
+        except httpx.HTTPError:
+            return []
+        return response.json().get("models") or []
+
+    async def unload(self, model: str) -> None:
+        """Out of memory once its current answers are given."""
+        try:
+            async with self._client(timeout=30) as client:
+                await client.post("/api/generate", json={"model": model, "keep_alive": 0})
+        except httpx.HTTPError:
+            logger.warning("Could not unload the AI model %s", model, exc_info=True)
+        self.cached_chars = 0  # its prompt cache goes with it
+
     def _payload(self, system: str, user: str, response_format: dict | None = None) -> dict:
         payload = {
-            "model": self.settings.ollama_model,
+            "model": self.settings.ai_model,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},

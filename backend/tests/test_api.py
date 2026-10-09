@@ -182,3 +182,20 @@ def test_a_meeting_tells_where_it_is_kept(client):
     storage = client.get(f"/api/meetings/{meeting_id}").json()["storage"]
     assert storage["database"].endswith("smart-meeting.db")
     assert storage["audio"] is None  # no audio kept
+
+
+def test_the_ai_is_fast_by_default_and_precise_when_chosen(client):
+    service = client.app.state.service
+    service.provisioner.run = lambda: _noop()  # nothing to download in tests
+    settings = service.settings
+    assert client.get("/api/preferences").json()["ai_mode"] == "fast"
+    assert settings.ai_model == settings.ollama_fast_model
+    preferences = client.get("/api/preferences").json()
+    client.put("/api/preferences", json={**preferences, "ai_mode": "precise"})
+    assert settings.ai_model == settings.ollama_precise_model
+    settings.ollama_model = "mistral:7b"  # SM_OLLAMA_MODEL forces one
+    assert settings.ai_model == "mistral:7b"
+
+
+async def _noop() -> None:
+    return None

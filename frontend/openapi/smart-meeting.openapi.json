@@ -76,7 +76,7 @@
       },
       "put": {
         "summary": "Update Preferences",
-        "description": "Saved and applied at once: name and vocabulary for the next sentences, defaults for the next\nmeeting.",
+        "description": "Saved and applied at once: name and vocabulary for the next sentences, defaults for the next\nmeeting, the AI model (downloaded if missing).",
         "operationId": "update_preferences",
         "requestBody": {
           "content": {
@@ -1540,6 +1540,15 @@
             "type": "boolean",
             "title": "Room",
             "default": false
+          },
+          "ai_mode": {
+            "type": "string",
+            "enum": [
+              "fast",
+              "precise"
+            ],
+            "title": "Ai Mode",
+            "default": "fast"
           },
           "ui_language": {
             "type": "string",

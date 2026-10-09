@@ -69,6 +69,21 @@ class SettingsDialog(Adw.PreferencesDialog):
         languages.add(answers)
         page.add(languages)
 
+        ai = Adw.PreferencesGroup(title="IA")
+        model = Adw.ComboRow(
+            title="Modèle d'IA",
+            subtitle="Pour les questions et le compte rendu. Le modèle précis est plus long ; il "
+            "est téléchargé la première fois.",
+            model=Gtk.StringList.new(["Rapide (par défaut)", "Précis, plus lent"]),
+        )
+        model.set_selected(1 if self.draft.get("ai_mode") == "precise" else 0)
+        model.connect(
+            "notify::selected",
+            lambda row, _p: self._set("ai_mode", "precise" if row.get_selected() else "fast"),
+        )
+        ai.add(model)
+        page.add(ai)
+
         audio = Adw.PreferencesGroup(title="Audio")
         devices = app.devices or {}
         audio.add(

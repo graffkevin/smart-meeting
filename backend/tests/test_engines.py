@@ -155,3 +155,19 @@ def test_falling_behind_lightens_the_model_then_the_engine(everything_installed)
     assert transcriber.lighten() == "small (faster-whisper cpu)"  # then the CPU
     assert transcriber.settings.whisper_partial_model == "none"
     assert transcriber.lighten() is None  # nothing lighter
+
+
+def test_unloading_gives_back_the_best_model_on_the_next_load(everything_installed):
+    transcriber = engines.AutoTranscriber(
+        Settings(whisper_device="cuda"),
+        hardware=lambda: NVIDIA,
+        factory=lambda name, settings: SizedEngine(settings, name, False),
+    )
+    transcriber.load()
+    assert transcriber.on_gpu
+    transcriber.lighten()
+    assert transcriber.model_name == "small"
+    transcriber.unload()
+    assert transcriber.engine is None and not transcriber.on_gpu
+    transcriber.load()
+    assert transcriber.model_name == "large-v3-turbo"

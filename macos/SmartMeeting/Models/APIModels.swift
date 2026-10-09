@@ -141,6 +141,7 @@ struct Preferences: Codable, Equatable {
     var keepAudio: Bool?
     var room: Bool?
     var uiLanguage: String?
+    var aiMode: String?
 }
 
 struct TagCount: Codable, Hashable {

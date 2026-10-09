@@ -77,7 +77,13 @@ class Settings(BaseSettings):
     ollama_url: str = "http://127.0.0.1:11434"
     # Started by the launcher when Ollama is not already running (defaults to PATH lookup).
     ollama_bin: str | None = None
-    ollama_model: str = "qwen2.5:7b"
+    # AI model: the "fast" one by default, the "precise" one when chosen in the interface (on a
+    # computer without a large GPU, the fast one fits on the graphics card: several times faster).
+    # SM_OLLAMA_MODEL forces one whatever the choice.
+    ollama_model: str = ""
+    ollama_fast_model: str = "qwen2.5:3b"
+    ollama_precise_model: str = "qwen2.5:7b"
+    ai_mode: str = "fast"  # fast | precise, from the preferences
     ollama_num_ctx: int = 16384
     ollama_timeout_s: float = 900.0
     # During a meeting, the model stays loaded between questions: its prompt cache makes the next
@@ -88,6 +94,13 @@ class Settings(BaseSettings):
     ollama_meeting_keep_alive: str = "30m"
     # Safety net: transcripts must never leave the machine unless explicitly allowed.
     allow_remote_llm: bool = False
+
+    @property
+    def ai_model(self) -> str:
+        """The AI model in use: forced, or the one of the chosen mode."""
+        if self.ollama_model:
+            return self.ollama_model
+        return self.ollama_precise_model if self.ai_mode == "precise" else self.ollama_fast_model
 
     @field_validator("data_dir")
     @classmethod

@@ -248,11 +248,11 @@ class OllamaProvisioner:
     # Model
 
     async def _ensure_model(self) -> None:
-        name = self.settings.ollama_model
+        name = self.settings.ai_model
         full_name = name if ":" in name else f"{name}:latest"
         if full_name in (await self._models() or []):
             return
-        step = self.steps.setdefault("model", SetupStep(tr("downloading_model", name=name)))
+        step = self.steps.setdefault(f"model:{name}", SetupStep(tr("downloading_model", name=name)))
         if self._process:  # our Ollama: we own its model directory
             await self._download_model(name, step)
             if full_name not in (await self._models() or []):

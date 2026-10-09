@@ -74,6 +74,7 @@ class AutoTranscriber:
         self._factory = factory
         self._engine: Transcriber | None = None
         self.engine: str | None = None
+        self._initial_settings = settings
 
     def load(self) -> None:
         order = engine_order(self.settings, self._hardware())
@@ -92,6 +93,20 @@ class AutoTranscriber:
             logger.info("Transcription engine: %s", name)
             return
         raise RuntimeError("No transcription engine installed")
+
+    @property
+    def on_gpu(self) -> bool:
+        """Loaded in the memory of an NVIDIA card, which the AI would use too."""
+        return self.engine == "faster-whisper" and (self.device or "").split()[-1].startswith(
+            "cuda"
+        )
+
+    def unload(self) -> None:
+        """Free the models; the next `load` starts again from the chosen setting (a meeting
+        lightened earlier gets the best model back). Whisper thread only."""
+        if self._engine is not None:
+            self._engine.unload()
+        self._engine, self.engine, self.settings = None, None, self._initial_settings
 
     def lighter(self) -> tuple[str, Settings] | None:
         """The next lighter setting when the live transcription falls behind: the small model on

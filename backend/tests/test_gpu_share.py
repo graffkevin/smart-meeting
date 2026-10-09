@@ -94,3 +94,21 @@ def test_whisper_off_the_card_stays(tmp_path):
         assert svc._whisper_reload is None
 
     asyncio.run(run())
+
+
+def test_whisper_loads_once_the_ai_left_the_card(tmp_path):
+    async def run():
+        transcriber = GpuTranscriber()
+        svc = service(tmp_path, transcriber, [SPLIT])
+
+        def load():  # out of memory while the AI is on the card
+            if svc.fake_ollama.models:
+                raise RuntimeError("CUDA failed with error out of memory")
+            transcriber.loads += 1
+
+        transcriber.load = load
+        svc._whisper_ready.clear()
+        await svc._load_whisper()
+        assert svc.whisper_state == "ready" and transcriber.loads == 1
+
+    asyncio.run(run())

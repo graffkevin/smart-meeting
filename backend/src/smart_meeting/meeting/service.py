@@ -38,6 +38,7 @@ from smart_meeting.models import (
     CapturedDevice,
     Meeting,
     MeetingStatus,
+    Preferences,
     Segment,
     Source,
     StartMeetingRequest,
@@ -73,6 +74,8 @@ KEEP_UP_CHECK_S = 10.0
 PARTIALS_OFF_S = 30.0
 LIGHTER_S = 90.0
 LIGHTER_COOLDOWN_S = 60.0
+# The AI finishes its answer before Whisper takes the graphics card back (seconds)
+AI_LEAVES_GPU_S = 600.0
 # Without any open page for this long (time to reload a page), the app stops once idle.
 UNUSED_GRACE_S = 10
 
@@ -196,6 +199,10 @@ class MeetingService:
         # Whisper thread computations not finished yet: number -> submitted at (monotonic)
         self._jobs: dict[int, float] = {}
         self._lightening = False  # a lighter model loading: not a stuck transcription
+        # Graphics card left to the AI (see _gpu_for_ai), and its way back
+        self._whisper_released = False
+        self._whisper_reload: asyncio.Task[None] | None = None
+        self._whisper_users = 0  # transcriptions outside a meeting: the end of one, recoveries
         self._job_numbers = itertools.count()
 
     # Lifecycle
@@ -211,6 +218,17 @@ class MeetingService:
         self._spawn(self._recover(resume))
         if unfinished:
             self._spawn(self._analyze_unfinished(unfinished))
+
+    def save_preferences(self, preferences: Preferences) -> Preferences:
+        """Applied at once; another AI model (fast or precise) is downloaded if missing."""
+        model = self.settings.ai_model
+        saved = self.preferences.save(preferences)
+        if self.settings.ai_model != model:
+            logger.info("AI model: %s", self.settings.ai_model)
+            self.ollama.cached_chars = 0  # read by the other model
+            if not self.provisioner.busy:
+                self._spawn(self.provisioner.run())
+        return saved
 
     def restart_ai(self) -> None:
         """Restart button of the interface: stop the Ollama we started, then provision again
@@ -237,7 +255,15 @@ class MeetingService:
 
     async def _load_whisper(self) -> None:
         try:
-            await asyncio.get_running_loop().run_in_executor(self._executor, self.transcriber.load)
+            try:
+                await self._run_whisper_load()
+            except Exception:
+                if not await self.ollama.loaded_models():
+                    raise
+                # Out of graphics card memory, an AI model taking it: once it has left
+                logger.warning("Whisper failed to load beside the AI, retrying", exc_info=True)
+                await self._ai_leaves_gpu()
+                await self._run_whisper_load()
         except Exception as exc:
             logger.exception("Whisper failed to load")
             self.whisper_state, self.whisper_detail = "error", str(exc)
@@ -246,6 +272,55 @@ class MeetingService:
         self.whisper_detail = f"{self.transcriber.model_name} ({self.transcriber.device})"
         self._whisper_ready.set()
         logger.info("Whisper ready: %s", self.whisper_detail)
+
+    # The graphics card between Whisper and the AI. A small one (4 GB) cannot hold both: the AI
+    # then runs mostly on the processor, about three times slower. Outside meetings and imports,
+    # Whisper leaves the card to the AI, and comes back when a meeting or an import starts.
+
+    async def _gpu_for_ai(self) -> None:
+        """Before an AI call: Whisper unloaded when nothing is being transcribed, and an AI
+        model loaded beside it unloaded, to come back on the whole card."""
+        if (
+            self.active is not None
+            or self._import_task is not None
+            or self._whisper_users
+            or self._jobs
+            or not self._whisper_ready.is_set()
+            or not self.transcriber.on_gpu
+        ):
+            return
+        self._whisper_ready.clear()
+        self._whisper_released = True
+        await asyncio.get_running_loop().run_in_executor(self._executor, self.transcriber.unload)
+        logger.info("Whisper unloaded: the graphics card is left to the AI")
+        for model in await self.ollama.loaded_models():
+            if model.get("size_vram", 0) < model.get("size", 0):
+                await self.ollama.unload(model["name"])
+
+    def _need_whisper(self) -> None:
+        """A meeting or an import starts: Whisper back on the card once the AI left it. The
+        sound waits meanwhile, kept on disk like any sentence not transcribed yet."""
+        if self._whisper_released and self._whisper_reload is None:
+            self._whisper_reload = asyncio.create_task(self._reload_whisper())
+
+    async def _reload_whisper(self) -> None:
+        try:
+            await self._ai_leaves_gpu()
+            self._whisper_released = False
+            await self._load_whisper()
+        finally:
+            self._whisper_reload = None
+
+    async def _ai_leaves_gpu(self) -> None:
+        for model in await self.ollama.loaded_models():
+            await self.ollama.unload(model["name"])
+        # An answer being written finishes first
+        deadline = time.monotonic() + AI_LEAVES_GPU_S
+        while await self.ollama.loaded_models() and time.monotonic() < deadline:
+            await asyncio.sleep(1)
+
+    async def _run_whisper_load(self) -> None:
+        await asyncio.get_running_loop().run_in_executor(self._executor, self.transcriber.load)
 
     async def _load_voice_printer(self) -> None:
         try:
@@ -350,6 +425,7 @@ class MeetingService:
             raise ConflictError(tr("meeting_in_progress"))
         if self.whisper_state == "error":
             raise ConflictError(tr("whisper_unavailable", detail=self.whisper_detail))
+        self._need_whisper()
 
         targets: dict[Source, str | None] = {
             "mic": request.mic_device,
@@ -718,8 +794,16 @@ class MeetingService:
                     except Exception:
                         logger.exception("Could not resume meeting %s", meeting.id)
                         self._set_status(meeting.id, MeetingStatus.ERROR, error=tr("interrupted"))
-        await self._whisper_ready.wait()
-        await self._voices_loaded.wait()
+        self._whisper_users += 1
+        try:
+            await self._whisper_ready.wait()
+            await self._voices_loaded.wait()
+            await self._recover_left(resumed)
+        finally:
+            self._whisper_users -= 1
+
+    async def _recover_left(self, resumed: int | None) -> None:
+        """Meetings a crash left with sentences waiting or speech never transcribed."""
         audio_dirs = self.settings.audio_dir.glob("*") if self.settings.audio_dir.exists() else []
         candidates = {
             *self.pending.meetings(),
@@ -901,7 +985,11 @@ class MeetingService:
         finally:
             self.active = None
         meeting_id = recording.meeting_id
-        await self._transcribe_missing(recording)
+        self._whisper_users += 1
+        try:
+            await self._transcribe_missing(recording)
+        finally:
+            self._whisper_users -= 1
         self.pending.remove(meeting_id)  # everything is transcribed
         self._drop_tracks(meeting_id)
         self._store_speakers(meeting_id, recording.voices)
@@ -949,6 +1037,7 @@ class MeetingService:
                 raise ConflictError(tr("import_in_progress"))
             if self.whisper_state == "error":
                 raise ConflictError(tr("whisper_unavailable", detail=self.whisper_detail))
+            self._need_whisper()
             meeting = self.db.create_meeting(
                 title.strip() or Path(filename).stem,
                 None,
@@ -1129,6 +1218,7 @@ class MeetingService:
         self._set_status(meeting_id, MeetingStatus.ANALYZING, error=None)
         try:
             await self.provisioner.ensure_running()
+            await self._gpu_for_ai()
             analysis = await self.ollama.analyze(meeting.title, segments)
         except Exception as exc:
             logger.exception("Analysis failed for meeting %s", meeting_id)
@@ -1151,6 +1241,7 @@ class MeetingService:
         await self.provisioner.ensure_running()
         # One question at a time: the local AI shares the GPU with the live transcription.
         async with self._ask_lock:
+            await self._gpu_for_ai()
             notes = MeetingNotes(self.db, meeting_id)
             return await self.ollama.ask(meeting.title, segments, question, notes)
 

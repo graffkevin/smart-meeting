@@ -86,6 +86,10 @@ const fr = {
     output: 'Casque',
     outputHelp: 'Ce que vous entendez : la voix des autres participants.',
     automatic: 'Automatique ({{device}})',
+    aiMode: "Modèle d'IA",
+    aiModeHelp:
+      'Pour les questions et le compte rendu. Le modèle précis est plus long ; il est téléchargé la première fois.',
+    aiModes: { fast: 'Rapide (par défaut)', precise: 'Précis, plus lent' },
     keepAudio: "Garder l'enregistrement audio",
     keepAudioHelp:
       "Sinon, le son n'est gardé que pendant la réunion, au cas où, puis effacé une fois tout transcrit : seule la transcription est conservée.",

@@ -68,7 +68,7 @@ def conflict_as_409():
 async def health(request: Request) -> Health:
     svc = service(request)
     models = await svc.ollama.available_models()
-    wanted = svc.settings.ollama_model
+    wanted = svc.settings.ai_model
     return Health(
         whisper=svc.whisper_state,
         whisper_detail=svc.whisper_detail,
@@ -105,10 +105,10 @@ def get_preferences(request: Request) -> Preferences:
 
 
 @router.put("/preferences")
-def update_preferences(request: Request, body: Preferences) -> Preferences:
+async def update_preferences(request: Request, body: Preferences) -> Preferences:
     """Saved and applied at once: name and vocabulary for the next sentences, defaults for the next
-    meeting."""
-    return service(request).preferences.save(body)
+    meeting, the AI model (downloaded if missing)."""
+    return service(request).save_preferences(body)
 
 
 @router.post("/audio/permission-settings", status_code=204)

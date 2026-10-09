@@ -1,4 +1,5 @@
 import ctypes
+import gc
 import glob
 import logging
 import os
@@ -99,6 +100,10 @@ class WhisperTranscriber(Transcriber):
         self.device = f"{device}/{compute_type}"
         # Passages decoded at once for imported files (halved when the GPU runs out of memory)
         self.batch_size = 4
+
+    def unload(self) -> None:
+        self._model = self._partial_model = self._batched = None
+        gc.collect()  # CTranslate2 frees the graphics card memory with the last reference
 
     def transcribe(
         self, audio: np.ndarray, tracker: LanguageTracker, previous_text: str = ""

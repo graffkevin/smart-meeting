@@ -30,6 +30,14 @@ struct SettingsView: View {
                     Text("Anglais").tag("en")
                 }
             }
+            Section("IA") {
+                Picker("Modèle d'IA", selection: bind(\.aiMode, "fast")) {
+                    Text("Rapide (par défaut)").tag("fast")
+                    Text("Précis, plus lent").tag("precise")
+                }
+                Text("Pour les questions et le compte rendu. Le modèle précis est plus long ; il est téléchargé la première fois.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("Audio") {
                 devicePicker(String(localized: "Micro"), help: String(localized: "Ce que vous dites."), selection: \.micDevice,
                              devices: app.devices?.sources ?? [], inUse: app.devices?.inUseSource)

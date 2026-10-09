@@ -45,6 +45,7 @@ class PreferencesStore:
         self.settings.user_name = self.current.user_name.strip() or "Moi"
         self.settings.whisper_glossary = ", ".join(self.current.glossary)
         self.settings.ui_language = self.current.ui_language
+        self.settings.ai_mode = self.current.ai_mode
 
     def save(self, preferences: Preferences) -> Preferences:
         self.current = preferences

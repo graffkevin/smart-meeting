@@ -124,6 +124,8 @@ class Preferences(BaseModel):
     output_device: str | None = None  # None: automatic
     keep_audio: bool = False
     room: bool = False  # several people around the microphone
+    # AI: "fast" (fits a small GPU, several times faster) or "precise" (slower without a large GPU)
+    ai_mode: Literal["fast", "precise"] = "fast"
     ui_language: Literal["fr", "en"] = "fr"  # interface, AI answers and minutes
 
 

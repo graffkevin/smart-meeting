@@ -7,7 +7,9 @@ How Smart Meeting works, its advanced settings and how to develop it. For using 
 
 - **Backend**: Python 3.12, FastAPI, Whisper through the engine of the hardware (faster-whisper, MLX or OpenVINO),
   Silero VAD, ONNX Runtime, SQLite, managed by **uv**. Serves the API and the built interface on `127.0.0.1:8417`.
-- **AI**: Ollama with `qwen2.5:7b`, started and stopped with the app.
+- **AI**: Ollama, started and stopped with the app. Two models, chosen in the settings: `qwen2.5:3b` (fast, the
+  default) or `qwen2.5:7b` (precise, about three times slower). On an NVIDIA card, Whisper leaves the card to the AI
+  outside meetings and imports, and takes it back when one starts (a 4 GB card cannot hold both).
 - **Frontend**: React 19, TypeScript, Vite, Bun, TanStack Query and Form, a Mantine-based design system.
 
 ## What the launcher does
@@ -22,7 +24,7 @@ uv if needed, then run `uv run --directory backend smart-meeting`, with the `cud
 | uv, Python dependencies | automatic (CUDA libraries with an NVIDIA GPU, OpenVINO with Intel hardware, MLX on Apple Silicon) |
 | Bun, web interface | Bun installed for the user (official build, works behind a proxy and on any x86-64 CPU); interface built on first run and after each update |
 | Ollama | reused if already installed, otherwise downloaded to the user folder; started and stopped with the app |
-| AI model (`qwen2.5:7b`, 4.7 GB) | downloaded in the background, progress shown in the interface |
+| AI model (`qwen2.5:3b`, 1.9 GB; `qwen2.5:7b`, 4.7 GB, once chosen) | downloaded in the background, progress shown in the interface |
 | Transcription model | chosen with the engine, see [Transcription engines](#transcription-engines) |
 | Voice prints model | WeSpeaker ResNet34-LM (ONNX, 26 MB) |
 
@@ -194,7 +196,9 @@ SM_WHISPER_MODEL=auto               # or large-v3-turbo / medium / small
 SM_WHISPER_DEVICE=auto              # faster-whisper: cuda / cpu; OpenVINO: gpu / cpu / npu
 SM_WHISPER_CPU_THREADS=0            # faster-whisper on CPU; 0: one per physical core
 SM_WHISPER_PARTIAL_MODEL=auto       # live draft: small next to the main model on GPU, none to disable
-SM_OLLAMA_MODEL=qwen2.5:7b
+SM_OLLAMA_FAST_MODEL=qwen2.5:3b     # "fast" AI model of the settings (the default)
+SM_OLLAMA_PRECISE_MODEL=qwen2.5:7b  # "precise" AI model of the settings
+SM_OLLAMA_MODEL=                    # forces a model whatever the choice in the settings
 SM_OLLAMA_NUM_CTX=16384             # context of the AI; larger: fewer parts for long meetings, more memory
 SM_OLLAMA_MEETING_KEEP_ALIVE=30m    # the model stays loaded between questions during a meeting
 SM_OLLAMA_MEETING_THREADS=4         # AI threads during a meeting (default: chosen by Ollama)

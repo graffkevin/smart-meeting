@@ -88,6 +88,9 @@ const en: Translation = {
     output: 'Headset',
     outputHelp: 'What you hear: the voice of the other participants.',
     automatic: 'Automatic ({{device}})',
+    aiMode: 'AI model',
+    aiModeHelp: 'For the questions and the minutes. The precise model takes longer; it is downloaded the first time.',
+    aiModes: { fast: 'Fast (default)', precise: 'Precise, slower' },
     keepAudio: 'Keep the audio recording',
     keepAudioHelp:
       'Otherwise the sound is only kept during the meeting, just in case, then deleted once everything is transcribed: only the transcript is kept.',
