@@ -304,7 +304,7 @@ Windows with Git Bash, uv, Bun and Inno Setup 6: `packaging/windows/build.sh` (`
 every release, and installs and starts the result before adding it.
 
 **Releases, from any computer**: bump the version (`backend/pyproject.toml`, `frontend/package.json`,
-`macos/project.yml`), commit, then `make release`: it tags `v<version>` and pushes it. The `Release` workflow
+`macos/project.yml`, `linux/smart_meeting_gtk/__main__.py`; `make release` checks they agree), commit, then `make release`: it tags `v<version>` and pushes it. The `Release` workflow
 (`.github/workflows/release.yml`) then creates the release of the tag as a draft (unless there is one already), and
 builds in parallel the `.deb` on Ubuntu, the Windows installer on a GitHub Windows machine (installed and started
 there first) and the disk image on a GitHub Mac, signed with the Developer ID and notarized; the three are added to

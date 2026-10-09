@@ -79,6 +79,9 @@ windows: ## Build the Windows installer (on Windows, Git Bash), build/windows/Sm
 release: ## Tag the version of backend/pyproject.toml and push it: GitHub builds the .deb and the signed .dmg into its release
 	@version="$$(sed -n 's/^version = "\(.*\)"/\1/p' backend/pyproject.toml | head -1)"; \
 	test "$$(git branch --show-current)" = main || { echo "Pas sur main"; exit 1; }; \
+	for file in frontend/package.json macos/project.yml linux/smart_meeting_gtk/__main__.py; do \
+	  grep -q "$$version" "$$file" || { echo "$$file n'est pas en version $$version"; exit 1; }; \
+	done; \
 	test -z "$$(git status --porcelain)" || { echo "Des changements ne sont pas commités"; exit 1; }; \
 	! git rev-parse -q --verify "refs/tags/v$$version" >/dev/null || { echo "v$$version existe déjà : changez la version"; exit 1; }; \
 	git tag -a "v$$version" -m "Smart Meeting $$version" && git push origin main "v$$version" && \

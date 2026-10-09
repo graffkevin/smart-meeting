@@ -101,7 +101,8 @@ of releases on GitHub.
 
 From any computer (the three packages are built on GitHub):
 
-1. Change the version in `backend/pyproject.toml`, `frontend/package.json` and `macos/project.yml`, and commit.
+1. Change the version in `backend/pyproject.toml`, `frontend/package.json`, `macos/project.yml` and
+   `linux/smart_meeting_gtk/__main__.py` (`make release` checks they agree), and commit.
 2. `make release`: tags `v<version>` and pushes it. GitHub then builds the `.deb`, the signed and notarized `.dmg`
    and the Windows installer, after installing and starting it on a Windows machine (about 10 minutes,
    `gh run watch`), and adds them to a draft release of that tag.
