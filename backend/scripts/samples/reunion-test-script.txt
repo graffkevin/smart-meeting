@@ -1,0 +1,11 @@
+Thomas|Bonjour à tous, merci d'être là. On fait le point sur le lancement de la nouvelle version de l'application, prévu pour la fin du mois.
+Flo (Français (France))|Bonjour Thomas. Côté design, les nouveaux écrans sont terminés. Il me reste à valider les icônes avec l'équipe marketing d'ici jeudi.
+Jacques|De mon côté, le développement avance bien. Il reste deux bugs sur l'export en PDF, je pense les corriger cette semaine.
+Thomas|Très bien. Est-ce que la date du vingt-huit reste réaliste pour tout le monde ?
+Flo (Français (France))|Oui, à condition d'avoir les retours du marketing avant vendredi.
+Jacques|Pour moi aussi. Par contre, j'aimerais une journée de tests complète avant la publication.
+Thomas|D'accord. On décide donc de garder le vingt-huit comme date de lancement, avec une journée de tests le vingt-six.
+Thomas|Pour les actions : Flo envoie les icônes au marketing demain. Jacques corrige les bugs d'export et prépare le plan de test. Et moi, je rédige l'annonce pour les utilisateurs.
+Flo (Français (France))|Parfait, ça me va.
+Jacques|Ça marche. On se revoit lundi pour faire le point.
+Thomas|Merci à tous, bonne journée.

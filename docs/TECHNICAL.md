@@ -101,8 +101,10 @@ minutes of a real French call (reference: `large-v3-turbo` on the NVIDIA GPU):
 To compare engines on another machine (run from `backend/`):
 
 ```bash
-SM_WHISPER_ENGINE=faster-whisper uv run python scripts/bench_transcription.py meeting.mp4 --reference text.txt
-SM_WHISPER_ENGINE=openvino uv run --extra intel python scripts/bench_transcription.py meeting.mp4 --reference text.txt
+SM_WHISPER_ENGINE=faster-whisper uv run python scripts/bench_transcription.py \
+  scripts/samples/reunion-test.mp4 --reference scripts/samples/reference.txt
+SM_WHISPER_ENGINE=openvino uv run --extra intel python scripts/bench_transcription.py \
+  scripts/samples/reunion-test.mp4 --reference scripts/samples/reference.txt
 ```
 
 The Ollama started by the app runs with flash attention and an 8-bit context cache (half the memory for long
@@ -172,6 +174,15 @@ meetings), and with Vulkan on Intel GPUs (`OLLAMA_VULKAN=1`).
 - **The AI reads a compact transcript**: the sentences of a speaker in a row on one line, one timestamp per turn
   (a fifth shorter). The stored and exported transcript keeps one line per sentence.
 - The measured speeds are kept in `ai-speed.json`, for the progress bars.
+- **Comparing models**: `scripts/bench_analysis.py` writes the minutes of `scripts/samples/reunion-longue.txt` (a
+  made-up 12-minute meeting with known decisions and actions) and answers two questions with each model given, through
+  the app's code, and saves the answers for judging their quality (from `backend/`:
+  `uv run python scripts/bench_analysis.py scripts/samples/reunion-longue.txt qwen2.5:3b qwen2.5:7b`). On an Apple M5,
+  before the bounds of the schema: `qwen2.5:7b` 100 s for the minutes, `ministral-3:3b` (3 GB) 61 s with the most
+  accurate minutes (owners of the actions), `granite4:3b` as fast but with actions given to the wrong people,
+  `qwen3:4b` answering questions with its reasoning in English, `qwen2.5:3b` repeating itself until the timeout.
+- Without a description in the schema, models wrote the title of the meeting as its summary: every field is described,
+  and the instructions ask for plain text, without the actions copied into the decisions.
 - **Prompts** are Markdown files in `backend/src/smart_meeting/llm/prompts/`, read at each call: an edit applies at
   once. A file of the same name in `prompts/` of the configuration folder (Linux:
   `~/.config/smart-meeting/prompts/analysis_system.md`) replaces the default one.

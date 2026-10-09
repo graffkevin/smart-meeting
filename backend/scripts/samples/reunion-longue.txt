@@ -1,0 +1,107 @@
+00:00|Sophie|Bon, bonjour à tous. On est au complet je crois, Karim, Léa, Marc, et Julien qui nous rejoint depuis Lyon. L'ordre du jour aujourd'hui : le point sur la migration vers le nouveau système de facturation, l'incident de la semaine dernière sur les paiements, le recrutement pour l'équipe support, et le budget du salon de mars.
+00:24|Julien|Bonjour, oui je vous entends bien. Désolé, j'ai un peu de retard, le train était bloqué à Mâcon.
+00:31|Sophie|Pas de souci. Karim, tu veux commencer par la migration ?
+00:35|Karim|Oui. Alors où on en est. On a migré quatre-vingts pour cent des clients professionnels vers le nouveau système de facturation. Il reste les clients avec des contrats sur mesure, à peu près deux cents comptes, et c'est là que ça coince. Les grilles tarifaires spéciales ne passent pas automatiquement, il faut les ressaisir à la main.
+00:58|Léa|Deux cents comptes à la main, ça fait combien de temps à ton avis ?
+01:02|Karim|On a chronométré sur dix comptes, c'est environ vingt minutes par compte en moyenne. Donc on parle de soixante-dix heures de travail, à peu près.
+01:12|Marc|C'est énorme. On ne peut pas écrire un script pour ça ?
+01:16|Karim|On a regardé. Le problème c'est que les grilles sont toutes différentes, certaines sont dans des fichiers Excel, d'autres juste dans le texte du contrat en PDF. Un script couvrirait peut-être la moitié des cas.
+01:29|Sophie|Même la moitié, c'est trente-cinq heures de gagnées. Karim, combien de temps pour écrire le script ?
+01:35|Karim|Deux ou trois jours je dirais, avec les tests.
+01:39|Sophie|Alors je propose qu'on fasse le script pour les grilles Excel, et la ressaisie manuelle pour le reste. Ça vous va ?
+01:46|Léa|Oui, ça me paraît raisonnable.
+01:48|Marc|D'accord.
+01:50|Sophie|Bon, c'est décidé. Karim, tu prends le script. Pour la ressaisie manuelle, qui peut aider ?
+01:57|Léa|Mon équipe peut prendre une partie. Je peux mettre deux personnes dessus à partir de lundi prochain, mais pas plus, on a la clôture trimestrielle derrière.
+02:08|Sophie|Parfait. Et la date de fin de migration, on la garde au trente et un janvier ?
+02:13|Karim|C'est serré. Avec le script et les deux personnes de Léa, je dirais plutôt le quinze février.
+02:20|Julien|Attention, le quinze février c'est aussi la date où l'ancien système n'est plus maintenu par l'éditeur. Si on dépasse, on paie une extension de support, c'est quatre mille euros par mois.
+02:32|Sophie|Ah oui, je l'avais oublié celui-là. Donc le quinze février c'est vraiment la limite absolue.
+02:38|Karim|Oui. On vise le dix février pour avoir une marge.
+02:42|Sophie|D'accord, on vise le dix février, avec le quinze comme date butoir. Julien, tu peux confirmer avec l'éditeur la date exacte de fin de support ? Je veux être sûre que c'est bien le quinze et pas le premier.
+02:53|Julien|Oui, je les appelle cette semaine.
+02:56|Sophie|Merci. On passe à l'incident ? Marc.
+02:59|Marc|Oui. Alors mardi dernier, entre quatorze heures et seize heures trente, à peu près trois cents paiements par carte ont été refusés à tort. La cause : le certificat de notre prestataire de paiement a été renouvelé, et notre serveur n'avait pas la nouvelle chaîne de certificats. On a corrigé à seize heures trente.
+03:20|Léa|Trois cents paiements, ça représente combien en chiffre d'affaires ?
+03:24|Marc|Environ dix-huit mille euros. La bonne nouvelle, c'est que la plupart des clients ont réessayé plus tard. On estime qu'il reste à peu près quarante clients qui n'ont pas finalisé leur commande.
+03:36|Sophie|Il faut les recontacter.
+03:38|Marc|Oui, j'ai la liste. Je pensais leur envoyer un mail avec un code de réduction de dix pour cent, pour s'excuser.
+03:45|Léa|Dix pour cent sur quarante commandes, c'est raisonnable. Je valide côté finance.
+03:50|Sophie|D'accord pour le mail avec dix pour cent. Marc, tu t'en occupes ?
+03:54|Marc|Oui, je l'envoie demain matin.
+03:57|Julien|Et pour éviter que ça se reproduise ? Le prestataire nous avait prévenus ?
+04:01|Marc|Ils avaient envoyé un mail il y a deux mois, sur une adresse générique que personne ne lit. C'est ça le vrai problème.
+04:09|Sophie|Il faudrait une alerte automatique sur l'expiration des certificats.
+04:13|Marc|Oui, on peut ajouter une surveillance qui nous alerte trente jours avant chaque expiration. C'est une demi-journée de travail.
+04:21|Sophie|Faisons-le. Et l'adresse générique, il faut qu'elle soit redirigée vers quelqu'un.
+04:27|Karim|Je peux la faire rediriger vers la liste de l'équipe technique.
+04:31|Sophie|Très bien. Donc Marc ajoute la surveillance des certificats, et Karim redirige l'adresse générique.
+04:38|Léa|Est-ce qu'on doit faire un rapport d'incident pour la banque ?
+04:42|Marc|Je ne pense pas, il n'y a pas eu de fuite de données, juste des refus. Mais je vais vérifier le contrat.
+04:49|Sophie|Oui, vérifie quand même. On ne veut pas de mauvaise surprise.
+04:53|Marc|Noté.
+04:55|Sophie|Bien. Le recrutement maintenant. Léa, où on en est pour le support ?
+05:00|Léa|On a ouvert les deux postes de conseiller support il y a trois semaines. On a reçu quarante-cinq candidatures. J'en ai présélectionné huit. Les entretiens commencent la semaine prochaine.
+05:13|Julien|Les postes sont à Lyon ou à Paris ?
+05:16|Léa|Un à Paris, un à Lyon. Julien, d'ailleurs, j'aurais besoin de toi pour les entretiens à Lyon.
+05:22|Julien|Pas de problème. Quels jours ?
+05:25|Léa|Mardi et jeudi prochains, l'après-midi.
+05:28|Julien|Mardi ça va, jeudi j'ai le comité de direction régional. Je peux faire jeudi matin à la place ?
+05:35|Léa|Je vais voir avec les candidats, normalement ça devrait passer.
+05:39|Marc|Vous avez prévu un test technique ? La dernière fois on avait recruté quelqu'un qui ne savait pas utiliser l'outil de tickets.
+05:46|Léa|Oui, cette fois il y a une mise en situation de trente minutes sur l'outil, avec trois tickets à traiter.
+05:53|Sophie|Bien. Et la date d'arrivée visée ?
+05:56|Léa|Début mars si tout va bien. Avec le préavis des candidats, peut-être mi-mars.
+06:03|Sophie|Ça tombe pendant le salon. Il faudra que quelqu'un les accueille.
+06:07|Léa|Je m'en charge, je ne vais pas au salon de toute façon.
+06:11|Sophie|Parfait. Justement, le salon. Le budget. Julien, c'est toi qui avais le devis ?
+06:16|Julien|Oui. Alors le stand de neuf mètres carrés, c'est six mille cinq cents euros. Le transport et le montage, mille deux cents. Les déplacements et l'hôtel pour trois personnes sur trois jours, à peu près deux mille quatre cents. Les supports imprimés et les goodies, huit cents. Ça fait un total d'environ dix mille neuf cents euros.
+06:40|Léa|On avait budgété neuf mille.
+06:43|Julien|Je sais. Le prix du stand a augmenté de quinze pour cent par rapport à l'an dernier.
+06:48|Marc|On pourrait prendre un stand plus petit ? Six mètres carrés ?
+06:52|Julien|Le six mètres carrés est à quatre mille trois cents. Mais l'an dernier on était déjà à l'étroit avec neuf, on ne pouvait pas faire de démonstration correctement.
+07:02|Sophie|Je préfère garder le neuf mètres carrés. Le salon nous a rapporté une trentaine de contrats l'an dernier, c'est rentable. Léa, est-ce qu'on peut trouver les mille neuf cents euros ailleurs ?
+07:13|Léa|On peut les prendre sur le budget formation, il n'a pas été entièrement utilisé cette année. Mais il faut que ce soit validé par la direction financière.
+07:21|Sophie|D'accord. Léa, tu fais la demande à la direction financière pour transférer mille neuf cents euros du budget formation vers le salon.
+07:28|Léa|Oui, je la fais cette semaine.
+07:31|Julien|Et pour les goodies, je pensais faire des carnets plutôt que des stylos cette année. Les stylos, tout le monde en a déjà.
+07:38|Marc|Les carnets c'est bien, mais c'est plus cher non ?
+07:41|Julien|Un peu, mais dans le même budget de huit cents euros on en a deux cents. Ça suffit.
+07:46|Sophie|Va pour les carnets.
+07:48|Karim|Qui va au salon cette année ?
+07:51|Sophie|Julien, Marc et moi. Karim, on aurait aimé que tu viennes pour les démonstrations techniques, mais avec la migration ce n'est pas possible.
+08:00|Karim|Oui, je préfère rester ici. Mais je peux préparer une vidéo de démonstration que vous passerez en boucle sur le stand.
+08:07|Marc|Ah, très bonne idée. Ça nous évitera de refaire la démo toutes les dix minutes.
+08:12|Sophie|D'accord. Karim prépare une vidéo de démonstration de trois minutes, pour fin février au plus tard.
+08:18|Karim|Fin février, ça marche.
+08:21|Sophie|Bien. Est-ce qu'il y a d'autres sujets ? On a encore un peu de temps.
+08:26|Marc|Oui, une question. Le client Dupont Logistique nous a demandé une intégration avec leur logiciel d'entrepôt. Ils sont prêts à payer le développement. Est-ce qu'on le fait ?
+08:37|Karim|Ça dépend de l'ampleur. S'ils ont une API correcte, c'est deux semaines. Sinon ça peut être beaucoup plus.
+08:45|Sophie|Et on est en pleine migration. Je ne veux pas qu'on se disperse avant le dix février.
+08:50|Marc|Je comprends. Je peux leur proposer de commencer en mars ?
+08:54|Sophie|Oui, propose mars. Mais avant de s'engager, il faut que Karim regarde leur documentation technique.
+09:00|Karim|Envoie-moi leur doc, je regarde ça en une heure ou deux, pas plus.
+09:04|Marc|Je te l'envoie aujourd'hui.
+09:07|Léa|Et pour le prix ? On a une grille pour ce genre de développement spécifique ?
+09:11|Sophie|Pas vraiment. On avait facturé six cents euros par jour pour Martin Transports l'an dernier.
+09:17|Léa|Je propose qu'on reste sur six cents euros par jour, c'est cohérent.
+09:21|Sophie|D'accord, six cents euros par jour. Mais on ne s'engage sur rien tant que Karim n'a pas regardé la doc.
+09:27|Julien|Petite chose aussi : le contrat de location des bureaux de Lyon arrive à échéance en juin. Le propriétaire veut augmenter le loyer de huit pour cent.
+09:37|Léa|Huit pour cent, c'est beaucoup. Il y a des alternatives dans le quartier ?
+09:41|Julien|J'ai vu deux annonces, mais je n'ai pas encore visité. Je peux faire les visites en février.
+09:47|Sophie|Oui, fais les visites, et on en reparle à la réunion de mars. On ne décide rien aujourd'hui sur ce point.
+09:54|Marc|On pourrait aussi négocier avec le propriétaire, non ? On est là depuis six ans, on a toujours payé à l'heure.
+10:01|Julien|J'ai essayé, il ne veut pas descendre en dessous de six pour cent.
+10:06|Sophie|Bon, on verra en mars avec les visites. Autre chose ?
+10:10|Léa|Juste un rappel : les notes de frais de décembre doivent être déposées avant vendredi, sinon elles passent sur le trimestre suivant.
+10:18|Marc|Ah oui, je n'ai pas fait les miennes.
+10:21|Léa|Vendredi, Marc.
+10:23|Marc|Promis.
+10:25|Sophie|Bien. Je récapitule. Pour la migration : script pour les grilles Excel par Karim, ressaisie manuelle avec deux personnes de l'équipe de Léa à partir de lundi, objectif dix février, date butoir quinze février. Julien confirme la date de fin de support avec l'éditeur.
+10:43|Sophie|Pour l'incident : Marc envoie demain le mail avec un code de réduction de dix pour cent aux quarante clients, ajoute la surveillance des certificats, et vérifie le contrat avec la banque. Karim redirige l'adresse générique vers l'équipe technique.
+10:58|Sophie|Recrutement : entretiens mardi et jeudi prochains, Julien participe à ceux de Lyon. Arrivées visées début ou mi-mars, Léa les accueille.
+11:08|Sophie|Salon : on garde le stand de neuf mètres carrés, Léa demande le transfert de mille neuf cents euros depuis le budget formation, carnets à la place des stylos, Karim prépare une vidéo de démonstration pour fin février.
+11:21|Sophie|Dupont Logistique : Marc envoie la documentation à Karim aujourd'hui, on propose un démarrage en mars à six cents euros par jour, sous réserve de l'avis de Karim. Bureaux de Lyon : Julien fait des visites en février, décision en mars.
+11:36|Karim|Ça me semble complet.
+11:38|Julien|Pour moi aussi.
+11:40|Sophie|Merci à tous. Prochaine réunion dans deux semaines, même heure. Bonne journée.

@@ -388,7 +388,14 @@ class OllamaClient:
                 {"role": "user", "content": user},
             ],
             "stream": False,
-            "options": {"temperature": 0, "num_ctx": self.settings.ollama_num_ctx},
+            # Models that can think first (Qwen 3…) would write long reasonings before answering
+            "think": False,
+            "options": {
+                "temperature": 0,
+                "num_ctx": self.settings.ollama_num_ctx,
+                # Answers to questions too: a model repeating itself stops there
+                "num_predict": MAX_OUTPUT_TOKENS,
+            },
         }
         if self.during_meeting():
             payload["keep_alive"] = self.settings.ollama_meeting_keep_alive
@@ -399,7 +406,6 @@ class OllamaClient:
                 payload["options"]["num_thread"] = self.settings.ollama_meeting_threads
         if response_format is not None:
             payload["format"] = response_format
-            payload["options"]["num_predict"] = MAX_OUTPUT_TOKENS
         return payload
 
     async def _chat(self, system: str, user: str, response_format: dict | None = None) -> str:

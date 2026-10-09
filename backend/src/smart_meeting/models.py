@@ -64,12 +64,15 @@ class ActionItem(BaseModel):
 
 
 class MeetingAnalysis(BaseModel):
-    summary: str
-    decisions: list[str]
-    actions: list[ActionItem]
-    questions: list[str]
-    risks: list[str]
-    technical_topics: list[str]
+    # Without a description, models wrote the title of the meeting as its summary
+    summary: str = Field(
+        description="Résumé de la réunion en quelques phrases : sujets abordés et conclusions"
+    )
+    decisions: list[str] = Field(description="Choix actés pendant la réunion, un par élément")
+    actions: list[ActionItem] = Field(description="Tâches confiées à quelqu'un ou promises")
+    questions: list[str] = Field(description="Questions restées ouvertes")
+    risks: list[str] = Field(description="Risques ou points de vigilance évoqués")
+    technical_topics: list[str] = Field(description="Sujets techniques abordés, en quelques mots")
 
 
 # API payloads
