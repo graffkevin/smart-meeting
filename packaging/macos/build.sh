@@ -48,6 +48,9 @@ else
   signing=(CODE_SIGN_IDENTITY=-)
 fi
 DERIVED="$BUILD/xcode-$([ "$STORE" = YES ] && echo store || echo direct)"
+# A new app each time: Xcode keeps the previous one, whose signature no longer covers the server
+# the build phase copies into it when only the server changed
+rm -rf "$DERIVED/Build/Products/Release/Smart Meeting.app"
 xcodebuild -quiet -project "$ROOT/macos/SmartMeeting.xcodeproj" -scheme SmartMeeting -configuration Release \
   -derivedDataPath "$DERIVED" MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
   "${signing[@]}" build
