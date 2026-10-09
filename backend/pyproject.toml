@@ -1,6 +1,6 @@
 [project]
 name = "smart-meeting"
-version = "0.2.2"
+version = "0.2.3"
 description = "Local meeting capture, transcription (faster-whisper) and analysis (Ollama)"
 requires-python = ">=3.12"
 license = "MIT"
