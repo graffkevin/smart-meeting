@@ -281,6 +281,8 @@ const AskPanel = ({ meetingId, disabled, estimateS, questions }: AskPanelProps) 
 /** A meeting: live recording, questions to the AI and its report on the left; the live transcript on the right */
 const MeetingView = ({ meetingId }: MeetingViewProps) => {
   const [deleting, setDeleting] = useState(false);
+  // Stopping asks first: a key pressed by mistake (Enter on a focused button) must not end a meeting
+  const [confirmingStop, setConfirmingStop] = useState(false);
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
@@ -389,7 +391,7 @@ const MeetingView = ({ meetingId }: MeetingViewProps) => {
                     startedAt={meeting.started_at}
                     live={live}
                     captured={live.devices ?? captured ?? null}
-                    onStop={() => stop.mutate()}
+                    onStop={() => setConfirmingStop(true)}
                     stopping={stop.isPending}
                   />
                 )}
@@ -498,6 +500,15 @@ const MeetingView = ({ meetingId }: MeetingViewProps) => {
         </Grid.Col>
       </Grid>
 
+      <ConfirmDialog
+        opened={confirmingStop}
+        title={t('meeting.stopTitle')}
+        text={t('meeting.stopText')}
+        confirmLabel={t('meeting.stopConfirm')}
+        loading={stop.isPending}
+        onConfirm={() => stop.mutate(undefined, { onSettled: () => setConfirmingStop(false) })}
+        onClose={() => setConfirmingStop(false)}
+      />
       <ConfirmDialog
         opened={deleting}
         title={t('deletion.title')}

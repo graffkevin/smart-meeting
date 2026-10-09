@@ -171,6 +171,10 @@ const fr = {
     rename: 'Double-cliquez pour renommer',
     recording: 'Enregistrement',
     stop: "Arrêter l'enregistrement",
+    stopTitle: "Arrêter l'enregistrement ?",
+    stopText:
+      "La transcription se termine, puis l'IA rédige le compte rendu. L'enregistrement ne pourra pas reprendre dans cette réunion.",
+    stopConfirm: 'Arrêter',
     me: 'Vous',
     others: 'Participants',
     queue_one: '{{count}} phrase en attente de transcription',
