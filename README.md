@@ -15,7 +15,7 @@ The browser version is for Windows (and for development).
 
 | System | Install | Then |
 |---|---|---|
-| **macOS** 14+ | Download `Smart-Meeting-<version>.dmg` from the [Releases](https://github.com/graffkevin/smart-meeting/releases) page, open it and drag **Smart Meeting** to **Applications** | Open it from the Applications folder or the Dock |
+| **macOS** 14+, Apple chip (M1 or later) | Download `Smart-Meeting-<version>.dmg` from the [Releases](https://github.com/graffkevin/smart-meeting/releases) page, open it and drag **Smart Meeting** to **Applications** | Open it from the Applications folder or the Dock |
 | **Ubuntu** 24.04+ (GNOME) | Download `smart-meeting_<version>_all.deb` from the [Releases](https://github.com/graffkevin/smart-meeting/releases) page, then `sudo apt install ./smart-meeting_<version>_all.deb` | Super key, type "Smart Meeting"; right-click, **Pin to Dash** to keep it in the dock |
 | **Windows** 10/11 | `winget install Git.Git`, then the commands below | `.\smart-meeting` in PowerShell, or double-click `smart-meeting.cmd`: it opens in your browser |
 
@@ -30,7 +30,12 @@ The first launch downloads about 8 GB (AI and transcription models): 10 to 30 mi
 meanwhile: everything said is transcribed as soon as the models are there. The next launches take a few seconds.
 Behind a company proxy, the apps use the proxy of the system settings.
 
-To update: install the new version of the app (Windows: `git pull`, then launch again).
+To update: install the new version of the app the same way (Windows: `git pull`, then launch again). A release
+may come for one system first: if the latest one has no `.dmg` yet, take it from the previous release.
+
+To uninstall on Linux: `sudo apt remove smart-meeting` (your meetings stay in `~/.local/share/smart-meeting/`).
+From a clone of the repository, `./smart-meeting --install` puts the Linux app in the applications menu, with its
+icon, without the package.
 
 On Windows, to keep it in the taskbar: `.\smart-meeting --install`, then Start menu, right-click **Smart Meeting**,
 **Pin to taskbar**.
