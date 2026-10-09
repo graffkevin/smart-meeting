@@ -14,7 +14,7 @@ How Smart Meeting works, its advanced settings and how to develop it. For using 
 
 `./smart-meeting` (Linux, macOS) and `smart-meeting.cmd` (Windows, also used by `./smart-meeting` in Git Bash) install
 uv if needed, then run `uv run --directory backend smart-meeting`, with the `cuda` extra when `nvidia-smi` finds a GPU, else the
-`intel` extra (OpenVINO) on Linux and Windows with an Intel CPU or GPU.
+`intel` extra (OpenVINO, used only when chosen) on Linux and Windows with an Intel CPU or GPU.
 `make run` does the same. On first run, without admin rights:
 
 | Component | How |
@@ -58,13 +58,20 @@ The hardware is detected at startup (`hardware.py`, logged as `Hardware: …`) a
 |---|---|---|
 | Apple Silicon | MLX, on the GPU of the chip | `large-v3-turbo` |
 | NVIDIA GPU | faster-whisper on CUDA | `large-v3-turbo`, `small` for the live draft |
-| Intel GPU (Iris Xe, Arc) | OpenVINO on the GPU (needs `intel-opencl-icd` on Linux) | `large-v3-turbo`, `small` for the live draft |
-| Intel CPU without usable GPU | OpenVINO on the CPU | `small` |
-| Anything else (AMD…) | faster-whisper on the CPU, one thread per physical core | `small` |
+| Anything else (Intel, AMD…) | faster-whisper on the CPU, one thread per physical core | `small` |
+
+OpenVINO, Intel's engine, is only used when chosen (`SM_WHISPER_ENGINE=openvino`, with the `intel` extra the launcher
+installs on Intel machines), on the CPU unless `SM_WHISPER_DEVICE=gpu`: on an integrated GPU it can be slower than
+real time.
 
 An engine that fails to load (missing driver, old GPU) gives way to faster-whisper on the CPU; the engine in use is
 logged (`Transcription engine: …`). `SM_WHISPER_ENGINE`, `SM_WHISPER_MODEL` and `SM_WHISPER_DEVICE` force a choice.
 OpenVINO decodes greedily and gives no "no speech" score: only the known phrases are filtered as hallucinations there.
+
+**Falling behind**: during a meeting, the seconds of speech waiting for Whisper are followed. Past 30 s, the
+provisional text is turned off (it takes Whisper's time); past 90 s and still growing over a minute, a lighter
+setting takes over, at most once a minute: the `small` model on the same engine, then faster-whisper `small` on the
+CPU. The switch is logged (`Transcription lightened to …`), and `/api/health` gives the model now in use.
 
 Measured on an Apple M5 with `scripts/bench_transcription.py` (67 s French meeting, three voices):
 
@@ -72,6 +79,15 @@ Measured on an Apple M5 with `scripts/bench_transcription.py` (67 s French meeti
 |---|---|---|
 | faster-whisper `small`, CPU | 1.4× real time, 13.7 % word errors | 6.8×, 6.6 % |
 | MLX `large-v3-turbo`, GPU | 3.9×, 9.8 % | 12.4×, 4.9 % |
+
+Measured on an Intel i7-11800H (8 cores) with an Intel UHD (TigerLake GT1) GPU, without its NVIDIA card, on 4
+minutes of a real French call (reference: `large-v3-turbo` on the NVIDIA GPU):
+
+| Engine | Live | Imported file |
+|---|---|---|
+| faster-whisper `small`, CPU | 2.0× real time, 16.8 % word errors | 11.8×, 19.1 % |
+| OpenVINO `small`, CPU | 3.4×, 20.1 % | 12.8×, 17.6 % |
+| OpenVINO `small`, Intel UHD GPU | under 0.4× real time: a meeting falls behind for good | |
 
 To compare engines on another machine (run from `backend/`):
 

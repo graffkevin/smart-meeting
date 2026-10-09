@@ -2,9 +2,10 @@
 
 - Apple Silicon: MLX, on the GPU of the chip.
 - NVIDIA GPU: faster-whisper on CUDA.
-- Intel CPU or GPU (integrated Iris Xe, Arc): OpenVINO, Intel's engine, on the GPU when its
-  driver is there, else on the CPU. Installed by the `intel` extra (the launcher adds it).
-- Anything else: faster-whisper on the CPU.
+- Anything else, Intel included: faster-whisper on the CPU. OpenVINO, Intel's engine, only when
+  chosen (SM_WHISPER_ENGINE=openvino, installed by the `intel` extra the launcher adds): measured
+  on an Intel UHD (TigerLake) it ran slower than real time on that GPU, so a meeting fell behind
+  for good, and on the CPU it made more mistakes live than faster-whisper, which keeps up there.
 
 An engine that is not installed is skipped; one that fails to load (missing driver, old GPU)
 gives way to the next one, faster-whisper on CPU last.
@@ -39,12 +40,8 @@ def engine_order(settings: Settings, hardware: Hardware) -> list[str]:
         order = [chosen]
     elif hardware.apple_silicon:
         order = ["mlx"]
-    elif hardware.nvidia:
-        order = []  # faster-whisper on CUDA, its own device detection
-    elif hardware.intel:
-        order = ["openvino"]
     else:
-        order = []
+        order = []  # faster-whisper, on CUDA with an NVIDIA GPU (its own device detection)
     order.append("faster-whisper")
     return [engine for engine in dict.fromkeys(order) if _installed(engine)]
 
@@ -95,6 +92,32 @@ class AutoTranscriber:
             logger.info("Transcription engine: %s", name)
             return
         raise RuntimeError("No transcription engine installed")
+
+    def lighter(self) -> tuple[str, Settings] | None:
+        """The next lighter setting when the live transcription falls behind: the small model on
+        the same engine, then faster-whisper small on the CPU. None when already there."""
+        if self._engine is None or self.engine is None:
+            return None
+        small = {"whisper_model": "small", "whisper_partial_model": "none"}
+        if self._engine.model_name != "small":
+            return self.engine, self.settings.model_copy(update=small)
+        if self.engine != "faster-whisper":
+            cpu = {**small, "whisper_engine": "faster-whisper", "whisper_device": "cpu"}
+            return "faster-whisper", self.settings.model_copy(update=cpu)
+        return None
+
+    def lighten(self) -> str | None:
+        """Load the next lighter setting and use it from now on; returns what now transcribes.
+        Whisper thread only, like every call."""
+        step = self.lighter()
+        if step is None:
+            return None
+        name, settings = step
+        engine = self._factory(name, settings)
+        engine.load()
+        self._engine, self.engine, self.settings = engine, name, settings
+        logger.warning("Transcription lightened to %s %s", name, engine.model_name)
+        return f"{self.model_name} ({self.device})"
 
     @property
     def model_name(self) -> str | None:

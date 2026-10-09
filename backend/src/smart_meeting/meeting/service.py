@@ -14,6 +14,7 @@ import re
 import shutil
 import sys
 import time
+from collections import deque
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -65,6 +66,13 @@ TURN_SILENCE_MS = 300
 TURN_MAX_S = 10.0
 # How often the progress of the transcription is checked during a meeting
 PROGRESS_CHECK_S = 5.0
+# Falling behind (seconds of speech waiting): the provisional text is turned off past
+# PARTIALS_OFF_S; past LIGHTER_S, still growing over a minute, a lighter model takes over
+# (at most once a minute).
+KEEP_UP_CHECK_S = 10.0
+PARTIALS_OFF_S = 30.0
+LIGHTER_S = 90.0
+LIGHTER_COOLDOWN_S = 60.0
 # Without any open page for this long (time to reload a page), the app stops once idle.
 UNUSED_GRACE_S = 10
 
@@ -137,6 +145,9 @@ class Recording:
     device_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     tasks: list[asyncio.Task[None]] = field(default_factory=list)
     stopping: bool = False
+    # Seconds of speech waiting for Whisper, and the provisional text turned off to catch up
+    backlog_s: float = 0.0
+    partials_off: bool = False
     voices: MeetingVoices = field(default_factory=lambda: MeetingVoices(speaker_label))
     request: StartMeetingRequest | None = None  # options, to resume after a restart
 
@@ -181,6 +192,7 @@ class MeetingService:
         self._provisioned = asyncio.Event()  # Ollama installed and started (or failed to)
         # Whisper thread computations not finished yet: number -> submitted at (monotonic)
         self._jobs: dict[int, float] = {}
+        self._lightening = False  # a lighter model loading: not a stuck transcription
         self._job_numbers = itertools.count()
 
     # Lifecycle
@@ -419,6 +431,7 @@ class MeetingService:
             asyncio.create_task(self._follow_devices(recording), name="devices"),
             asyncio.create_task(self._publish_partials(recording), name="partials"),
             asyncio.create_task(self._watch_progress(recording), name="watch"),
+            asyncio.create_task(self._keep_up(recording), name="keep-up"),
         ]
         self._publish_devices(recording)
         return meeting
@@ -532,6 +545,7 @@ class MeetingService:
         offset_s = stream.offset_s or 0.0
         start_s = offset_s + utterance.start_s(self.settings.sample_rate)
         path = self.pending.save(recording.meeting_id, stream.source, start_s, utterance.audio)
+        recording.backlog_s += len(utterance.audio) / self.settings.sample_rate
         # Kept on disk with its own timeline: it starts at its meeting time
         recording.queue.put_nowait((stream.source, start_s, Utterance(0, utterance.audio), path))
 
@@ -558,6 +572,8 @@ class MeetingService:
         while not recording.stopping:
             await asyncio.sleep(delay)
             delay = PARTIAL_INTERVAL_S
+            if recording.partials_off:  # Whisper behind: the final sentences come first
+                continue
             for source, stream in recording.streams.items():
                 ongoing = stream.segmenter.ongoing()
                 if ongoing is None or len(ongoing.audio) < PARTIAL_MIN_S * sample_rate:
@@ -604,6 +620,44 @@ class MeetingService:
                 recording, recording.streams[source], offset_s, utterance
             )
             path.unlink(missing_ok=True)
+            seconds = len(utterance.audio) / self.settings.sample_rate
+            recording.backlog_s = max(0.0, recording.backlog_s - seconds)
+
+    async def _keep_up(self, recording: Recording) -> None:
+        """A transcription slower than speech (a weak GPU, a busy computer) would fall behind for
+        good: first stop the provisional text, then switch to a lighter model."""
+        loop = asyncio.get_running_loop()
+        history: deque[float] = deque(maxlen=round(LIGHTER_COOLDOWN_S / KEEP_UP_CHECK_S) + 1)
+        changed = -math.inf
+        while not recording.stopping:
+            await asyncio.sleep(KEEP_UP_CHECK_S)
+            if not self._whisper_ready.is_set():
+                continue
+            backlog = recording.backlog_s
+            history.append(backlog)
+            if backlog > PARTIALS_OFF_S and not recording.partials_off:
+                recording.partials_off = True
+                logger.warning("Transcription %.0f s behind: provisional text off", backlog)
+            growing = len(history) == history.maxlen and backlog > history[0]
+            now = time.monotonic()
+            if backlog < LIGHTER_S or not growing or now - changed < LIGHTER_COOLDOWN_S:
+                continue
+            changed = now
+            history.clear()
+            lighten = getattr(self.transcriber, "lighten", None)
+            if lighten is None:
+                continue
+            self._lightening = True
+            try:
+                detail = await loop.run_in_executor(self._executor, lighten)
+            except Exception:
+                logger.exception("Could not switch to a lighter transcription")
+                detail = None
+            finally:
+                self._lightening = False
+            if detail:
+                self.whisper_detail = detail
+                logger.warning("Transcription %.0f s behind: now %s", backlog, detail)
 
     async def _watch_progress(self, recording: Recording) -> None:
         """A Whisper computation that never ends (a stuck library) would silently stop the
@@ -611,6 +665,8 @@ class MeetingService:
         while not recording.stopping:
             await asyncio.sleep(PROGRESS_CHECK_S)
             started = min(self._jobs.values(), default=None)
+            if self._lightening:  # loading a lighter model: computations wait for it
+                continue
             if started is None or time.monotonic() - started < self.settings.stall_restart_s:
                 continue
             logger.error(

@@ -199,3 +199,30 @@ def test_minutes_interrupted_by_a_restart_are_written_again(tmp_path):
 
     meeting_id, unfinished, analyzed = asyncio.run(run())
     assert unfinished == [meeting_id] and analyzed == [meeting_id]
+
+
+def test_a_transcription_falling_behind_turns_partials_off_then_lightens(tmp_path, monkeypatch):
+    monkeypatch.setattr(service_module, "KEEP_UP_CHECK_S", 0.01)
+    monkeypatch.setattr(service_module, "LIGHTER_COOLDOWN_S", 0.05)
+
+    async def run():
+        svc = ready_service(tmp_path)
+        lightened = []
+        svc.transcriber.lighten = lambda: lightened.append(1) or "small (cpu)"
+        await svc.start(StartMeetingRequest(title="t"))
+        recording = svc.active
+        recording.tasks[-1].cancel()  # the real keep-up loop: driven below instead
+        keep_up = asyncio.create_task(svc._keep_up(recording))
+        for second in range(200):  # speech piling up faster than it is transcribed
+            recording.backlog_s = 20.0 + second
+            await asyncio.sleep(0.005)
+            if svc.whisper_detail == "small (cpu)":
+                break
+        keep_up.cancel()
+        partials_off = recording.partials_off
+        await svc.stop(recording.meeting_id)
+        await wait_for(lambda: svc.active is None)
+        return partials_off, lightened, svc.whisper_detail
+
+    partials_off, lightened, detail = asyncio.run(run())
+    assert partials_off and lightened == [1] and detail == "small (cpu)"

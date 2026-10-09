@@ -25,7 +25,7 @@ def everything_installed(monkeypatch):
     [
         (APPLE, ["mlx", "faster-whisper"]),
         (NVIDIA, ["faster-whisper"]),  # CUDA, before the Intel CPU next to it
-        (INTEL, ["openvino", "faster-whisper"]),
+        (INTEL, ["faster-whisper"]),  # OpenVINO only when chosen
         (AMD, ["faster-whisper"]),
     ],
 )
@@ -59,7 +59,7 @@ class FakeEngine(Transcriber):
         return self.name
 
 
-def auto(failing: set[str], hardware=INTEL) -> engines.AutoTranscriber:
+def auto(failing: set[str], hardware=APPLE) -> engines.AutoTranscriber:
     return engines.AutoTranscriber(
         Settings(),
         hardware=lambda: hardware,
@@ -68,7 +68,7 @@ def auto(failing: set[str], hardware=INTEL) -> engines.AutoTranscriber:
 
 
 def test_engine_failing_to_load_gives_way_to_the_next(everything_installed):
-    transcriber = auto({"openvino"})
+    transcriber = auto({"mlx"})
     transcriber.load()
     assert transcriber.engine == "faster-whisper"
     assert transcriber.transcribe_partial(None, "fr") == "faster-whisper"
@@ -77,7 +77,7 @@ def test_engine_failing_to_load_gives_way_to_the_next(everything_installed):
 
 def test_last_engine_failing_is_an_error(everything_installed):
     with pytest.raises(RuntimeError, match="no GPU driver"):
-        auto({"openvino", "faster-whisper"}).load()
+        auto({"mlx", "faster-whisper"}).load()
 
 
 def test_calls_before_loading_fail_clearly():
@@ -97,14 +97,16 @@ def test_long_file_cut_in_blocks_at_a_silence():
     assert list(blocks(np.zeros(10 * SAMPLE_RATE, np.float32))) == [0]
 
 
-def test_openvino_prefers_a_discrete_gpu():
+def test_openvino_runs_on_the_cpu_unless_the_gpu_is_asked():
     def discrete(device):
         return device == "GPU.1"
 
-    assert pick_device(["CPU", "GPU.0", "GPU.1"], discrete, "auto") == "GPU.1"
-    assert pick_device(["CPU", "GPU"], discrete, "auto") == "GPU"
-    assert pick_device(["CPU", "NPU"], discrete, "auto") == "CPU"
+    assert pick_device(["CPU", "GPU.0", "GPU.1"], discrete, "gpu") == "GPU.1"
+    assert pick_device(["CPU", "GPU"], discrete, "gpu") == "GPU"
+    assert pick_device(["CPU", "NPU"], discrete, "gpu") == "CPU"
     assert pick_device(["CPU", "GPU"], discrete, "npu") == "NPU"
+    # By default the CPU: an integrated GPU can be slower than real time
+    assert pick_device(["CPU", "GPU.0", "GPU.1"], discrete, "auto") == "CPU"
 
 
 def test_openvino_sentences_get_their_words_and_the_block_offset():
@@ -130,3 +132,26 @@ def test_openvino_sentences_get_their_words_and_the_block_offset():
     assert [p.text for p in found] == ["Bonjour.", "Merci."]  # hallucination dropped
     assert found[1].start_s == 302.0
     assert found[1].words == [(302.1, 302.6, " Merci.")]
+
+
+class SizedEngine(FakeEngine):
+    """Loads the model of its settings ("auto": large-v3-turbo, like on a GPU)."""
+
+    def load(self):
+        model = self.settings.whisper_model
+        self.model_name = "large-v3-turbo" if model == "auto" else model
+        self.device = self.settings.whisper_device
+
+
+def test_falling_behind_lightens_the_model_then_the_engine(everything_installed):
+    transcriber = engines.AutoTranscriber(
+        Settings(),
+        hardware=lambda: APPLE,
+        factory=lambda name, settings: SizedEngine(settings, name, False),
+    )
+    transcriber.load()
+    assert (transcriber.engine, transcriber.model_name) == ("mlx", "large-v3-turbo")
+    assert transcriber.lighten() == "small (mlx auto)"  # same engine, small model
+    assert transcriber.lighten() == "small (faster-whisper cpu)"  # then the CPU
+    assert transcriber.settings.whisper_partial_model == "none"
+    assert transcriber.lighten() is None  # nothing lighter

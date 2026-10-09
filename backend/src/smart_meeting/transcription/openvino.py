@@ -34,11 +34,14 @@ def repository(name: str) -> str:
 
 
 def pick_device(devices: list[str], discrete: Callable[[str], bool], wanted: str) -> str:
-    """GPU when there is one (a discrete card before the integrated one), else the CPU."""
-    if wanted != "auto":
-        return wanted.upper()
-    gpus = [d for d in devices if d.startswith("GPU")]
-    return next((d for d in gpus if discrete(d)), gpus[0] if gpus else "CPU")
+    """The CPU unless the GPU is asked for (SM_WHISPER_DEVICE=gpu: a discrete card before the
+    integrated one): an integrated GPU can be slower than real time."""
+    if wanted == "auto":
+        return "CPU"
+    if wanted.lower() == "gpu":
+        gpus = [d for d in devices if d.startswith("GPU")]
+        return next((d for d in gpus if discrete(d)), gpus[0] if gpus else "CPU")
+    return wanted.upper()
 
 
 def pieces(result, offset: float = 0.0) -> list[TranscribedPiece]:
