@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to build and add to its release (e.g. v0.2.3); empty: main, artifact only"
+        description: "Tag to build and add to its release (e.g. v0.2.4); empty: main, artifact only"
         required: false
 
 permissions:

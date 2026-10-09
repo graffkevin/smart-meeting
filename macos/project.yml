@@ -9,7 +9,7 @@ options:
   createIntermediateGroups: true
 settings:
   base:
-    MARKETING_VERSION: "0.2.3"
+    MARKETING_VERSION: "0.2.4"
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "5.0"
 targets:
