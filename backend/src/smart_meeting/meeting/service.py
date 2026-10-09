@@ -30,7 +30,12 @@ from smart_meeting.audio.decode import decode_audio
 from smart_meeting.audio.segmenter import Utterance, UtteranceSegmenter, silero_vad
 from smart_meeting.config import Settings
 from smart_meeting.db import Database, now_iso
-from smart_meeting.llm.analysis import MeetingNotes, OllamaClient, format_transcript
+from smart_meeting.llm.analysis import (
+    MeetingNotes,
+    OllamaClient,
+    ai_transcript,
+    format_transcript,
+)
 from smart_meeting.meeting import echo, safety
 from smart_meeting.meeting.events import EventHub
 from smart_meeting.messages import tr
@@ -76,6 +81,11 @@ KEEP_UP_CHECK_S = 10.0
 PARTIALS_OFF_S = 30.0
 LIGHTER_S = 90.0
 LIGHTER_COOLDOWN_S = 60.0
+# Minutes prepared during the meeting: checked every PREPARE_CHECK_S, the part being analyzed
+# watched every PREPARE_WATCH_S and stopped past PREPARE_PAUSE_S of speech waiting (seconds)
+PREPARE_CHECK_S = 60
+PREPARE_WATCH_S = 2
+PREPARE_PAUSE_S = 20
 # The update check waits for the start of the app (seconds)
 UPDATE_CHECK_DELAY_S = 30
 # The AI finishes its answer before Whisper takes the graphics card back (seconds)
@@ -208,6 +218,7 @@ class MeetingService:
         self._whisper_released = False
         self._whisper_reload: asyncio.Task[None] | None = None
         self._whisper_users = 0  # transcriptions outside a meeting: the end of one, recoveries
+        self._preparing: asyncio.Task[bool] | None = None  # part of the minutes being prepared
         self._job_numbers = itertools.count()
 
     # Lifecycle
@@ -522,7 +533,8 @@ class MeetingService:
             asyncio.create_task(self._follow_devices(recording), name="devices"),
             asyncio.create_task(self._publish_partials(recording), name="partials"),
             asyncio.create_task(self._watch_progress(recording), name="watch"),
-            asyncio.create_task(self._keep_up(recording), name="keep-up"),
+            asyncio.create_task(self._prepare_minutes(recording), name="minutes"),
+            asyncio.create_task(self._keep_up(recording), name="keep-up"),  # last: tests drive it
         ]
         self._publish_devices(recording)
         return meeting
@@ -1204,16 +1216,54 @@ class MeetingService:
             self.analysis_started.pop(meeting_id, None)
 
     def estimates(self, meeting: Meeting, segments: list[Segment]) -> AiEstimates:
-        chars = len(format_transcript(segments))
+        chars = len(ai_transcript(segments))
         # A long meeting: the old parts not yet turned into notes make the next question longer
         notes = MeetingNotes(self.db, meeting.id)
+        # Minutes prepared during the meeting: only the rest is read
+        to_analyze = self.ollama.analysis_chars(meeting.title, segments, notes)
         missing = self.ollama.missing_notes_chars(meeting.title, segments, notes)
         # During the meeting, the model kept loaded only reads what was said since the last question
         new_chars = max(0, chars - self.ollama.cached_chars) if self.active else chars
         return AiEstimates(
             ask_s=round(self.ollama.estimate_s(new_chars, "ask", notes_chars=missing), 1),
-            analysis_s=round(self.ollama.estimate_s(chars, "analysis"), 1),
+            analysis_s=round(self.ollama.estimate_s(to_analyze, "analysis"), 1),
         )
+
+    async def _prepare_minutes(self, recording: Recording) -> None:
+        """The minutes written part by part during the meeting, the AI on the processor: at the
+        end, only the last minutes are left to read. The transcription comes first: a part is
+        only analyzed when it is up to date, and stopped as soon as it falls behind."""
+        await self._provisioned.wait()
+        while not recording.stopping:
+            await asyncio.sleep(PREPARE_CHECK_S)
+            if recording.backlog_s > 0 or self._ask_lock.locked():
+                continue
+            meeting = self.db.get_meeting(recording.meeting_id)
+            if meeting is None:
+                return
+            job = asyncio.create_task(
+                self.ollama.prepare(
+                    meeting.title,
+                    self.db.list_segments(recording.meeting_id),
+                    MeetingNotes(self.db, recording.meeting_id),
+                )
+            )
+            self._preparing = job
+            try:
+                while not job.done():
+                    await asyncio.wait({job}, timeout=PREPARE_WATCH_S)
+                    if recording.backlog_s > PREPARE_PAUSE_S or recording.stopping:
+                        job.cancel()
+                await asyncio.wait({job})
+            finally:
+                job.cancel()
+                self._preparing = None
+            if job.cancelled():
+                logger.info("Minutes being prepared: paused for the transcription or a question")
+            elif job.exception() is not None:
+                logger.warning("Could not prepare the minutes: %s", job.exception())
+            elif job.result():
+                logger.info("Minutes of meeting %s: one more part prepared", recording.meeting_id)
 
     def analysis_elapsed_s(self, meeting_id: int) -> float | None:
         started = self.analysis_started.get(meeting_id)
@@ -1231,7 +1281,8 @@ class MeetingService:
         try:
             await self.provisioner.ensure_running()
             await self._gpu_for_ai()
-            analysis = await self.ollama.analyze(meeting.title, segments)
+            notes = MeetingNotes(self.db, meeting_id)  # with the parts prepared
+            analysis = await self.ollama.analyze(meeting.title, segments, notes)
         except Exception as exc:
             logger.exception("Analysis failed for meeting %s", meeting_id)
             if isinstance(exc, httpx.TimeoutException):
@@ -1254,6 +1305,9 @@ class MeetingService:
         if not segments:
             raise ConflictError(tr("nothing_transcribed"))
         await self.provisioner.ensure_running()
+        # A question comes before the minutes being prepared
+        if self._preparing is not None:
+            self._preparing.cancel()
         # One question at a time: the local AI shares the GPU with the live transcription.
         async with self._ask_lock:
             await self._gpu_for_ai()

@@ -163,6 +163,14 @@ meetings), and with Vulkan on Intel GPUs (`OLLAMA_VULKAN=1`).
   prompt cache makes the next question read only the new sentences. Measured on an i7-11800H with a 4 GB GPU (the 7B
   model mostly on the CPU, about 75 tokens/s read and 5 tokens/s written): first question on 30 minutes of meeting
   about 2 minutes, next ones 15 to 50 s.
+- **Minutes prepared during the meeting**: every minute, when the transcription is up to date and no question is
+  being answered, the next finished part (about 10 minutes of speech) is analyzed in the background, the AI on the
+  processor only (`num_gpu: 0`: the graphics card stays the transcription's). It stops as soon as 20 s of speech wait,
+  or when a question comes. At the end, only the last part is read, then the summaries are summed up: about 40 s for
+  33 minutes on an i7-11800H with a T600, whatever the length. The parts are kept with the notes, by digest of their
+  words: regrouped or renamed speakers get their new names, and generating the minutes again reuses them.
+- **The AI reads a compact transcript**: the sentences of a speaker in a row on one line, one timestamp per turn
+  (a fifth shorter). The stored and exported transcript keeps one line per sentence.
 - The measured speeds are kept in `ai-speed.json`, for the progress bars.
 - **Prompts** are Markdown files in `backend/src/smart_meeting/llm/prompts/`, read at each call: an edit applies at
   once. A file of the same name in `prompts/` of the configuration folder (Linux:

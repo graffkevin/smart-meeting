@@ -13,6 +13,7 @@ import logging
 import math
 import re
 import unicodedata
+from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
 
@@ -45,6 +46,31 @@ def format_timestamp(seconds: float) -> str:
 
 def format_transcript(segments: list[Segment]) -> str:
     return "\n".join(f"[{format_timestamp(s.start_s)}] {s.speaker}: {s.text}" for s in segments)
+
+
+# Transcript given to the AI: the sentences of a speaker in a row on one line, one timestamp per
+# turn (about a quarter shorter to read). A long silence or a long turn starts a new line.
+TURN_GAP_S = 60
+TURN_MAX_CHARS = 800
+
+
+def ai_transcript(segments: list[Segment]) -> str:
+    lines: list[str] = []
+    speaker, last_end, size = None, -math.inf, 0
+    for s in segments:
+        if (
+            lines
+            and s.speaker == speaker
+            and s.start_s - last_end < TURN_GAP_S
+            and (size < TURN_MAX_CHARS)
+        ):
+            lines[-1] += f" {s.text}"
+            size += len(s.text) + 1
+        else:
+            lines.append(f"[{format_timestamp(s.start_s)}] {s.speaker}: {s.text}")
+            speaker, size = s.speaker, len(s.text)
+        last_end = s.end_s
+    return "\n".join(lines)
 
 
 # The longest minutes possible stay under MAX_OUTPUT_TOKENS: a few minutes, even repeated
@@ -147,19 +173,52 @@ LOAD_ESTIMATE_S = 4.0  # model loaded into memory before the first answer
 SPEED_SMOOTHING = 0.5  # weight of the last measure in the running speeds
 
 
+SEGMENT_OVERHEAD_CHARS = 12
+# Minutes prepared during the meeting: parts of about 10 minutes of speech
+PREPARED_PART_CHARS = 12_000
+
+
 def split_transcript(segments: list[Segment], max_chars: int) -> list[list[Segment]]:
     """Consecutive parts of at most `max_chars` of transcript (whole sentences). The parts of a
     growing meeting stay the same: only the last one changes."""
     parts: list[list[Segment]] = [[]]
     size = 0
     for segment in segments:
-        line = len(format_transcript([segment])) + 1
+        # The text only, plus a share of the turn labels: the same parts whatever the names of
+        # the speakers (regrouped at the end of the meeting, renamed later)
+        line = len(segment.text) + SEGMENT_OVERHEAD_CHARS
         if parts[-1] and size + line > max_chars:
             parts.append([])
             size = 0
         parts[-1].append(segment)
         size += line
     return parts
+
+
+def _cached_part(text: str | None, part: list[Segment]) -> MeetingAnalysis | None:
+    """The analysis of a part kept earlier, with the current names of its speakers."""
+    if text is None:
+        return None
+    try:
+        kept = json.loads(text)
+        analysis = MeetingAnalysis.model_validate(kept["analysis"])
+        then = kept["speakers"]
+    except (ValueError, KeyError, TypeError):
+        return None
+    renames: dict[str, str] = {}
+    for (old, new), _count in Counter(
+        (old, s.speaker) for old, s in zip(then, part, strict=False) if old and s.speaker
+    ).most_common():
+        renames.setdefault(old, new)
+    renames = {old: new for old, new in renames.items() if old != new}
+    if not renames:
+        return analysis
+    # One pass: "Intervenant 1" and "Intervenant 2" swapped stay swapped
+    names = re.compile(
+        "|".join(rf"\b{re.escape(n)}\b" for n in sorted(renames, key=len, reverse=True))
+    )
+    renamed = names.sub(lambda m: renames[m.group(0)], analysis.model_dump_json())
+    return MeetingAnalysis.model_validate_json(renamed)
 
 
 def _span(part: list[Segment]) -> dict[str, str]:
@@ -333,6 +392,8 @@ class OllamaClient:
         }
         if self.during_meeting():
             payload["keep_alive"] = self.settings.ollama_meeting_keep_alive
+            # The graphics card stays the transcription's: the AI on the processor only
+            payload["options"]["num_gpu"] = 0
             # Same value for the whole meeting: Ollama reloads the model when it changes
             if self.settings.ollama_meeting_threads > 0:
                 payload["options"]["num_thread"] = self.settings.ollama_meeting_threads
@@ -363,26 +424,25 @@ class OllamaClient:
             "answer_language": ANSWER_LANGUAGES.get(self.settings.ui_language, "français"),
         }
 
-    async def analyze(self, title: str, segments: list[Segment]) -> MeetingAnalysis:
-        """Minutes of the meeting. Longer than the context: each part is analyzed on its own, the
-        lists are merged and the summaries of the parts summed up in one."""
+    async def analyze(
+        self, title: str, segments: list[Segment], cache: NotesCache | None = None
+    ) -> MeetingAnalysis:
+        """Minutes of the meeting. Prepared during the meeting, or longer than the context: each
+        part is analyzed on its own (kept in `cache`), the lists are merged and the summaries of
+        the parts summed up in one."""
         title = title or "(sans titre)"
-        transcript = format_transcript(segments)
-        system = prompt("analysis_system").format(**self._names())
-        parts = split_transcript(segments, self.budget_chars("analysis"))
+        transcript = ai_transcript(segments)
+        parts = self.analysis_parts(title, segments, cache)
         if len(parts) == 1:
+            system = prompt("analysis_system").format(**self._names())
             user = prompt("analysis_user").format(title=title, transcript=transcript)
             content = await self._chat(system, user, response_format=analysis_schema())
             analysis = MeetingAnalysis.model_validate_json(content)
             return ground_analysis(analysis, transcript, self.settings.user_name)
-        analyses = []
-        for number, part in enumerate(parts, 1):
-            user = prompt("analysis_part").format(
-                title=title, part=number, parts=len(parts), transcript=format_transcript(part),
-                **_span(part),
-            )  # fmt: skip
-            content = await self._chat(system, user, response_format=analysis_schema())
-            analyses.append(MeetingAnalysis.model_validate_json(content))
+        analyses = [
+            await self._part_analysis(title, number, part, cache)
+            for number, part in enumerate(parts, 1)
+        ]
         summaries = "\n\n".join(
             "{start} - {end} :\n".format(**_span(part)) + analysis.summary
             for part, analysis in zip(parts, analyses, strict=True)
@@ -394,23 +454,82 @@ class OllamaClient:
         merged = merge_analyses(analyses, summary.strip())
         return ground_analysis(merged, transcript, self.settings.user_name)
 
+    def analysis_parts(
+        self, title: str, segments: list[Segment], cache: NotesCache | None = None
+    ) -> list[list[Segment]]:
+        """The parts of the minutes: those prepared during the meeting when there are some,
+        else as many as the context needs (one, most of the time)."""
+        prepared = split_transcript(segments, PREPARED_PART_CHARS)
+        if cache is not None and any(
+            cache.get(self._part_digest(title, number, part)) is not None
+            for number, part in enumerate(prepared[:-1], 1)
+        ):
+            return prepared
+        return split_transcript(segments, self.budget_chars("analysis"))
+
+    def analysis_chars(self, title: str, segments: list[Segment], cache: NotesCache) -> int:
+        """Transcript the minutes still have to read (duration estimate)."""
+        parts = self.analysis_parts(title, segments, cache)
+        return sum(
+            len(ai_transcript(part))
+            for number, part in enumerate(parts, 1)
+            if len(parts) == 1 or cache.get(self._part_digest(title, number, part)) is None
+        )
+
+    async def prepare(self, title: str, segments: list[Segment], cache: NotesCache) -> bool:
+        """During the meeting: the next finished part analyzed in advance, so that the minutes
+        only read the last minutes at the end. False when there is nothing to do yet."""
+        title = title or "(sans titre)"
+        parts = split_transcript(segments, PREPARED_PART_CHARS)
+        for number, part in enumerate(parts[:-1], 1):  # the last one is still growing
+            if cache.get(self._part_digest(title, number, part)) is None:
+                await self._part_analysis(title, number, part, cache)
+                return True
+        return False
+
+    def _part_digest(self, title: str, number: int, part: list[Segment]) -> str:
+        # The words said, not the names of the speakers: renamed or regrouped, they are replaced
+        # in the analysis kept (see _cached_part)
+        text = "\n".join(
+            (prompt("analysis_system"), prompt("analysis_part"), title, str(number))
+            + tuple(s.text for s in part)
+        )
+        return "analysis:" + hashlib.sha256(text.encode()).hexdigest()
+
+    async def _part_analysis(
+        self, title: str, number: int, part: list[Segment], cache: NotesCache | None
+    ) -> MeetingAnalysis:
+        digest = self._part_digest(title, number, part)
+        if cache is not None and (kept := _cached_part(cache.get(digest), part)) is not None:
+            return kept
+        user = prompt("analysis_part").format(
+            title=title, part=number, transcript=ai_transcript(part), **_span(part)
+        )
+        system = prompt("analysis_system").format(**self._names())
+        content = await self._chat(system, user, response_format=analysis_schema())
+        analysis = MeetingAnalysis.model_validate_json(content)
+        if cache is not None:
+            kept = {"analysis": analysis.model_dump(), "speakers": [s.speaker for s in part]}
+            cache.put(digest, json.dumps(kept, ensure_ascii=False))
+        return analysis
+
     def old_parts(self, segments: list[Segment]) -> tuple[list[list[Segment]], list[Segment]]:
         """A long meeting for a question: its old parts (read as notes), and the recent one."""
-        if len(format_transcript(segments)) <= self.budget_chars("ask"):
+        if len(ai_transcript(segments)) <= self.budget_chars("ask"):
             return [], segments
         *old, recent = split_transcript(segments, self.notes_part_chars())
         return old, recent
 
     def _notes_digest(self, title: str, part: list[Segment]) -> str:
         # A renamed speaker or an edited prompt changes the digest: the notes are written again.
-        text = "\n".join((prompt("notes_system"), title, format_transcript(part)))
+        text = "\n".join((prompt("notes_system"), title, ai_transcript(part)))
         return hashlib.sha256(text.encode()).hexdigest()
 
     def missing_notes_chars(self, title: str, segments: list[Segment], cache: NotesCache) -> int:
         """Transcript of the old parts not yet turned into notes (duration of the next question)."""
         old, _ = self.old_parts(segments)
         return sum(
-            len(format_transcript(part))
+            len(ai_transcript(part))
             for part in old
             if cache.get(self._notes_digest(title, part)) is None
         )
@@ -423,7 +542,7 @@ class OllamaClient:
                 await self._chat(
                     prompt("notes_system").format(**self._names()),
                     prompt("notes_user").format(
-                        title=title, transcript=format_transcript(part), **_span(part)
+                        title=title, transcript=ai_transcript(part), **_span(part)
                     ),
                 )
             ).strip()
@@ -437,7 +556,7 @@ class OllamaClient:
         Longer than the context: the old parts are given as notes, written once and kept."""
         title = title or "(sans titre)"
         old, recent = self.old_parts(segments)
-        transcript = format_transcript(recent)
+        transcript = ai_transcript(recent)
         if old:
             cache = cache or NotesCache()
             notes = [

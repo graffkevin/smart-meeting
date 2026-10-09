@@ -251,3 +251,97 @@ def test_the_longest_minutes_stay_short():
     lists = [schema["properties"][name] for name in ("decisions", "questions", "risks")]
     assert all(field["maxItems"] <= 10 and field["items"]["maxLength"] <= 300 for field in lists)
     assert schema["properties"]["summary"]["maxLength"] <= 2000
+
+
+def segment(start, speaker, text):
+    from smart_meeting.models import Segment
+
+    return Segment(source="mic", speaker=speaker, start_s=start, end_s=start + 2, text=text)
+
+
+def test_the_ai_reads_one_line_per_turn():
+    from smart_meeting.llm.analysis import ai_transcript
+
+    text = ai_transcript(
+        [
+            segment(0, "Moi", "Bonjour."),
+            segment(3, "Moi", "On commence."),
+            segment(6, "Paul", "Oui."),
+            segment(200, "Paul", "Après une longue pause."),
+        ]
+    )
+    assert text.splitlines() == [
+        "[00:00:00] Moi: Bonjour. On commence.",
+        "[00:00:06] Paul: Oui.",
+        "[00:03:20] Paul: Après une longue pause.",
+    ]
+
+
+def test_parts_do_not_depend_on_the_names_of_the_speakers():
+    from smart_meeting.llm.analysis import split_transcript
+
+    words = [segment(i * 5, "Intervenant 1", "mot " * 30) for i in range(40)]
+    renamed = [s.model_copy(update={"speaker": "Paul-Henri de la Fontaine"}) for s in words]
+    assert [len(p) for p in split_transcript(words, 1500)] == [
+        len(p) for p in split_transcript(renamed, 1500)
+    ]
+
+
+def test_parts_prepared_during_the_meeting_are_reused_with_the_new_names(tmp_path):
+    import asyncio
+    import json
+
+    from smart_meeting.config import Settings
+    from smart_meeting.llm import analysis as module
+    from smart_meeting.llm.analysis import NotesCache, OllamaClient
+
+    client = OllamaClient(Settings(data_dir=tmp_path))
+    calls = []
+
+    async def chat(system, user, response_format=None):
+        calls.append(user)
+        if response_format is None:
+            return "Résumé de toute la réunion."
+        speaker = "Intervenant 2" if "Intervenant 2" in user else "Moi"
+        return json.dumps(
+            {
+                "summary": f"Partie lue ({len(calls)}).",
+                "decisions": [f"{speaker} relit la note"],
+                "actions": [],
+                "questions": [],
+                "risks": [],
+                "technical_topics": [],
+            }
+        )
+
+    client._chat = chat
+
+    class Kept(NotesCache):
+        def __init__(self):
+            self.kept = {}
+
+        def get(self, digest):
+            return self.kept.get(digest)
+
+        def put(self, digest, notes):
+            self.kept[digest] = notes
+
+    cache = Kept()
+    talk = "phrase " * 40
+    segments = [segment(i * 10, "Intervenant 2" if i < 50 else "Moi", talk) for i in range(80)]
+    module.PREPARED_PART_CHARS, before = 3000, module.PREPARED_PART_CHARS
+    try:
+        assert asyncio.run(client.prepare("Point", segments, cache))  # part 1, during the meeting
+        prepared = len(calls)
+        # At the end: the voices regrouped, "Intervenant 2" is "Paul" now
+        final = [
+            s.model_copy(update={"speaker": "Paul" if s.speaker == "Intervenant 2" else s.speaker})
+            for s in segments
+        ]
+        result = asyncio.run(client.analyze("Point", final, cache))
+    finally:
+        module.PREPARED_PART_CHARS = before
+    assert prepared == 1
+    assert not any("[00:00:00]" in call for call in calls[1:])  # part 1 not read again
+    assert "Paul relit la note" in result.decisions
+    assert result.summary == "Résumé de toute la réunion."
