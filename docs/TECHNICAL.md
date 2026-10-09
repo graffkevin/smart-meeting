@@ -291,22 +291,25 @@ forbids downloading code; the models are still downloaded at first launch. The A
 the interface, `cd macos && xcodegen` then open `SmartMeeting.xcodeproj`: a Debug build without the bundled server
 uses the one started with `./smart-meeting --no-window`. The server's log is in `~/Library/Logs/Smart Meeting/`.
 
-**On GitHub, without a Mac at hand**: the `macOS app` workflow (`.github/workflows/macos.yml`) runs `build.sh` on a
-GitHub Mac, on every `v*` tag or by hand (Actions > macOS app > Run workflow, or
-`gh workflow run macos.yml -f tag=v0.2.4`), and adds the disk image to the release of the tag (created as a draft
-if there is none). To sign and notarize it, store once these repository secrets, from the Mac holding the
+**Releases, from any computer**: bump the version (`backend/pyproject.toml`, `frontend/package.json`,
+`macos/project.yml`), commit, then `make release`: it tags `v<version>` and pushes it. The `Release` workflow
+(`.github/workflows/release.yml`) then creates the release of the tag as a draft (unless there is one already), and
+builds in parallel the `.deb` on Ubuntu and the disk image on a GitHub Mac, signed with the Developer ID and
+notarized; both are added to the release. Write the notes and publish it:
+`gh release edit v<version> --notes-file notes.md --draft=false`. The workflow also runs by hand on an existing tag
+(`gh workflow run release.yml -f tag=v0.2.4`), or on `main` without a tag (files in the artifacts of the run only).
+
+To sign and notarize the disk image on GitHub, store once the repository secrets, from the Mac holding the
 certificate:
 
 ```bash
-# Keychain Access > My Certificates > "Developer ID Application: …" > right click, Export (.p12, with a password)
-gh secret set MACOS_CERTIFICATE < <(base64 -i DeveloperID.p12)
-gh secret set MACOS_CERTIFICATE_PASSWORD     # the password of the .p12
-gh secret set APPLE_ID                       # the Apple account of the team
-gh secret set APPLE_TEAM_ID                  # its team ID
-gh secret set APPLE_APP_PASSWORD             # appleid.apple.com > Sign-In and Security > App-Specific Passwords
+# 1. Keychain Access > My Certificates > "Developer ID Application: …" > right click, Export (.p12, with a password)
+# 2. appleid.apple.com > Sign-In and Security > App-Specific Passwords: a new one
+packaging/macos/ci-secrets.sh DeveloperID.p12   # asks the Apple ID and both passwords, checks the .p12
 ```
 
-Without them, the image only has an ad hoc signature: macOS refuses to open it once downloaded (tests only).
+Without them, the image only has an ad hoc signature, which macOS refuses to open once downloaded: it stays in the
+artifacts of the run and is never added to a release.
 
 ## Linux app
 

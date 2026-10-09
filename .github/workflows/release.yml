@@ -1,17 +1,20 @@
-# macOS app on a GitHub Mac: packaging/macos/build.sh, as on a developer's Mac.
+# Release packages, built on GitHub from a v* tag: a release is made from any computer with
+# `make release` (tag of the version, pushed), even from Linux for the Mac app.
 #
-# With the secrets below, the disk image is signed with the Developer ID and notarized: it opens
-# on every Mac. Without them, it gets an ad hoc signature (macOS refuses to open it once
-# downloaded: tests only). On a v* tag, the image is added to the release of that tag (a draft
-# one included); it is also kept as an artifact of the run.
+# - the release of the tag is created as a draft when there is none (notes written by hand, then
+#   published), an existing one (draft or published) gets the files;
+# - Linux: the GNOME app package (packaging/linux/build-deb.sh) on Ubuntu;
+# - macOS: the disk image (packaging/macos/build.sh) on a GitHub Mac, signed with the Developer ID and
+#   notarized. Without the signing secrets it only gets an ad hoc signature, which macOS refuses to
+#   open once downloaded: it is then kept as an artifact of the run, never added to a release.
 #
-# Secrets (Settings > Secrets and variables > Actions), see docs/TECHNICAL.md:
+# Secrets (Settings > Secrets and variables > Actions), stored once by packaging/macos/ci-secrets.sh:
 #   MACOS_CERTIFICATE           the "Developer ID Application" certificate and its key, .p12 in base64
 #   MACOS_CERTIFICATE_PASSWORD  password of the .p12
 #   APPLE_ID                    Apple account of the developer team
 #   APPLE_APP_PASSWORD          app-specific password of that account (notarization)
 #   APPLE_TEAM_ID               team ID (10 characters)
-name: macOS app
+name: Release
 
 on:
   push:
@@ -19,20 +22,66 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to build and add to its release (e.g. v0.2.4); empty: main, artifact only"
+        description: "Tag to build and add to its release (e.g. v0.2.4); empty: main, artifacts only"
         required: false
 
 permissions:
   contents: write
 
+env:
+  TAG: ${{ inputs.tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
+
 jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Release of the tag
+        if: env.TAG != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # gh release view finds drafts too: one release per tag, whoever creates it first
+          gh release view "$TAG" >/dev/null 2>&1 \
+            || gh release create "$TAG" --draft --verify-tag --title "Smart Meeting ${TAG#v}" --notes ""
+
+  deb:
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG || github.ref }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Build
+        run: packaging/linux/build-deb.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Smart-Meeting-deb
+          path: build/linux/smart-meeting_*_all.deb
+          retention-days: 14
+
+      - name: Add to the release
+        if: env.TAG != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          deb="$(ls build/linux/smart-meeting_*_all.deb)"
+          sha256sum "$deb"
+          gh release upload "$TAG" "$deb" --clobber
+
   dmg:
+    needs: release
     runs-on: macos-15
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ env.TAG || github.ref }}
           fetch-depth: 0 # the build number is the number of commits
 
       - uses: astral-sh/setup-uv@v6
@@ -50,7 +99,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           if [ -z "$CERTIFICATE" ]; then
-            echo "::warning::No MACOS_CERTIFICATE secret: ad hoc signature, the image will not open on other Macs"
+            echo "::warning::No MACOS_CERTIFICATE secret: ad hoc signature, the image will not open on other Macs (packaging/macos/ci-secrets.sh)"
             exit 0
           fi
           keychain="$RUNNER_TEMP/signing.keychain-db"
@@ -91,16 +140,17 @@ jobs:
           retention-days: 14
 
       - name: Add to the release
-        if: inputs.tag != '' || startsWith(github.ref, 'refs/tags/v')
+        if: env.TAG != ''
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           dmg="$(ls build/macos/Smart-Meeting-*.dmg)"
           shasum -a 256 "$dmg"
-          # A draft release when there is none yet: published by hand, with its notes
-          gh release view "$TAG" >/dev/null 2>&1 \
-            || gh release create "$TAG" --draft --title "Smart Meeting ${TAG#v}" --notes ""
+          # Only an image every Mac opens: notarized, its ticket stapled
+          if ! xcrun stapler validate "$dmg" >/dev/null 2>&1; then
+            echo "::error::The disk image is not notarized: not added to the release (secrets: packaging/macos/ci-secrets.sh). It is in the artifacts of the run."
+            exit 1
+          fi
           gh release upload "$TAG" "$dmg" --clobber
 
       - name: Remove the signing keychain
