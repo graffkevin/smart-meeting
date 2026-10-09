@@ -48,6 +48,12 @@ class MainWindow(Adw.ApplicationWindow):
             primary=True,
         )
         sidebar_header.pack_end(menu)
+        settings = Gtk.Button(
+            icon_name="emblem-system-symbolic",
+            tooltip_text="Paramètres (Ctrl+,)",
+            action_name="app.settings",
+        )
+        sidebar_header.pack_end(settings)
         sidebar_view = Adw.ToolbarView(content=self.sidebar)
         sidebar_view.add_top_bar(sidebar_header)
         self.split = Adw.NavigationSplitView(
