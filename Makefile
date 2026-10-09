@@ -85,7 +85,7 @@ release: ## Tag the version of backend/pyproject.toml and push it: GitHub builds
 	test -z "$$(git status --porcelain)" || { echo "Des changements ne sont pas commités"; exit 1; }; \
 	! git rev-parse -q --verify "refs/tags/v$$version" >/dev/null || { echo "v$$version existe déjà : changez la version"; exit 1; }; \
 	git tag -a "v$$version" -m "Smart Meeting $$version" && git push origin main "v$$version" && \
-	echo "v$$version poussé : GitHub construit le .deb et le .dmg (gh run watch), puis publiez la release :" && \
+	echo "v$$version poussé : GitHub construit le .deb, le .dmg et l'installeur Windows (gh run watch), puis publiez la release :" && \
 	echo "  gh release edit v$$version --notes-file notes.md --draft=false"
 
 desktop: ## Add Smart Meeting to the applications (menu, Applications, Start menu), to pin it
