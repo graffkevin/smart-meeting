@@ -18,7 +18,15 @@ if ! command -v uv >/dev/null; then
   curl -LsSf https://astral.sh/uv/install.sh | sh -s -- --quiet
 fi
 
+# AI engine of the hardware (backend/src/smart_meeting/transcription/engines.py): CUDA libraries
+# with an NVIDIA GPU, else OpenVINO on Linux with an Intel CPU or GPU. Apple Silicon: MLX, always
+# installed there.
 extras=()
-command -v nvidia-smi >/dev/null && nvidia-smi -L >/dev/null 2>&1 && extras=(--extra cuda)
+if command -v nvidia-smi >/dev/null && nvidia-smi -L >/dev/null 2>&1; then
+  extras=(--extra cuda)
+elif [ "$(uname -s)" = Linux ] && { grep -q GenuineIntel /proc/cpuinfo 2>/dev/null \
+    || { command -v lspci >/dev/null && lspci | grep -iE "vga|3d|display" | grep -qi intel; }; }; then
+  extras=(--extra intel)
+fi
 # ${extras[@]+...}: an empty array is "unbound" for the bash 3.2 of macOS under `set -u`
 exec uv run --quiet --directory "$ROOT/backend" ${extras[@]+"${extras[@]}"} smart-meeting "$@"

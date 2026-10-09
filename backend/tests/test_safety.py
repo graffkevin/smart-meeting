@@ -11,7 +11,7 @@ from smart_meeting.audio.segmenter import Utterance
 from smart_meeting.meeting import safety
 from smart_meeting.meeting import service as service_module
 from smart_meeting.models import MeetingStatus, StartMeetingRequest
-from smart_meeting.transcription.whisper import TranscribedPiece
+from smart_meeting.transcription.base import TranscribedPiece
 
 
 class FakeWhisper:

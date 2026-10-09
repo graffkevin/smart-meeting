@@ -1,6 +1,6 @@
 from smart_meeting.llm.analysis import analysis_schema, ground_analysis
 from smart_meeting.models import ActionItem, MeetingAnalysis
-from smart_meeting.transcription.whisper import is_hallucination
+from smart_meeting.transcription.base import is_hallucination
 
 TRANSCRIPT = """[00:00:04] Interlocuteur: Il faudrait intégrer le simulateur dans le démonstrateur.
 [00:00:12] Moi: Je vais regarder comment exposer le script Python via l'API d'ici vendredi.

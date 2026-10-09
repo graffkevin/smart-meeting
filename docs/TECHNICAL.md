@@ -5,24 +5,25 @@ How Smart Meeting works, its advanced settings and how to develop it. For using 
 
 ## Stack
 
-- **Backend**: Python 3.12, FastAPI, faster-whisper (CTranslate2), Silero VAD, ONNX Runtime, SQLite, managed by
-  **uv**. Serves the API and the built interface on `127.0.0.1:8417`.
+- **Backend**: Python 3.12, FastAPI, Whisper through the engine of the hardware (faster-whisper, MLX or OpenVINO),
+  Silero VAD, ONNX Runtime, SQLite, managed by **uv**. Serves the API and the built interface on `127.0.0.1:8417`.
 - **AI**: Ollama with `qwen2.5:7b`, started and stopped with the app.
 - **Frontend**: React 19, TypeScript, Vite, Bun, TanStack Query and Form, a Mantine-based design system.
 
 ## What the launcher does
 
 `./smart-meeting` (Linux, macOS) and `smart-meeting.cmd` (Windows, also used by `./smart-meeting` in Git Bash) install
-uv if needed, then run `uv run --directory backend smart-meeting`, with the CUDA extra when `nvidia-smi` finds a GPU.
+uv if needed, then run `uv run --directory backend smart-meeting`, with the `cuda` extra when `nvidia-smi` finds a GPU, else the
+`intel` extra (OpenVINO) on Linux and Windows with an Intel CPU or GPU.
 `make run` does the same. On first run, without admin rights:
 
 | Component | How |
 |---|---|
-| uv, Python dependencies | automatic (CUDA libraries only with an NVIDIA GPU) |
+| uv, Python dependencies | automatic (CUDA libraries with an NVIDIA GPU, OpenVINO with Intel hardware, MLX on Apple Silicon) |
 | Bun, web interface | Bun installed for the user (official build, works behind a proxy and on any x86-64 CPU); interface built on first run and after each update |
 | Ollama | reused if already installed, otherwise downloaded to the user folder; started and stopped with the app |
 | AI model (`qwen2.5:7b`, 4.7 GB) | downloaded in the background, progress shown in the interface |
-| Transcription model | `large-v3-turbo` with an NVIDIA GPU, `small` otherwise (Mac, PC without GPU) |
+| Transcription model | chosen with the engine, see [Transcription engines](#transcription-engines) |
 | Voice prints model | WeSpeaker ResNet34-LM (ONNX, 26 MB) |
 
 The interface opens in a tab of the default browser. Launching again while it runs opens a new tab; a page left open
@@ -48,15 +49,50 @@ then offers a button that opens that pane of System Settings (`POST /api/audio/p
 mode, the devices the applications actually use are followed during the meeting (a call starting later, a headset
 plugged in).
 
+## Transcription engines
+
+The hardware is detected at startup (`hardware.py`, logged as `Hardware: …`) and Whisper runs on the best engine for it
+(`transcription/engines.py`):
+
+| Hardware | Engine | Model |
+|---|---|---|
+| Apple Silicon | MLX, on the GPU of the chip | `large-v3-turbo` |
+| NVIDIA GPU | faster-whisper on CUDA | `large-v3-turbo`, `small` for the live draft |
+| Intel GPU (Iris Xe, Arc) | OpenVINO on the GPU (needs `intel-opencl-icd` on Linux) | `large-v3-turbo`, `small` for the live draft |
+| Intel CPU without usable GPU | OpenVINO on the CPU | `small` |
+| Anything else (AMD…) | faster-whisper on the CPU, one thread per physical core | `small` |
+
+An engine that fails to load (missing driver, old GPU) gives way to faster-whisper on the CPU; the engine in use is
+logged (`Transcription engine: …`). `SM_WHISPER_ENGINE`, `SM_WHISPER_MODEL` and `SM_WHISPER_DEVICE` force a choice.
+OpenVINO decodes greedily and gives no "no speech" score: only the known phrases are filtered as hallucinations there.
+
+Measured on an Apple M5 with `scripts/bench_transcription.py` (67 s French meeting, three voices):
+
+| Engine | Live | Imported file |
+|---|---|---|
+| faster-whisper `small`, CPU | 1.4× real time, 13.7 % word errors | 6.8×, 6.6 % |
+| MLX `large-v3-turbo`, GPU | 3.9×, 9.8 % | 12.4×, 4.9 % |
+
+To compare engines on another machine (run from `backend/`):
+
+```bash
+SM_WHISPER_ENGINE=faster-whisper uv run python scripts/bench_transcription.py meeting.mp4 --reference text.txt
+SM_WHISPER_ENGINE=openvino uv run --extra intel python scripts/bench_transcription.py meeting.mp4 --reference text.txt
+```
+
+The Ollama started by the app runs with flash attention and an 8-bit context cache (half the memory for long
+meetings), and with Vulkan on Intel GPUs (`OLLAMA_VULKAN=1`).
+
 ## Transcription
 
 - Audio is cut into sentences at pauses (Silero VAD, 700 ms of silence, forced cut at 20 s), each transcribed once
   by Whisper, so there is nothing to deduplicate. The sentence being spoken is shown as a grey draft (a smaller model
-  on GPU, refreshed about every 1.5 s).
+  next to a large one on a GPU, refreshed about every 1.5 s).
 - The language is detected per source and sticky (a few foreign words do not switch it), or chosen.
 - A vocabulary of names and acronyms (settings) is given to Whisper as a prompt: a clear difference on proper names.
 - **Imported files** are decoded by PyAV and transcribed in batches by faster-whisper's batched pipeline: about 8×
-  faster than real time on a modest GPU (147 s of audio in 19 s on an NVIDIA T600). The upload is deleted once decoded.
+  faster than real time on a modest GPU (147 s of audio in 19 s on an NVIDIA T600). MLX and OpenVINO transcribe them in
+  5-minute blocks cut at a silence, so that the progress moves. The upload is deleted once decoded.
 
 ## Speakers
 
@@ -130,7 +166,10 @@ development:
 SM_USER_NAME=Alex                   # label of my microphone in the transcript, "I" for the AI
 SM_REMOTE_NAME=Interlocuteur        # label of the other participants when voices are not told apart
 SM_WHISPER_GLOSSARY="Atlas, OAuth, Kubernetes."  # names and acronyms to recognize
+SM_WHISPER_ENGINE=auto              # or faster-whisper / mlx / openvino
 SM_WHISPER_MODEL=auto               # or large-v3-turbo / medium / small
+SM_WHISPER_DEVICE=auto              # faster-whisper: cuda / cpu; OpenVINO: gpu / cpu / npu
+SM_WHISPER_CPU_THREADS=0            # faster-whisper on CPU; 0: one per physical core
 SM_WHISPER_PARTIAL_MODEL=auto       # live draft: small next to the main model on GPU, none to disable
 SM_OLLAMA_MODEL=qwen2.5:7b
 SM_OLLAMA_NUM_CTX=16384             # context of the AI; larger: fewer parts for long meetings, more memory

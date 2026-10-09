@@ -44,8 +44,9 @@ from smart_meeting.models import (
 from smart_meeting.preferences import PreferencesStore
 from smart_meeting.provision import OllamaProvisioner
 from smart_meeting.speakers import MeetingVoices, VoicePrinter, split_by_speaker
+from smart_meeting.transcription.base import TranscribedPiece
+from smart_meeting.transcription.engines import create_transcriber
 from smart_meeting.transcription.language import LanguageTracker
-from smart_meeting.transcription.whisper import TranscribedPiece, WhisperTranscriber
 from smart_meeting.watchdog import page_marker_path
 
 logger = logging.getLogger(__name__)
@@ -153,7 +154,7 @@ class MeetingService:
         self.audio = audio or get_backend()
         self.db = db
         self.hub = hub
-        self.transcriber = WhisperTranscriber(settings)
+        self.transcriber = create_transcriber(settings)
         self.voice_printer = VoicePrinter()
         self.voices_error: str | None = None
         self.ollama = OllamaClient(settings)

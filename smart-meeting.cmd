@@ -12,8 +12,9 @@ where uv >nul 2>nul || (
   powershell -NoProfile -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex" || goto failed
 )
 
-rem CUDA libraries only with an NVIDIA GPU
+rem AI engine of the hardware: CUDA libraries with an NVIDIA GPU, else OpenVINO with an Intel CPU
 set "EXTRAS="
+echo %PROCESSOR_IDENTIFIER% | findstr /i GenuineIntel >nul && set "EXTRAS=--extra intel"
 nvidia-smi -L >nul 2>nul && set "EXTRAS=--extra cuda"
 
 uv run --quiet --directory "%ROOT%backend" %EXTRAS% smart-meeting %*

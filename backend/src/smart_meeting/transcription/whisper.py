@@ -2,42 +2,25 @@ import ctypes
 import glob
 import logging
 import os
-import re
 import site
 import sys
-import unicodedata
 from collections.abc import Callable
-from dataclasses import dataclass, field
 
 import numpy as np
 
 from smart_meeting.config import Settings
+from smart_meeting.hardware import detect_hardware
+from smart_meeting.transcription.base import (
+    TEMPERATURES,
+    TranscribedPiece,
+    Transcriber,
+    is_hallucination,
+)
 from smart_meeting.transcription.language import LanguageTracker
 
+__all__ = ["TranscribedPiece", "WhisperTranscriber", "is_hallucination"]
+
 logger = logging.getLogger(__name__)
-
-# Decoding temperatures. faster-whisper retries uncertain passages up to 1.0 by default: sampled
-# text then often holds plausible but non-existent words. One low retry only.
-TEMPERATURES = (0.0, 0.2)
-
-# Phrases Whisper is known to produce on silence or noise (learnt from subtitled videos).
-HALLUCINATIONS = [
-    "sous-titres realises par la communaute d'amara.org",
-    "sous-titrage st' 501",
-    "sous-titrage societe radio-canada",
-    "merci d'avoir regarde cette video",
-    "abonnez-vous",
-    "thanks for watching",
-]
-
-
-@dataclass
-class TranscribedPiece:
-    start_s: float  # relative to the utterance start
-    end_s: float
-    text: str
-    # (start, end, word) of imported files: a sentence can then be split between two speakers
-    words: list[tuple[float, float, str]] = field(default_factory=list)
 
 
 def preload_cuda_libraries() -> None:
@@ -63,39 +46,22 @@ def preload_cuda_libraries() -> None:
                     logger.warning("Could not preload %s: %s", path, exc)
 
 
-def _normalize(text: str) -> str:
-    text = unicodedata.normalize("NFKD", text.lower())
-    text = "".join(c for c in text if not unicodedata.combining(c))
-    return re.sub(r"\s+", " ", text).strip(" .!?…")
-
-
-def is_hallucination(text: str, no_speech_prob: float, avg_logprob: float) -> bool:
-    normalized = _normalize(text)
-    if not normalized:
-        return True
-    if any(phrase in normalized for phrase in HALLUCINATIONS):
-        return True
-    # Same heuristic as Whisper's own: likely silence and low confidence.
-    return no_speech_prob > 0.6 and avg_logprob < -1.0
-
-
-class WhisperTranscriber:
-    """faster-whisper wrapper. Not thread-safe: call from a single worker thread."""
+class WhisperTranscriber(Transcriber):
+    """faster-whisper (CTranslate2): NVIDIA GPU, or any CPU."""
 
     def __init__(self, settings: Settings) -> None:
-        self.settings = settings
+        super().__init__(settings)
         self._model = None
         self._partial_model = None  # fast model for the live provisional text
         self._batched = None  # batched pipeline over the main model, for imported files
         self.batch_size = 4
-        self.model_name: str | None = None
-        self.device: str | None = None
 
     def load(self) -> None:
         import ctranslate2
 
         device = self.settings.whisper_device
-        if device == "auto":
+        # gpu, npu: devices of OpenVINO, when it gave way to this engine
+        if device not in ("cuda", "cpu"):
             device = "cuda" if ctranslate2.get_cuda_device_count() > 0 else "cpu"
         if device == "cuda":
             preload_cuda_libraries()
@@ -109,9 +75,14 @@ class WhisperTranscriber:
         if name == "auto":
             name = "large-v3-turbo" if device == "cuda" else "small"
 
+        # faster-whisper uses 4 CPU threads by default, whatever the machine
+        threads = self.settings.whisper_cpu_threads or detect_hardware().cores
+
         def load_model(model_name: str):
             logger.info("Loading Whisper %s on %s (%s)", model_name, device, compute_type)
-            model = WhisperModel(model_name, device=device, compute_type=compute_type)
+            model = WhisperModel(
+                model_name, device=device, compute_type=compute_type, cpu_threads=threads
+            )
             # Warm-up so the first utterance is not delayed (and CUDA errors surface now).
             list(model.transcribe(np.zeros(16000, dtype=np.float32), language="fr")[0])
             return model
@@ -132,8 +103,6 @@ class WhisperTranscriber:
     def transcribe(
         self, audio: np.ndarray, tracker: LanguageTracker, previous_text: str = ""
     ) -> list[TranscribedPiece]:
-        """Transcribe an utterance; in automatic mode its language is detected first and the tracker
-        decides (sticky language, see transcription/language.py)."""
         if self._model is None:
             raise RuntimeError("Whisper model is not loaded")
         language = tracker.language
@@ -163,9 +132,7 @@ class WhisperTranscriber:
         language: str | None,
         on_piece: Callable[[TranscribedPiece], bool],
     ) -> None:
-        """Whole imported file, several passages decoded at once (faster-whisper batched pipeline,
-        its own VAD). `language` None: detected once on the start of the file. `on_piece` receives
-        the sentences in order, with times relative to the file; it returns False to stop.
+        """Several passages decoded at once (faster-whisper batched pipeline, its own VAD).
 
         Out of GPU memory, the batches are halved and the file resumed after the last sentence
         given; the working size is kept for the next files."""
@@ -205,15 +172,8 @@ class WhisperTranscriber:
                 self.batch_size //= 2
                 logger.warning("Out of GPU memory: batches of %s passages", self.batch_size)
 
-    def _prompt(self, previous_text: str) -> str:
-        """Vocabulary of the user, and the previous sentence only when enabled: an error in it tends
-        to spread to the next sentences."""
-        context = previous_text[-200:] if self.settings.whisper_previous_context else ""
-        return " ".join(p for p in (self.settings.whisper_glossary, context) if p)
-
     def transcribe_partial(self, audio: np.ndarray, language: str, previous_text: str = "") -> str:
-        """Fast provisional text of an utterance still being spoken: small model, greedy decoding,
-        no language detection. Only shown live, replaced by the final transcription."""
+        # Small model next to a large one on GPU
         if self._partial_model is None:
             return ""
         prompt = self._prompt(previous_text)

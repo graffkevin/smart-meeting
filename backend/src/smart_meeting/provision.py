@@ -34,6 +34,7 @@ import zstandard
 from platformdirs import user_data_path
 
 from smart_meeting.config import Settings
+from smart_meeting.hardware import Hardware, detect_hardware
 from smart_meeting.messages import tr
 
 logger = logging.getLogger(__name__)
@@ -68,6 +69,20 @@ def _die_with_parent() -> None:
     """Runs in the child: Linux kills it when its parent exits, even on SIGKILL."""
     pr_set_pdeathsig = 1
     ctypes.CDLL("libc.so.6", use_errno=True).prctl(pr_set_pdeathsig, signal.SIGTERM)
+
+
+def ollama_tuning(hardware: Hardware) -> dict[str, str]:
+    """Settings of the Ollama we start (the user's environment wins over them)."""
+    env = {
+        # Flash attention, required by the 8-bit cache: with our long context (minutes of a whole
+        # meeting), half the memory for the cache and faster prompt reading, on GPU as on CPU.
+        "OLLAMA_FLASH_ATTENTION": "1",
+        "OLLAMA_KV_CACHE_TYPE": "q8_0",
+    }
+    if hardware.intel_gpu and not hardware.nvidia and sys.platform != "darwin":
+        # Intel GPUs are only reached through Vulkan, off by default in Ollama
+        env["OLLAMA_VULKAN"] = "1"
+    return env
 
 
 def _download_url() -> str:
@@ -194,6 +209,7 @@ class OllamaProvisioner:
         logger.info("Starting %s serve (log: %s)", binary, log)
         url = urlparse(self.settings.ollama_url)
         env = {
+            **ollama_tuning(detect_hardware()),
             **os.environ,
             "OLLAMA_HOST": f"{url.hostname}:{url.port or 11434}",
             # Local only: no remote inference nor web search, whatever the models.

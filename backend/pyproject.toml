@@ -8,6 +8,8 @@ dependencies = [
     "fastapi>=0.142.2",
     "faster-whisper>=1.2.1",
     "httpx>=0.28.1",
+    # Transcription on the GPU of Apple Silicon chips (transcription/mlx.py)
+    "mlx-whisper>=0.4.3 ; sys_platform == 'darwin' and platform_machine == 'arm64'",
     "numpy>=2.5.3",
     "platformdirs>=4.12.2",
     "pyaudiowpatch>=0.2.12.8 ; sys_platform == 'win32'",
@@ -29,6 +31,10 @@ cuda = [
     "nvidia-cudnn-cu12>=9,<10; sys_platform != 'darwin'",
 ]
 
+# Intel CPUs and GPUs: transcription with OpenVINO (transcription/openvino.py), added by the
+# launcher when it finds Intel hardware.
+intel = ["openvino-genai>=2026.4.1"]
+
 [project.scripts]
 smart-meeting = "smart_meeting.launcher:run"
 
@@ -41,6 +47,11 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.16.10",
 ]
+
+[tool.uv]
+# mlx-whisper requires PyTorch for converting models only, never imported when transcribing:
+# 500 MB left out.
+override-dependencies = ["torch ; sys_platform == 'never'"]
 
 [tool.ruff]
 line-length = 100

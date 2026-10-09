@@ -47,10 +47,18 @@ class Settings(BaseSettings):
     stall_restart_s: float = 90.0
 
     # Whisper
-    # auto: large-v3-turbo with an NVIDIA GPU, small on CPU (Mac, PC without GPU) to keep up
-    # with live meetings.
+    # Engine, auto: chosen from the hardware (transcription/engines.py): MLX on Apple Silicon,
+    # OpenVINO with an Intel CPU or GPU, faster-whisper otherwise (NVIDIA GPU, other CPUs).
+    # An engine that fails to load gives way to faster-whisper on CPU.
+    whisper_engine: str = "auto"  # auto | faster-whisper | mlx | openvino
+    # auto: the largest model the engine runs live on this hardware (large-v3-turbo on a GPU,
+    # small on CPU). Else a size (small, medium, large-v3-turbo…) or a Hugging Face repository
+    # of the engine's format.
     whisper_model: str = "auto"
-    whisper_device: str = "auto"  # auto | cuda | cpu
+    # auto | cuda | cpu (faster-whisper), auto | gpu | cpu | npu (OpenVINO)
+    whisper_device: str = "auto"
+    # CPU threads of faster-whisper; 0: the physical cores (performance ones on Apple Silicon)
+    whisper_cpu_threads: int = 0
     whisper_compute_type: str = "auto"  # auto | int8_float16 | int8 | float16 ...
     # Live provisional text (the sentence being spoken): auto = "small" next to a larger model on
     # GPU (fast drafts), the main model otherwise; "none" disables it.
