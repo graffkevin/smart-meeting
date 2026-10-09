@@ -208,6 +208,16 @@ SM_DATA_DIR=~/.local/share/smart-meeting
 SM_PORT=8417                        # local port of the interface
 ```
 
+## Updates
+
+Every few hours, the server reads the latest release on GitHub (`GET /api/update`, `smart_meeting/update.py`), through
+the proxy of the system. `POST /api/update` installs it the way this installation was made: `git pull --ff-only` in a
+clone, the `.deb` of the release in `/opt/smart-meeting` (checked against the SHA-256 GitHub gives, installed with
+`pkexec apt-get install`), and refused during a meeting, an import or the minutes. The browser version then restarts
+through the launcher (new dependencies, new interface) and the page reloads itself; the Linux app stops the server and
+restarts itself. The macOS app only shows the page of the release: its bundled server does not know its version, so
+the app compares the release with its own.
+
 ## Privacy
 
 The API only listens on `127.0.0.1`. Calls to Ollama ignore the proxy, a remote Ollama URL is refused, and the Ollama

@@ -194,6 +194,23 @@ class SetupStepInfo(BaseModel):
     done: bool
 
 
+class UpdateInfo(BaseModel):
+    current: str
+    latest: str | None  # None: not known yet (offline)
+    available: bool
+    # How this installation updates: git pull, the Linux package, or a download by hand
+    method: Literal["git", "deb", "download"]
+    url: str | None  # page of the release
+    notes: str | None
+    updating: bool = False
+    error: str | None = None
+
+
+class UpdateResult(BaseModel):
+    # "server": the server restarts by itself (browser version); "app": the app restarts
+    restart: Literal["server", "app"]
+
+
 class Health(BaseModel):
     whisper: Literal["loading", "ready", "error"]
     whisper_detail: str | None

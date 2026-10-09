@@ -28,6 +28,7 @@ import type { AudioDevice } from '@/api/generated/model/audioDevice';
 import { importMeeting, startMeeting } from '@/api/generated/smartMeetingApi';
 import { TRANSCRIPTION_LANGUAGES } from '@/constants/app';
 import useSettingsDialog from '@/contexts/settings/useSettingsDialog';
+import UpdateNotice from '@/features/home/UpdateNotice';
 import useOpenMeeting from '@/hooks/useOpenMeeting';
 import audioDevicesQueryOptions from '@/services/audioDevicesQueryOptions';
 import healthQueryOptions from '@/services/healthQueryOptions';
@@ -338,6 +339,7 @@ const ImportPanel = () => {
 /** Home: server status, recording and file import (the history is in the side panel) */
 const Home = () => (
   <Stack gap="lg">
+    <UpdateNotice />
     <HealthStatus />
     <RecordPanel />
     <ImportPanel />

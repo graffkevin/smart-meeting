@@ -3,6 +3,7 @@
 python3 -m smart_meeting_gtk        (from the linux/ folder; the .deb installs `smart-meeting-app`)
 """
 
+import os
 import sys
 
 import gi
@@ -13,7 +14,7 @@ gi.require_version("Graphene", "1.0")
 from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
 
 from smart_meeting_gtk.api import background  # noqa: E402
-from smart_meeting_gtk.server import LOG_FILE  # noqa: E402
+from smart_meeting_gtk.server import LOG_FILE, ROOT  # noqa: E402
 from smart_meeting_gtk.state import AppState  # noqa: E402
 from smart_meeting_gtk.widgets import confirm, install_css  # noqa: E402
 from smart_meeting_gtk.window import MainWindow  # noqa: E402
@@ -85,6 +86,20 @@ class Application(Adw.Application):
             self.quit()
 
         background(self.state.server.stop, stopped, stopped)
+
+    def restart(self) -> None:
+        """After an update: the server stopped (even one this app did not start), then the
+        app again, which starts the new server."""
+        self.quitting = True
+        self.hold()
+        if self.window is not None:
+            self.window.set_visible(False)
+
+        def stopped(_result=None) -> None:
+            launcher = ROOT / "linux" / "smart-meeting-app"
+            os.execv(str(launcher), [str(launcher)])
+
+        background(self.state.server.stop_any, stopped, stopped)
 
     # Menu
 

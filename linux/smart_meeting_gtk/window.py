@@ -9,7 +9,7 @@ from smart_meeting_gtk.history import HistorySidebar
 from smart_meeting_gtk.home import HomePage
 from smart_meeting_gtk.meeting_page import MeetingPage
 from smart_meeting_gtk.settings import SettingsDialog
-from smart_meeting_gtk.state import AppState
+from smart_meeting_gtk.state import AppState, error_text
 
 
 def primary_menu() -> Gio.Menu:
@@ -67,7 +67,15 @@ class MainWindow(Adw.ApplicationWindow):
         self.home_page = Adw.NavigationPage(title="Smart Meeting", child=home_view, tag="home")
         self.split.set_content(self.home_page)
 
-        self.toasts = Adw.ToastOverlay(child=self.split)
+        # A newer version: installed from here (clone, package), or downloaded from its page
+        self.update_banner = Adw.Banner(revealed=False)
+        self.update_banner.connect("button-clicked", lambda _b: self._update_clicked())
+        app.on("update", self._update_changed)
+        self.split.set_vexpand(True)
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        content.append(self.update_banner)
+        content.append(self.split)
+        self.toasts = Adw.ToastOverlay(child=content)
         self.set_content(self.toasts)
 
         drop = Gtk.DropTarget.new(Gdk.FileList, Gdk.DragAction.COPY)
@@ -117,6 +125,36 @@ class MainWindow(Adw.ApplicationWindow):
         self.show_home()
         self.home.import_panel.set_file(paths[0])
         return True
+
+    def _update_changed(self) -> None:
+        update = self.app.update
+        if not update or not update.get("available") or update.get("updating"):
+            return
+        self.update_banner.set_title(f"Smart Meeting {update['latest']} est disponible")
+        download = update["method"] == "download"
+        self.update_banner.set_button_label("Télécharger" if download else "Mettre à jour")
+        self.update_banner.set_revealed(True)
+
+    def _update_clicked(self) -> None:
+        update = self.app.update or {}
+        if update.get("method") == "download":
+            Gtk.UriLauncher.new(update["url"]).launch(self, None, None, None)
+            return
+        if self.app.active_meeting_id is not None:
+            self.toast("Une réunion est en cours : mettez à jour une fois terminée")
+            return
+        self.update_banner.set_title("Mise à jour en cours…")
+        self.update_banner.set_button_label(None)
+
+        def failed(error: Exception) -> None:
+            self.toast(error_text(error))
+            self._update_changed()
+
+        # Installed: the app restarts, and its server with it, on the new version
+        def installed(_result) -> None:
+            self.get_application().restart()
+
+        self.app.call(self.app.api.apply_update, installed, failed)
 
     def toast(self, text: str) -> None:
         self.toasts.add_toast(Adw.Toast(title=text, timeout=3))

@@ -49,6 +49,7 @@ from smart_meeting.speakers import MeetingVoices, VoicePrinter, split_by_speaker
 from smart_meeting.transcription.base import TranscribedPiece
 from smart_meeting.transcription.engines import create_transcriber
 from smart_meeting.transcription.language import LanguageTracker
+from smart_meeting.update import Updater
 from smart_meeting.watchdog import page_marker_path
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,8 @@ KEEP_UP_CHECK_S = 10.0
 PARTIALS_OFF_S = 30.0
 LIGHTER_S = 90.0
 LIGHTER_COOLDOWN_S = 60.0
+# The update check waits for the start of the app (seconds)
+UPDATE_CHECK_DELAY_S = 30
 # The AI finishes its answer before Whisper takes the graphics card back (seconds)
 AI_LEAVES_GPU_S = 600.0
 # Without any open page for this long (time to reload a page), the app stops once idle.
@@ -177,6 +180,7 @@ class MeetingService:
         self.ollama = OllamaClient(settings)
         self.ollama.during_meeting = lambda: self.active is not None
         self.provisioner = OllamaProvisioner(settings)
+        self.updater = Updater(settings)
         self.whisper_state: Literal["loading", "ready", "error"] = "loading"
         self.whisper_detail: str | None = None
         self.active: Recording | None = None
@@ -216,8 +220,15 @@ class MeetingService:
         self._spawn(self._load_voice_printer())
         self._spawn(self._provision())
         self._spawn(self._recover(resume))
+        self._spawn(self._check_update())
         if unfinished:
             self._spawn(self._analyze_unfinished(unfinished))
+
+    async def _check_update(self) -> None:
+        await asyncio.sleep(UPDATE_CHECK_DELAY_S)  # the start of the app comes first
+        info = await self.updater.check()
+        if info.available:
+            logger.info("Smart Meeting %s is available (%s here)", info.latest, info.current)
 
     def save_preferences(self, preferences: Preferences) -> Preferences:
         """Applied at once; another AI model (fast or precise) is downloaded if missing."""

@@ -6,6 +6,7 @@ import html
 import logging
 import os
 import platform
+import shlex
 import shutil
 import signal
 import socket
@@ -329,7 +330,29 @@ def run() -> None:
         page_marker_path(data_dir).unlink(missing_ok=True)
         app.state.request_exit()
 
+    restarting = threading.Event()
+
+    def restart() -> None:
+        restarting.set()
+        app.state.request_exit()
+
     # macOS app: no page to wait for, quitting the app stops the server.
     if not args.app:
         app.state.stop_when_unused = stop_unused
+        app.state.restart = restart
     server.run(sockets=[sock])
+    if restarting.is_set():
+        sock.close()
+        restart_launcher(args.port)
+
+
+def restart_launcher(port: int) -> None:
+    """After an update: the launcher again, which installs the new dependencies and builds the
+    new interface; the page left open reloads itself."""
+    root = Path(__file__).resolve().parents[3]
+    logging.shutdown()
+    if sys.platform == "win32":
+        launcher = str(root / "smart-meeting.cmd")
+        os.execv(os.environ["ComSpec"], ["cmd", "/c", launcher, "--no-window", "--port", str(port)])
+    command = f"exec {shlex.quote(str(root / 'smart-meeting'))} --no-window --port {port}"
+    os.execv("/bin/bash", ["/bin/bash", "-lc", command])

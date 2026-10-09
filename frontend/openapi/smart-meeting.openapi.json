@@ -5,6 +5,64 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/update": {
+      "get": {
+        "summary": "Get Update",
+        "description": "The latest version published, and how this installation gets it.",
+        "operationId": "get_update",
+        "parameters": [
+          {
+            "name": "refresh",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Refresh"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Apply Update",
+        "description": "Install the latest version, then restart: the server by itself in the browser version,\nthe desktop app restarts itself and its server.",
+        "operationId": "apply_update",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Health",
@@ -1775,6 +1833,86 @@
         ],
         "title": "TagsRequest"
       },
+      "UpdateInfo": {
+        "properties": {
+          "current": {
+            "type": "string",
+            "title": "Current"
+          },
+          "latest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "git",
+              "deb",
+              "download"
+            ],
+            "title": "Method"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "updating": {
+            "type": "boolean",
+            "title": "Updating",
+            "default": false
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current",
+          "latest",
+          "available",
+          "method",
+          "url",
+          "notes"
+        ],
+        "title": "UpdateInfo"
+      },
       "UpdateMeetingRequest": {
         "properties": {
           "title": {
@@ -1787,6 +1925,23 @@
           "title"
         ],
         "title": "UpdateMeetingRequest"
+      },
+      "UpdateResult": {
+        "properties": {
+          "restart": {
+            "type": "string",
+            "enum": [
+              "server",
+              "app"
+            ],
+            "title": "Restart"
+          }
+        },
+        "type": "object",
+        "required": [
+          "restart"
+        ],
+        "title": "UpdateResult"
       },
       "ValidationError": {
         "properties": {

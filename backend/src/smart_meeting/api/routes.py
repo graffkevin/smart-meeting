@@ -36,8 +36,11 @@ from smart_meeting.models import (
     StartMeetingRequest,
     TagCount,
     TagsRequest,
+    UpdateInfo,
     UpdateMeetingRequest,
+    UpdateResult,
 )
+from smart_meeting.update import UpdateError
 
 router = APIRouter(prefix="/api")
 
@@ -62,6 +65,30 @@ def conflict_as_409():
         yield
     except ConflictError as exc:
         raise HTTPException(409, str(exc)) from exc
+
+
+@router.get("/update")
+async def get_update(request: Request, refresh: bool = False) -> UpdateInfo:
+    """The latest version published, and how this installation gets it."""
+    return await service(request).updater.check(force=refresh)
+
+
+@router.post("/update")
+async def apply_update(request: Request) -> UpdateResult:
+    """Install the latest version, then restart: the server by itself in the browser version,
+    the desktop app restarts itself and its server."""
+    svc = service(request)
+    if svc.busy:
+        raise HTTPException(409, tr("update_busy"))
+    try:
+        await svc.updater.apply()
+    except UpdateError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    restart = request.app.state.restart
+    if restart is None:
+        return UpdateResult(restart="app")
+    asyncio.get_running_loop().call_later(0.5, restart)  # once this answer is sent
+    return UpdateResult(restart="server")
 
 
 @router.get("/health")

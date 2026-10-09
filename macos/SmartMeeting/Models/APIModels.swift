@@ -37,6 +37,12 @@ struct Health: Codable {
     var setup: [SetupStep]?
 }
 
+/// Latest version published on GitHub, read by the server every few hours
+struct UpdateInfo: Codable {
+    var latest: String?
+    var url: String?
+}
+
 /// A meeting, as listed in the history (`actionCount`) or alone
 struct Meeting: Codable, Identifiable, Hashable {
     var id: Int

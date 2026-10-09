@@ -37,6 +37,22 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fr": "Transcription indisponible : {detail}",
         "en": "Transcription unavailable: {detail}",
     },
+    # Updates
+    "update_in_progress": {"fr": "Mise à jour déjà en cours", "en": "Already updating"},
+    "update_busy": {
+        "fr": "Une réunion est en cours : mettez à jour une fois terminée",
+        "en": "A meeting is in progress: update once it is over",
+    },
+    "update_download": {
+        "fr": "Téléchargez la nouvelle version depuis sa page",
+        "en": "Download the new version from its page",
+    },
+    "update_no_package": {
+        "fr": "Pas de paquet Linux dans cette version",
+        "en": "No Linux package in this release",
+    },
+    "update_cancelled": {"fr": "Mise à jour annulée", "en": "Update cancelled"},
+    "update_failed": {"fr": "Échec de la mise à jour : {error}", "en": "Update failed: {error}"},
     # Audio
     "audio_unavailable": {"fr": "Audio indisponible : {error}", "en": "Audio unavailable: {error}"},
     "no_audio_source": {

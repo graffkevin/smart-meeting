@@ -125,6 +125,14 @@ const en: Translation = {
     busy: 'Available once the meeting being recorded is over.',
     error: 'Cannot import',
   },
+  update: {
+    available: 'Smart Meeting {{version}} is available',
+    current: 'You have version {{version}}. Meetings and settings are kept.',
+    install: 'Update',
+    download: 'Download',
+    notes: "What's new",
+    restarting: 'Update installed: restarting…',
+  },
   health: {
     unreachable: 'Smart Meeting does not answer',
     unreachableHint: 'Restart the app.',

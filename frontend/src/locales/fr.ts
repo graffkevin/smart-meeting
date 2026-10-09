@@ -124,6 +124,14 @@ const fr = {
     busy: 'Disponible une fois la réunion en cours terminée.',
     error: 'Import impossible',
   },
+  update: {
+    available: 'Smart Meeting {{version}} est disponible',
+    current: 'Vous avez la version {{version}}. Les réunions et les réglages sont conservés.',
+    install: 'Mettre à jour',
+    download: 'Télécharger',
+    notes: 'Nouveautés',
+    restarting: 'Mise à jour installée : redémarrage…',
+  },
   health: {
     unreachable: 'Smart Meeting ne répond pas',
     unreachableHint: "Relancez l'application.",

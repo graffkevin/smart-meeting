@@ -29,6 +29,11 @@ struct ContentView: View {
                 }
             }
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if let update = app.newVersion, let latest = update.latest {
+                UpdateBanner(version: latest, url: update.url.flatMap(URL.init(string:)))
+            }
+        }
         // App Store screenshots: SM_SCREEN=settings opens the settings at launch
         .task {
             if ProcessInfo.processInfo.environment["SM_SCREEN"] == "settings" { openSettings() }
@@ -246,5 +251,36 @@ enum History {
             ? .dateTime.weekday(.wide).day().month(.wide)
             : .dateTime.weekday(.wide).day().month(.wide).year())
         return text.prefix(1).uppercased() + text.dropFirst()
+    }
+}
+
+/// A newer version: its page, to download the new disk image
+struct UpdateBanner: View {
+    @Environment(AppModel.self) private var app
+    let version: String
+    let url: URL?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "arrow.down.circle.fill").foregroundStyle(.tint)
+            Text("Smart Meeting \(version) est disponible")
+            Spacer()
+            if let url {
+                Button("Télécharger") { NSWorkspace.shared.open(url) }
+                    .buttonStyle(.borderedProminent)
+            }
+            Button {
+                app.dismissNewVersion()
+            } label: {
+                Label("Plus tard", systemImage: "xmark")
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.borderless)
+            .help("Plus tard")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(.bar)
+        .overlay(alignment: .bottom) { Divider() }
     }
 }

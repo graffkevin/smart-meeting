@@ -10,6 +10,7 @@ from smart_meeting_gtk.api import Api, ApiError, background
 from smart_meeting_gtk.server import ServerProcess
 
 HEALTH_POLL_S = 2
+UPDATE_POLL_S = 30 * 60
 SEARCH_DELAY_MS = 250
 
 
@@ -32,8 +33,9 @@ class AppState:
         self._search_timer = 0
         self._models: dict[int, object] = {}
         self.report_ready: dict | None = None  # meeting whose minutes were just written
+        self.update: dict | None = None  # latest version published, see check_update
 
-    # Subscriptions: "health", "history", "settings", "questions"
+    # Subscriptions: "health", "history", "settings", "questions", "update"
 
     def on(self, topic: str, callback: Callable[[], None]) -> None:
         self._listeners[topic].append(callback)
@@ -51,6 +53,17 @@ class AppState:
     def start(self) -> None:
         background(self.server.start, lambda _: self._poll(), lambda _: self._poll())
         GLib.timeout_add_seconds(HEALTH_POLL_S, self._poll)
+        GLib.timeout_add_seconds(UPDATE_POLL_S, self.check_update)
+
+    def check_update(self) -> bool:
+        """The server reads the latest release on GitHub every few hours."""
+
+        def answered(update: dict) -> None:
+            self.update = update
+            self.emit("update")
+
+        background(self.api.update, answered, lambda _error: None)
+        return True
 
     def _poll(self) -> bool:
         def answered(health: dict) -> None:
@@ -59,6 +72,7 @@ class AppState:
             if self._reload_needed:
                 self._reload_needed = False
                 self.reload_all()
+                self.check_update()
             elif previous != health.get("active_meeting_id"):
                 self.reload_history()
             self.emit("health")

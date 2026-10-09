@@ -54,6 +54,8 @@ final class AppModel {
     private(set) var preferences: Preferences?
     private(set) var devices: AudioDevices?
     private(set) var recentQuestions: [String] = []
+    /// Latest version published, when newer than this app (a new disk image to download)
+    private(set) var newVersion: UpdateInfo?
 
     /// File chosen to import (menu File > Import, drop on the window), shown on the home page
     var fileToImport: URL?
@@ -74,6 +76,25 @@ final class AppModel {
         serverMissing = !(await server.start())
         if serverMissing { return }
         Task { await pollHealth() }
+        Task { await pollUpdate() }
+    }
+
+    /// The server reads the latest release every few hours; compared with the version of this app
+    /// (its bundled server does not know its own)
+    private func pollUpdate() async {
+        try? await Task.sleep(for: .seconds(30))  // the start of the app comes first
+        while !Task.isCancelled {
+            if let update = try? await api.update(), let latest = update.latest,
+               let current = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+               latest.compare(current, options: .numeric) == .orderedDescending {
+                newVersion = update
+            }
+            try? await Task.sleep(for: .seconds(30 * 60))
+        }
+    }
+
+    func dismissNewVersion() {
+        newVersion = nil
     }
 
     /// Server status every 2 s (installs, models, active meeting); everything else is loaded once it

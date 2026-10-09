@@ -65,6 +65,10 @@ struct APIClient: Sendable {
         try await get("api/health", timeout: 3)
     }
 
+    func update() async throws -> UpdateInfo {
+        try await get("api/update")
+    }
+
     func meetings(search: String = "") async throws -> [Meeting] {
         try await get("api/meetings", query: search.isEmpty ? [] : [URLQueryItem(name: "q", value: search)])
     }

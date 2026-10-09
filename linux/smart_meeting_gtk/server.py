@@ -79,6 +79,20 @@ class ServerProcess:
             except subprocess.TimeoutExpired:
                 os.killpg(process.pid, signal.SIGKILL)
 
+    def stop_any(self, timeout: float = 120) -> None:
+        """Before restarting on a new version: also a server this app did not start, so that
+        the new one takes its place. Blocks, call it from a worker thread."""
+        if self.running:
+            self.stop(timeout)
+            return
+        try:
+            self.api.shutdown()
+        except ApiError:
+            return
+        deadline = time.monotonic() + timeout
+        while self.answers() and time.monotonic() < deadline:
+            time.sleep(0.5)
+
     @property
     def running(self) -> bool:
         return self.process is not None and self.process.poll() is None

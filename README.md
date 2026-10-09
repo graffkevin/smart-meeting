@@ -30,8 +30,11 @@ The first launch downloads about 8 GB (AI and transcription models): 10 to 30 mi
 meanwhile: everything said is transcribed as soon as the models are there. The next launches take a few seconds.
 Behind a company proxy, the apps use the proxy of the system settings.
 
-To update: install the new version of the app the same way (Windows: `git pull`, then launch again). A release
-may come for one system first: if the latest one has no `.dmg` yet, take it from the previous release.
+To update: from version 0.2.3, the app tells you when a new version is out. On Linux and in the browser version,
+**Update** installs it (the package asks for your password) and restarts; on a Mac, **Download** opens its page. Your
+meetings and settings are kept. Up to 0.2.2, install the new version by hand once, the same way (Windows: `git pull`,
+then launch again). A release may come for one system first: if the latest one has no `.dmg` yet, take it from the
+previous release.
 
 To uninstall on Linux: `sudo apt remove smart-meeting` (your meetings stay in `~/.local/share/smart-meeting/`).
 From a clone of the repository, `./smart-meeting --install` puts the Linux app in the applications menu, with its
@@ -94,7 +97,8 @@ said.
 ## Privacy
 
 Everything runs on your computer: the transcription, the AI, the storage. No audio, no transcript, no question ever
-goes on the Internet. The downloads only fetch the software and the models.
+goes on the Internet. The downloads only fetch the software and the models, and the update check only reads the list
+of releases on GitHub.
 
 ## More
 

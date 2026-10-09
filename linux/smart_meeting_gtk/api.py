@@ -94,6 +94,13 @@ class Api:
         """Stops the server once the meeting being recorded is transcribed (can take a while)."""
         self._request("POST", "api/shutdown", timeout=LONG_TIMEOUT_S)
 
+    def update(self, refresh: bool = False) -> dict:
+        return self._request("GET", "api/update" + ("?refresh=true" if refresh else ""), timeout=30)
+
+    def apply_update(self) -> dict:
+        """Download and install the new version (the system asks for the password)."""
+        return self._request("POST", "api/update", timeout=LONG_TIMEOUT_S)
+
     def restart_ai(self) -> None:
         self._request("POST", "api/ai/restart")
 

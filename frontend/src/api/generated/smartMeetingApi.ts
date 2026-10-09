@@ -7,6 +7,7 @@ import type {
   AskRequest,
   AudioDevices,
   BodyImportMeeting,
+  GetUpdateParams,
   Health,
   ListMeetingsParams,
   Meeting,
@@ -17,10 +18,70 @@ import type {
   StartMeetingRequest,
   TagCount,
   TagsRequest,
-  UpdateMeetingRequest
+  UpdateInfo,
+  UpdateMeetingRequest,
+  UpdateResult
 } from './model';
 
 import smartMeetingClient from '../smartMeetingClient';
+
+export const getGetUpdateUrl = (params?: GetUpdateParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/update?${stringifiedParams}` : `/api/update`
+}
+
+/**
+ * The latest version published, and how this installation gets it.
+ * @summary Get Update
+ */
+export const getUpdate = async (params?: GetUpdateParams, options?: Parameters<typeof smartMeetingClient>[1]): Promise<UpdateInfo> => {
+
+  return smartMeetingClient<UpdateInfo>(getGetUpdateUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+export const getApplyUpdateUrl = () => {
+
+
+
+
+  return `/api/update`
+}
+
+/**
+ * Install the latest version, then restart: the server by itself in the browser version,
+ * the desktop app restarts itself and its server.
+ * @summary Apply Update
+ */
+export const applyUpdate = async ( options?: Parameters<typeof smartMeetingClient>[1]): Promise<UpdateResult> => {
+
+  return smartMeetingClient<UpdateResult>(getApplyUpdateUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
 
 export const getHealthUrl = () => {
 

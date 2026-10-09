@@ -63,6 +63,8 @@ app.include_router(router)
 app.state.request_exit = lambda: os.kill(os.getpid(), signal.SIGINT)
 # Set by the launcher only: in development, closing the page must not stop the server.
 app.state.stop_when_unused = None
+# Set by the launcher in the browser version: restart on the updated code (see update.py).
+app.state.restart = None
 
 # The built interface, from the same origin. Not checked at import: the launcher builds it after
 # importing this module (first run, or sources changed).
