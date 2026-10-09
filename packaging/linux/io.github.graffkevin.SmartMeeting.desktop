@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Smart Meeting
+Comment=Transcription et compte rendu de réunions, 100 % local
+Exec=@EXEC@
+Icon=io.github.graffkevin.SmartMeeting
+Terminal=false
+StartupNotify=true
+Categories=Office;
+Keywords=réunion;meeting;transcription;compte rendu;minutes;

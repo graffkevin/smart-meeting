@@ -4,11 +4,13 @@ Meeting.app`; Windows: a Start menu shortcut. Each one runs the launcher of the 
 
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 APP_NAME = "Smart Meeting"
+LINUX_APP_ID = "io.github.graffkevin.SmartMeeting"
 
 
 def install(root: Path) -> Path:
@@ -21,11 +23,37 @@ def install(root: Path) -> Path:
 
 
 def _install_linux(root: Path) -> Path:
+    """The GNOME app (linux/) when GTK 4 and libadwaita are there: its own entry and icon, as the
+    package installs them, in the user's folders (no admin rights). Else the browser version."""
+    share = Path.home() / ".local" / "share"
+    old = share / "applications" / "smart-meeting.desktop"  # browser version, earlier installs
+    if _gnome_app_available(root):
+        entry = share / "applications" / f"{LINUX_APP_ID}.desktop"
+        icon = share / "icons" / "hicolor" / "scalable" / "apps" / f"{LINUX_APP_ID}.svg"
+        for folder in (entry.parent, icon.parent):
+            folder.mkdir(parents=True, exist_ok=True)
+        template = (root / "packaging" / "linux" / f"{LINUX_APP_ID}.desktop").read_text("utf-8")
+        launcher = shlex.quote(str(root / "linux" / "smart-meeting-app"))
+        entry.write_text(template.replace("@EXEC@", launcher), encoding="utf-8")
+        shutil.copyfile(root / "macos" / "app-icon.svg", icon)
+        old.unlink(missing_ok=True)
+        return entry
     template = (root / "packaging" / "smart-meeting.desktop").read_text(encoding="utf-8")
-    target = Path.home() / ".local" / "share" / "applications" / "smart-meeting.desktop"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(template.replace("@ROOT@", str(root)), encoding="utf-8")
-    return target
+    old.parent.mkdir(parents=True, exist_ok=True)
+    old.write_text(template.replace("@ROOT@", str(root)), encoding="utf-8")
+    return old
+
+
+def _gnome_app_available(root: Path) -> bool:
+    if not (root / "linux" / "smart-meeting-app").exists():
+        return False
+    check = "import gi; gi.require_version('Gtk', '4.0'); gi.require_version('Adw', '1')"
+    try:  # the system Python: the app does not run in the server's environment
+        return (
+            subprocess.run(["/usr/bin/python3", "-c", check], capture_output=True).returncode == 0
+        )
+    except OSError:
+        return False
 
 
 def _install_macos(root: Path) -> Path:

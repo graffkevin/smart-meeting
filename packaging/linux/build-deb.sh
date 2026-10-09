@@ -37,18 +37,8 @@ find "$OPT" -name __pycache__ -type d -prune -exec rm -rf {} +
 
 ln -s /opt/smart-meeting/linux/smart-meeting-app "$STAGE/usr/bin/smart-meeting-app"
 cp "$ROOT/macos/app-icon.svg" "$STAGE/usr/share/icons/hicolor/scalable/apps/$APP_ID.svg"
-cat > "$STAGE/usr/share/applications/$APP_ID.desktop" <<EOF
-[Desktop Entry]
-Type=Application
-Name=Smart Meeting
-Comment=Transcription et compte rendu de réunions, 100 % local
-Exec=smart-meeting-app
-Icon=$APP_ID
-Terminal=false
-StartupNotify=true
-Categories=Office;
-Keywords=réunion;meeting;transcription;compte rendu;minutes;
-EOF
+sed "s|@EXEC@|smart-meeting-app|" "$ROOT/packaging/linux/$APP_ID.desktop" \
+  > "$STAGE/usr/share/applications/$APP_ID.desktop"
 
 cat > "$STAGE/DEBIAN/control" <<EOF
 Package: smart-meeting
