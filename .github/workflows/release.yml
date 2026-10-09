@@ -4,6 +4,8 @@
 # - the release of the tag is created as a draft when there is none (notes written by hand, then
 #   published), an existing one (draft or published) gets the files;
 # - Linux: the GNOME app package (packaging/linux/build-deb.sh) on Ubuntu;
+# - Windows: the installer of the app (packaging/windows/build.sh) on Windows, installed and started
+#   there before being added (not signed: Windows SmartScreen asks to confirm the first launch);
 # - macOS: the disk image (packaging/macos/build.sh) on a GitHub Mac, signed with the Developer ID and
 #   notarized. Without the signing secrets it only gets an ad hoc signature, which macOS refuses to
 #   open once downloaded: it is then kept as an artifact of the run, never added to a release.
@@ -73,6 +75,75 @@ jobs:
           deb="$(ls build/linux/smart-meeting_*_all.deb)"
           sha256sum "$deb"
           gh release upload "$TAG" "$deb" --clobber
+
+  exe:
+    needs: release
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG || github.ref }}
+
+      - uses: astral-sh/setup-uv@v6
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Inno Setup
+        run: |
+          [ -f "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" ] || choco install innosetup -y --no-progress
+
+      - name: Build
+        run: packaging/windows/build.sh
+
+      - name: Install and start it
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path backend/pyproject.toml -Pattern '^version = "(.*)"').Matches[0].Groups[1].Value
+          $setup = Get-ChildItem build/windows/Smart-Meeting-Setup-*.exe
+          Start-Process $setup.FullName -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
+          $exe = "$env:LOCALAPPDATA\Programs\Smart Meeting\Smart Meeting.exe"
+          $log = "$env:LOCALAPPDATA\smart-meeting\server.log"
+          # The window's libraries (WebView2 through .NET) load from the bundle
+          $test = Start-Process $exe -ArgumentList '--self-test' -Wait -PassThru
+          if ($test.ExitCode -ne 0) { throw "Window libraries: exit code $($test.ExitCode)" }
+          # The server of the installed app answers, serves the interface and knows its version
+          $server = Start-Process $exe -ArgumentList '--server', '--no-window', '--port', '8499' -PassThru
+          $health = $null
+          for ($i = 0; $i -lt 90 -and -not $health; $i++) {
+            Start-Sleep -Seconds 2
+            try { $health = Invoke-RestMethod http://127.0.0.1:8499/api/health } catch {}
+          }
+          try {
+            if (-not $health) { throw "The server does not answer" }
+            $page = Invoke-WebRequest http://127.0.0.1:8499/ -UseBasicParsing
+            if ($page.Content -notmatch 'id="root"') { throw "No web interface" }
+            $update = Invoke-RestMethod http://127.0.0.1:8499/api/update
+            if ($update.current -ne $version) { throw "Version $($update.current), expected $version" }
+            Write-Output "Smart Meeting $version installed and running"
+          } finally {
+            try { Invoke-RestMethod -Method Post http://127.0.0.1:8499/api/shutdown | Out-Null } catch {}
+            $server | Wait-Process -Timeout 60 -ErrorAction SilentlyContinue
+            if (Test-Path $log) { Get-Content $log -Tail 40 }
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Smart-Meeting-exe
+          path: build/windows/Smart-Meeting-Setup-*.exe
+          retention-days: 14
+
+      - name: Add to the release
+        if: env.TAG != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          exe="$(ls build/windows/Smart-Meeting-Setup-*.exe)"
+          sha256sum "$exe"
+          gh release upload "$TAG" "$exe" --clobber
 
   dmg:
     needs: release

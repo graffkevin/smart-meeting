@@ -35,6 +35,9 @@ cuda = [
 # launcher when it finds Intel hardware.
 intel = ["openvino-genai>=2026.4.1"]
 
+# The Windows app (packaging/windows): its window, Edge WebView2 through pywebview.
+windows-app = ["pywebview>=6.2 ; sys_platform == 'win32'"]
+
 [project.scripts]
 smart-meeting = "smart_meeting.launcher:run"
 

@@ -171,3 +171,22 @@ def test_unloading_gives_back_the_best_model_on_the_next_load(everything_install
     assert transcriber.engine is None and not transcriber.on_gpu
     transcriber.load()
     assert transcriber.model_name == "large-v3-turbo"
+
+
+def test_nvidia_card_without_cuda_libraries_falls_back_to_the_cpu(everything_installed):
+    loaded = []
+
+    class Engine(FakeEngine):
+        def load(self):
+            if self.settings.whisper_device != "cpu":
+                raise RuntimeError("cublas64_12.dll not found")
+            loaded.append(self.settings.whisper_device)
+            self.model_name, self.device = "small", "cpu"
+
+    transcriber = engines.AutoTranscriber(
+        Settings(),
+        hardware=lambda: NVIDIA,
+        factory=lambda name, settings: Engine(settings, name, False),
+    )
+    transcriber.load()
+    assert loaded == ["cpu"] and transcriber.engine == "faster-whisper"

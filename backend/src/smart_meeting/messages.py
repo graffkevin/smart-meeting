@@ -132,6 +132,16 @@ MESSAGES: dict[str, dict[str, str]] = {
         "fr": "Téléchargement du modèle IA {name}",
         "en": "Downloading the {name} AI model",
     },
+    # Windows app
+    "app_quit_while_recording": {
+        "fr": "Une réunion est en cours d'enregistrement. Quitter l'arrête et termine sa "
+        "transcription.",
+        "en": "A meeting is being recorded. Quitting stops it and finishes its transcription.",
+    },
+    "app_server_failed": {
+        "fr": "Smart Meeting n'a pas pu démarrer. Détails dans {log}",
+        "en": "Smart Meeting could not start. Details in {log}",
+    },
     "ollama_not_starting": {
         "fr": "Ollama ne démarre pas (voir {log})",
         "en": "Ollama does not start (see {log})",

@@ -77,19 +77,27 @@ class AutoTranscriber:
         self._initial_settings = settings
 
     def load(self) -> None:
-        order = engine_order(self.settings, self._hardware())
-        for name in order:
-            engine = self._factory(name, self.settings)
+        attempts = [(name, self.settings) for name in engine_order(self.settings, self._hardware())]
+        if (
+            attempts
+            and attempts[-1][0] == "faster-whisper"
+            and self.settings.whisper_device == "auto"
+        ):
+            # NVIDIA card without the CUDA libraries (the Windows app has none): on the CPU
+            cpu = self.settings.model_copy(update={"whisper_device": "cpu"})
+            attempts.append(("faster-whisper", cpu))
+        for number, (name, settings) in enumerate(attempts, 1):
+            engine = self._factory(name, settings)
             try:
                 engine.load()
             except Exception:
-                if name == order[-1]:
+                if number == len(attempts):
                     raise
                 logger.warning(
                     "Transcription engine %s unavailable, trying the next one", name, exc_info=True
                 )
                 continue
-            self._engine, self.engine = engine, name
+            self._engine, self.engine, self.settings = engine, name, settings
             logger.info("Transcription engine: %s", name)
             return
         raise RuntimeError("No transcription engine installed")

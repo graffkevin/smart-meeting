@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import signal
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -21,7 +22,12 @@ from smart_meeting.meeting.service import MeetingService  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
-FRONTEND_DIST = Path(__file__).resolve().parents[3] / "frontend" / "dist"
+# The built interface: next to the project, or inside the Windows app (PyInstaller bundle)
+FRONTEND_DIST = (
+    Path(getattr(sys, "_MEIPASS", "")) / "frontend" / "dist"
+    if getattr(sys, "frozen", False)
+    else Path(__file__).resolve().parents[3] / "frontend" / "dist"
+)
 
 
 @asynccontextmanager
