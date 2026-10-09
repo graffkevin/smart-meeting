@@ -1,0 +1,108 @@
+# macOS app on a GitHub Mac: packaging/macos/build.sh, as on a developer's Mac.
+#
+# With the secrets below, the disk image is signed with the Developer ID and notarized: it opens
+# on every Mac. Without them, it gets an ad hoc signature (macOS refuses to open it once
+# downloaded: tests only). On a v* tag, the image is added to the release of that tag (a draft
+# one included); it is also kept as an artifact of the run.
+#
+# Secrets (Settings > Secrets and variables > Actions), see docs/TECHNICAL.md:
+#   MACOS_CERTIFICATE           the "Developer ID Application" certificate and its key, .p12 in base64
+#   MACOS_CERTIFICATE_PASSWORD  password of the .p12
+#   APPLE_ID                    Apple account of the developer team
+#   APPLE_APP_PASSWORD          app-specific password of that account (notarization)
+#   APPLE_TEAM_ID               team ID (10 characters)
+name: macOS app
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build and add to its release (e.g. v0.2.1); empty: main, artifact only"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0 # the build number is the number of commits
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: XcodeGen
+        run: brew install xcodegen
+
+      - name: Signing keychain
+        id: signing
+        env:
+          CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$CERTIFICATE" ]; then
+            echo "::warning::No MACOS_CERTIFICATE secret: ad hoc signature, the image will not open on other Macs"
+            exit 0
+          fi
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password="$(openssl rand -base64 24)"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          echo "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/productbuild
+          rm "$RUNNER_TEMP/certificate.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          identity="$(security find-identity -v -p codesigning "$keychain" \
+            | sed -nE 's/.*"(Developer ID Application: [^"]+)".*/\1/p' | head -1)"
+          [ -n "$identity" ] || { echo "::error::No Developer ID Application identity in MACOS_CERTIFICATE"; exit 1; }
+          echo "developer_id=$identity" >> "$GITHUB_OUTPUT"
+          if [ -n "$APPLE_ID" ] && [ -n "$APPLE_APP_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
+            xcrun notarytool store-credentials smart-meeting --apple-id "$APPLE_ID" \
+              --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --keychain "$keychain"
+            echo "notary_profile=smart-meeting" >> "$GITHUB_OUTPUT"
+            echo "team=$APPLE_TEAM_ID" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No notarization secrets: signed but not notarized"
+          fi
+
+      - name: Build
+        env:
+          DEVELOPER_ID: ${{ steps.signing.outputs.developer_id }}
+          NOTARY_PROFILE: ${{ steps.signing.outputs.notary_profile }}
+          TEAM: ${{ steps.signing.outputs.team || 'S9DDJTM2UJ' }}
+        run: packaging/macos/build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Smart-Meeting-dmg
+          path: build/macos/Smart-Meeting-*.dmg
+          retention-days: 14
+
+      - name: Add to the release
+        if: inputs.tag != '' || startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          dmg="$(ls build/macos/Smart-Meeting-*.dmg)"
+          shasum -a 256 "$dmg"
+          # A draft release when there is none yet: published by hand, with its notes
+          gh release view "$TAG" >/dev/null 2>&1 \
+            || gh release create "$TAG" --draft --title "Smart Meeting ${TAG#v}" --notes ""
+          gh release upload "$TAG" "$dmg" --clobber
+
+      - name: Remove the signing keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true

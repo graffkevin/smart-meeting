@@ -258,6 +258,23 @@ forbids downloading code; the models are still downloaded at first launch. The A
 the interface, `cd macos && xcodegen` then open `SmartMeeting.xcodeproj`: a Debug build without the bundled server
 uses the one started with `./smart-meeting --no-window`. The server's log is in `~/Library/Logs/Smart Meeting/`.
 
+**On GitHub, without a Mac at hand**: the `macOS app` workflow (`.github/workflows/macos.yml`) runs `build.sh` on a
+GitHub Mac, on every `v*` tag or by hand (Actions > macOS app > Run workflow, or
+`gh workflow run macos.yml -f tag=v0.2.1`), and adds the disk image to the release of the tag (created as a draft
+if there is none). To sign and notarize it, store once these repository secrets, from the Mac holding the
+certificate:
+
+```bash
+# Keychain Access > My Certificates > "Developer ID Application: …" > right click, Export (.p12, with a password)
+gh secret set MACOS_CERTIFICATE < <(base64 -i DeveloperID.p12)
+gh secret set MACOS_CERTIFICATE_PASSWORD     # the password of the .p12
+gh secret set APPLE_ID                       # the Apple account of the team
+gh secret set APPLE_TEAM_ID                  # its team ID
+gh secret set APPLE_APP_PASSWORD             # appleid.apple.com > Sign-In and Security > App-Specific Passwords
+```
+
+Without them, the image only has an ad hoc signature: macOS refuses to open it once downloaded (tests only).
+
 ## Linux app
 
 `linux/` holds a native GNOME app (Python, GTK 4 and libadwaita from the system: `python3-gi`, `gir1.2-gtk-4.0`,
