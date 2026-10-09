@@ -33,7 +33,10 @@ struct TranscriptView: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             Divider()
-            if segments.isEmpty, partials.isEmpty {
+            if model.detail == nil {  // not loaded yet: not "nothing said"
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if segments.isEmpty, partials.isEmpty {
                 ContentUnavailableView {
                     Label(live ? "Smart Meeting écoute…" : "Aucune parole détectée.", systemImage: "waveform")
                 } description: {

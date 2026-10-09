@@ -189,7 +189,9 @@ class MeetingPage(Adw.NavigationPage):
                     )
                 )
             else:
-                self.content.append(Gtk.Spinner(spinning=True, halign=Gtk.Align.CENTER))
+                self.content.append(
+                    Gtk.Spinner(spinning=True, halign=Gtk.Align.CENTER, margin_top=48)
+                )
             self.stop_button.set_visible(False)
             self.menu_button.set_visible(False)
             return

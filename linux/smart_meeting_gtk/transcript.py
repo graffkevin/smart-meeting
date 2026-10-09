@@ -70,6 +70,12 @@ class TranscriptPane(Gtk.Box):
         self._shown, self._partials = [], []
         segments = self.model.segments
         self.copy.set_visible(bool(segments))
+        if self.model.detail is None:  # not loaded yet: not "nothing said"
+            if not self.model.load_error:
+                self._list.append(
+                    Gtk.Spinner(spinning=True, halign=Gtk.Align.CENTER, margin_top=48)
+                )
+            return
         if not segments and not (self._live and self.model.partials):
             empty = Adw.StatusPage(
                 icon_name="audio-input-microphone-symbolic",
