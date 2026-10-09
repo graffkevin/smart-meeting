@@ -171,6 +171,8 @@ const fr = {
     rename: 'Double-cliquez pour renommer',
     recording: 'Enregistrement',
     stop: "Arrêter l'enregistrement",
+    waitingForModel:
+      "Le modèle de transcription se télécharge (la première fois seulement). Tout ce qui se dit est enregistré et sera transcrit dès qu'il sera prêt : rien n'est perdu.",
     stopTitle: "Arrêter l'enregistrement ?",
     stopText:
       "La transcription se termine, puis l'IA rédige le compte rendu. L'enregistrement ne pourra pas reprendre dans cette réunion.",

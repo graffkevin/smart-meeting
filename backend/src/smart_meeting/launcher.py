@@ -264,6 +264,10 @@ def run() -> None:
     args = parser.parse_args()
     args.no_window = args.no_window or args.app
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    # Started from the Finder or the applications menu: no proxy from a terminal
+    from smart_meeting.proxy import apply_system_proxy
+
+    apply_system_proxy()
     if args.install:
         from smart_meeting import shortcut
 

@@ -225,6 +225,12 @@ struct LivePanel: View {
                 .controlSize(.extraLarge)
                 .disabled(model.stopping)
 
+                if app.health?.whisper == "loading" {
+                    Label("Le modèle de transcription se télécharge (la première fois seulement). Tout ce qui se dit est enregistré et sera transcrit dès qu'il sera prêt : rien n'est perdu.", systemImage: "arrow.down.circle")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
                 if model.queue > 0 {
                     Text("\(model.queue) phrase(s) en attente de transcription")
                         .font(.caption)

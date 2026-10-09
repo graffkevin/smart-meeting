@@ -66,6 +66,7 @@ import { ROUTES } from '@/constants/routes';
 import useMeetingEvents from '@/features/meeting/useMeetingEvents';
 import useModelStatus from '@/hooks/useModelStatus';
 import audioDevicesQueryOptions from '@/services/audioDevicesQueryOptions';
+import healthQueryOptions from '@/services/healthQueryOptions';
 import meetingQueryOptions from '@/services/meetingQueryOptions';
 import meetingReportQueryOptions from '@/services/meetingReportQueryOptions';
 import recentQuestionsQueryOptions from '@/services/recentQuestionsQueryOptions';
@@ -100,6 +101,7 @@ const LivePanel = ({ startedAt, live, captured, onStop, stopping }: LivePanelPro
   const [now, setNow] = useState(Date.now());
   const { t } = useTranslation();
   const { data: devices } = useQuery(audioDevicesQueryOptions());
+  const { data: health } = useQuery(healthQueryOptions());
   const openSettings = useMutation({ mutationFn: () => openPermissionSettings() });
   useInterval(() => setNow(Date.now()), 1000, { autoInvoke: true });
   const known = [...(devices?.sources ?? []), ...(devices?.sinks ?? [])];
@@ -142,6 +144,11 @@ const LivePanel = ({ startedAt, live, captured, onStop, stopping }: LivePanelPro
         loading={stopping}
         onClick={onStop}
       />
+      {health?.whisper === 'loading' && (
+        <Alert tone="primary" title={t('health.whisperLoading')}>
+          {t('meeting.waitingForModel')}
+        </Alert>
+      )}
       {live.queue > 0 && <Typography variant="caption">{t('meeting.queue', { count: live.queue })}</Typography>}
       {isDefined(captured) && (
         <Typography variant="caption">

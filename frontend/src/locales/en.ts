@@ -173,6 +173,8 @@ const en: Translation = {
     rename: 'Double click to rename',
     recording: 'Recording',
     stop: 'Stop recording',
+    waitingForModel:
+      'The transcription model is downloading (the first time only). Everything said is recorded and will be transcribed as soon as it is ready: nothing is lost.',
     stopTitle: 'Stop recording?',
     stopText: 'The transcription finishes, then the AI writes the minutes. Recording cannot go on in this meeting.',
     stopConfirm: 'Stop',

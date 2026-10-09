@@ -144,12 +144,27 @@ def _wait(method, has_result: bool = True, timeout: float = 10):
 
 def _make_output(on_samples):
     """SCStreamOutput delegate converting audio sample buffers to numpy (mono float32)."""
+    output = _output_class().alloc().init()
+    output.on_samples = on_samples
+    return output
+
+
+_OUTPUT_CLASS = None
+
+
+def _output_class():
+    """The delegate class, defined once: Objective-C refuses a class defined again under the same
+    name ("is overriding existing Objective-C class"), which broke the second recording of a
+    session."""
+    global _OUTPUT_CLASS
+    if _OUTPUT_CLASS is not None:
+        return _OUTPUT_CLASS
     import CoreMedia
     import objc
     import ScreenCaptureKit as SCK
     from Foundation import NSObject
 
-    class AudioOutput(NSObject, protocols=[objc.protocolNamed("SCStreamOutput")]):
+    class SmartMeetingAudioOutput(NSObject, protocols=[objc.protocolNamed("SCStreamOutput")]):
         def stream_didOutputSampleBuffer_ofType_(self, stream, sample_buffer, output_type):
             if output_type != SCK.SCStreamOutputTypeAudio:
                 return
@@ -159,9 +174,10 @@ def _make_output(on_samples):
             length = CoreMedia.CMBlockBufferGetDataLength(block)
             status, data = CoreMedia.CMBlockBufferCopyDataBytes(block, 0, length, None)
             if status == 0 and data:
-                on_samples(np.frombuffer(bytes(data), dtype=np.float32))
+                self.on_samples(np.frombuffer(bytes(data), dtype=np.float32))
 
-    return AudioOutput.alloc().init()
+    _OUTPUT_CLASS = SmartMeetingAudioOutput
+    return _OUTPUT_CLASS
 
 
 # System Settings > Privacy & Security > Screen & System Audio Recording
