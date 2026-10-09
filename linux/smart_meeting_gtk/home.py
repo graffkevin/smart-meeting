@@ -21,19 +21,27 @@ def selected_language(dropdown: Gtk.DropDown) -> str:
 
 
 class HomePage(Gtk.ScrolledWindow):
-    def __init__(self, app: AppState, open_meeting: Callable[[int], None], open_settings: Callable[[], None]):
+    def __init__(
+        self, app: AppState, open_meeting: Callable[[int], None], open_settings: Callable[[], None]
+    ):
         super().__init__(hscrollbar_policy=Gtk.PolicyType.NEVER)
         self.app, self.open_meeting, self.open_settings = app, open_meeting, open_settings
-        clamp = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=20, margin_top=24,
-                        margin_bottom=24, margin_start=24, margin_end=24)  # fmt: skip
+        clamp = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=20,
+            margin_top=24,
+            margin_bottom=24,
+            margin_start=24,
+            margin_end=24,
+        )
         holder = Adw.Clamp(maximum_size=720, child=clamp)
         self.set_child(holder)
         self._status = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         self._record = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self._import = ImportPanel(app, open_meeting)
+        self.import_panel = ImportPanel(app, open_meeting)
         clamp.append(self._status)
         clamp.append(self._record)
-        clamp.append(self._import)
+        clamp.append(self.import_panel)
         self._form: RecordForm | None = None
         self._showing_form: bool | None = None
         app.on("health", self.refresh)
@@ -55,12 +63,17 @@ class HomePage(Gtk.ScrolledWindow):
                 self._record.append(self._in_progress(active))
         if self._form is not None:
             self._form.refresh_devices()
-        self._import.set_busy(active is not None)
+        self.import_panel.set_busy(active is not None)
 
     def _in_progress(self, meeting_id: int) -> Gtk.Widget:
         frame = Gtk.Frame()
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14, margin_top=20,
-                      margin_bottom=20, halign=Gtk.Align.CENTER)  # fmt: skip
+        box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=14,
+            margin_top=20,
+            margin_bottom=20,
+            halign=Gtk.Align.CENTER,
+        )
         box.append(label("● Enregistrement", "recording-label", xalign=0.5))
         box.append(label("Une réunion est en cours", "title-2", xalign=0.5))
         join = Gtk.Button(label="Reprendre la réunion", css_classes=["suggested-action", "pill"])
@@ -73,24 +86,45 @@ class HomePage(Gtk.ScrolledWindow):
         clear(self._status)
         app = self.app
         if app.unreachable:
-            self._status.append(banner("Smart Meeting ne répond pas", "Relancez l'application.",
-                                       "dialog-error-symbolic", "error"))  # fmt: skip
+            self._status.append(
+                banner(
+                    "Smart Meeting ne répond pas",
+                    "Relancez l'application.",
+                    "dialog-error-symbolic",
+                    "error",
+                )
+            )
             return
         health = app.health
         if health is None:
             spinner = Gtk.Box(spacing=8, halign=Gtk.Align.CENTER)
             spinner.append(Gtk.Spinner(spinning=True))
-            spinner.append(label("Démarrage de Smart Meeting… (la première fois, l'installation peut "
-                                 "prendre plusieurs minutes)", wrap=True))  # fmt: skip
+            spinner.append(
+                label(
+                    "Démarrage de Smart Meeting… (la première fois, l'installation peut "
+                    "prendre plusieurs minutes)",
+                    wrap=True,
+                )
+            )
             self._status.append(spinner)
             return
         if health["whisper"] == "loading":
-            self._status.append(banner("Préparation de la transcription",
-                                       "Chargement du modèle (jusqu'à 1,6 Go à télécharger au premier lancement)…",
-                                       "audio-input-microphone-symbolic"))  # fmt: skip
+            self._status.append(
+                banner(
+                    "Préparation de la transcription",
+                    "Chargement du modèle (jusqu'à 1,6 Go à télécharger au premier lancement)…",
+                    "audio-input-microphone-symbolic",
+                )
+            )
         if health["whisper"] == "error":
-            self._status.append(banner("La transcription ne fonctionne pas", health.get("whisper_detail") or "",
-                                       "dialog-error-symbolic", "error"))  # fmt: skip
+            self._status.append(
+                banner(
+                    "La transcription ne fonctionne pas",
+                    health.get("whisper_detail") or "",
+                    "dialog-error-symbolic",
+                    "error",
+                )
+            )
         setup = health.get("setup") or []
         if setup:
             box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -107,29 +141,62 @@ class HomePage(Gtk.ScrolledWindow):
                     bar.pulse()
                     bar.set_text(f"{step['label']}…")
                 box.append(bar)
-            box.append(label("Comptez 10 à 30 minutes selon votre connexion (environ 6 Go). Vous pouvez déjà "
-                             "enregistrer : le compte rendu sera disponible à la fin.", "caption", "dim-label"))  # fmt: skip
+            box.append(
+                label(
+                    "Comptez 10 à 30 minutes selon votre connexion (environ 6 Go). Vous pouvez "
+                    "déjà "
+                    "enregistrer : le compte rendu sera disponible à la fin.",
+                    "caption",
+                    "dim-label",
+                )
+            )
             self._status.append(box)
         elif not health.get("ollama"):
-            self._status.append(banner("L'IA locale ne répond pas", "Le compte rendu automatique est indisponible.",
-                                       "dialog-warning-symbolic", "warning"))  # fmt: skip
+            self._status.append(
+                banner(
+                    "L'IA locale ne répond pas",
+                    "Le compte rendu automatique est indisponible.",
+                    "dialog-warning-symbolic",
+                    "warning",
+                )
+            )
         elif not health.get("ollama_model_available"):
-            self._status.append(banner(f"Le modèle d'IA {health.get('ollama_model')} est absent.", "",
-                                       "dialog-warning-symbolic", "warning"))  # fmt: skip
+            self._status.append(
+                banner(
+                    f"Le modèle d'IA {health.get('ollama_model')} est absent.",
+                    "",
+                    "dialog-warning-symbolic",
+                    "warning",
+                )
+            )
 
 
 class RecordForm(Gtk.Frame):
     """The main call to action: name the meeting, check its language, start recording."""
 
-    def __init__(self, app: AppState, open_meeting: Callable[[int], None], open_settings: Callable[[], None]):
+    def __init__(
+        self, app: AppState, open_meeting: Callable[[int], None], open_settings: Callable[[], None]
+    ):
         super().__init__()
         self.app, self.open_meeting = app, open_meeting
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16, margin_top=20,
-                      margin_bottom=20, margin_start=20, margin_end=20)  # fmt: skip
+        box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=16,
+            margin_top=20,
+            margin_bottom=20,
+            margin_start=20,
+            margin_end=20,
+        )
         box.append(label("Prêt pour votre prochaine réunion ?", "title-1", xalign=0.5))
-        box.append(label("Smart Meeting transcrit votre réunion en direct. Demandez-lui ce que vous voulez, "
-                         "pendant ou après : un résumé, vos actions, qui a dit quoi… et récupérez le compte "
-                         "rendu. Tout reste sur votre ordinateur.", "dim-label", xalign=0.5))  # fmt: skip
+        box.append(
+            label(
+                "Smart Meeting transcrit votre réunion en direct. Demandez-lui ce que vous voulez, "
+                "pendant ou après : un résumé, vos actions, qui a dit quoi… et récupérez le compte "
+                "rendu. Tout reste sur votre ordinateur.",
+                "dim-label",
+                xalign=0.5,
+            )
+        )
 
         grid = Gtk.Grid(column_spacing=12, row_spacing=8)
         self.title = Gtk.Entry(placeholder_text="Ex. : Ma super réunion", hexpand=True)
@@ -138,13 +205,19 @@ class RecordForm(Gtk.Frame):
         preferences = app.preferences or {}
         self.language = language_dropdown(preferences.get("language") or "auto")
         for row, (name, widget) in enumerate(
-            (("Nom de la réunion", self.title), ("Tags", self.tags), ("Langue parlée", self.language))
+            (
+                ("Nom de la réunion", self.title),
+                ("Tags", self.tags),
+                ("Langue parlée", self.language),
+            )
         ):
             grid.attach(label(name, xalign=1.0, wrap=False), 0, row, 1, 1)
             grid.attach(widget, 1, row, 1, 1)
         box.append(grid)
 
-        self.start_button = Gtk.Button(halign=Gtk.Align.CENTER, css_classes=["destructive-action", "pill"])
+        self.start_button = Gtk.Button(
+            halign=Gtk.Align.CENTER, css_classes=["destructive-action", "pill"]
+        )
         self.start_button.set_child(self._start_label("Démarrer l'enregistrement"))
         self.start_button.connect("clicked", lambda _b: self._start())
         box.append(self.start_button)
@@ -156,12 +229,26 @@ class RecordForm(Gtk.Frame):
         devices.append(self.devices)
         devices.append(change)
         box.append(devices)
-        box.append(label("Lancez ensuite votre visio (Teams, Meet, Zoom…) : Smart Meeting s'adapte.",
-                         "caption", "dim-label", xalign=0.5))  # fmt: skip
-        box.append(label("Rien de ce qui se dit n'est perdu : le son est enregistré sur votre ordinateur pendant "
-                         "la réunion, au cas où. Si la transcription décroche, elle reprend toute seule et "
-                         "rattrape ce qui manque, puis ce son est effacé (sauf si vous choisissez de le garder).",
-                         "caption", "dim-label", xalign=0.5))  # fmt: skip
+        box.append(
+            label(
+                "Lancez ensuite votre visio (Teams, Meet, Zoom…) : Smart Meeting s'adapte.",
+                "caption",
+                "dim-label",
+                xalign=0.5,
+            )
+        )
+        box.append(
+            label(
+                "Rien de ce qui se dit n'est perdu : le son est enregistré sur votre ordinateur "
+                "pendant "
+                "la réunion, au cas où. Si la transcription décroche, elle reprend toute seule et "
+                "rattrape ce qui manque, puis ce son est effacé (sauf si vous choisissez de le "
+                "garder).",
+                "caption",
+                "dim-label",
+                xalign=0.5,
+            )
+        )
         self.error = label("", "error")
         self.error.set_visible(False)
         box.append(self.error)
@@ -178,10 +265,20 @@ class RecordForm(Gtk.Frame):
     def refresh_devices(self) -> None:
         app = self.app
         preferences, devices = app.preferences or {}, app.devices or {}
-        mic = app.describe(preferences.get("mic_device") or devices.get("in_use_source"),
-                           devices.get("sources", [])) or "aucun"  # fmt: skip
-        output = app.describe(preferences.get("output_device") or devices.get("in_use_sink"),
-                              devices.get("sinks", [])) or "aucun"  # fmt: skip
+        mic = (
+            app.describe(
+                preferences.get("mic_device") or devices.get("in_use_source"),
+                devices.get("sources", []),
+            )
+            or "aucun"
+        )
+        output = (
+            app.describe(
+                preferences.get("output_device") or devices.get("in_use_sink"),
+                devices.get("sinks", []),
+            )
+            or "aucun"
+        )
         self.devices.set_text(f"Micro : {mic} · Son des participants : {output}")
         self.start_button.set_sensitive(app.preferences is not None and app.health is not None)
 
@@ -223,14 +320,25 @@ class ImportPanel(Gtk.Frame):
         super().__init__()
         self.app, self.open_meeting = app, open_meeting
         self.file: Path | None = None
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=14,
-                      margin_bottom=14, margin_start=14, margin_end=14)  # fmt: skip
+        box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=12,
+            margin_top=14,
+            margin_bottom=14,
+            margin_start=14,
+            margin_end=14,
+        )
         top = Gtk.Box(spacing=12)
         texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, hexpand=True)
         texts.append(label("Vous avez déjà un enregistrement ?", "heading"))
-        texts.append(label("Replay de visio, webinaire, note vocale… Importez la vidéo ou le fichier audio, ou "
-                           "déposez-le sur la fenêtre : la transcription va plus vite que la lecture.",
-                           "dim-label"))  # fmt: skip
+        texts.append(
+            label(
+                "Replay de visio, webinaire, note vocale… Importez la vidéo ou le fichier audio, "
+                "ou "
+                "déposez-le sur la fenêtre : la transcription va plus vite que la lecture.",
+                "dim-label",
+            )
+        )
         top.append(texts)
         self.choose = Gtk.Button(label="Choisir un fichier", valign=Gtk.Align.START)
         self.choose.connect("clicked", lambda _b: self.choose_file())

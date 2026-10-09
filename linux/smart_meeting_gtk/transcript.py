@@ -19,14 +19,23 @@ class TranscriptPane(Gtk.Box):
         header = Gtk.Box(spacing=6, margin_start=14, margin_end=8, margin_top=8, margin_bottom=8)
         header.append(label("Transcription", "heading"))
         header.append(Gtk.Box(hexpand=True))
-        self.copy = Gtk.Button(icon_name="edit-copy-symbolic", tooltip_text="Copier toute la transcription",
-                               css_classes=["flat"])  # fmt: skip
+        self.copy = Gtk.Button(
+            icon_name="edit-copy-symbolic",
+            tooltip_text="Copier toute la transcription",
+            css_classes=["flat"],
+        )
         self.copy.connect("clicked", self._copy)
         header.append(self.copy)
         self.append(header)
         self.append(Gtk.Separator())
-        self._list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_start=14,
-                             margin_end=14, margin_top=14, margin_bottom=14)  # fmt: skip
+        self._list = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=10,
+            margin_start=14,
+            margin_end=14,
+            margin_top=14,
+            margin_bottom=14,
+        )
         self._scrolled = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
         self._scrolled.set_child(self._list)
         self.append(self._scrolled)
@@ -62,10 +71,13 @@ class TranscriptPane(Gtk.Box):
         segments = self.model.segments
         self.copy.set_visible(bool(segments))
         if not segments and not (self._live and self.model.partials):
-            empty = Adw.StatusPage(icon_name="audio-input-microphone-symbolic",
-                                   title="Smart Meeting écoute…" if self._live else "Aucune parole détectée.",
-                                   description="Les phrases apparaîtront ici au fil de la réunion."
-                                   if self._live else "")  # fmt: skip
+            empty = Adw.StatusPage(
+                icon_name="audio-input-microphone-symbolic",
+                title="Smart Meeting écoute…" if self._live else "Aucune parole détectée.",
+                description="Les phrases apparaîtront ici au fil de la réunion."
+                if self._live
+                else "",
+            )
             empty.add_css_class("compact")
             self._list.append(empty)
             return
@@ -119,14 +131,21 @@ class TranscriptPane(Gtk.Box):
         meta = Gtk.Box(spacing=6, halign=align)
         speaker = segment.get("speaker")
         if speaker:
-            name = Gtk.Box(spacing=4, tooltip_text="Double-cliquez pour nommer cet intervenant dans toute la réunion")
+            name = Gtk.Box(
+                spacing=4,
+                tooltip_text="Double-cliquez pour nommer cet intervenant dans toute la réunion",
+            )
             dot = Gtk.Box(valign=Gtk.Align.CENTER)
             dot.add_css_class("dot")
-            dot.add_css_class(f"speaker-{speakers.index(speaker) % COLORS if speaker in speakers else 0}")
+            dot.add_css_class(
+                f"speaker-{speakers.index(speaker) % COLORS if speaker in speakers else 0}"
+            )
             name.append(dot)
             name.append(label(speaker, "caption", "heading", wrap=False))
             click = Gtk.GestureClick()
-            click.connect("pressed", lambda _g, count, _x, _y, s=speaker: count == 2 and self._rename(s))
+            click.connect(
+                "pressed", lambda _g, count, _x, _y, s=speaker: count == 2 and self._rename(s)
+            )
             name.add_controller(click)
             meta.append(name)
         meta.append(label(self.model.time(segment["start_s"]), "caption", "dim-label", wrap=False))
@@ -143,8 +162,14 @@ class TranscriptPane(Gtk.Box):
         mine = partial["source"] == "mic"
         align = Gtk.Align.END if mine else Gtk.Align.START
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3, halign=align)
-        box.append(label(f"{partial['speaker']} · {self.model.time(partial['start_s'])}", "caption",
-                         "dim-label", wrap=False))  # fmt: skip
+        box.append(
+            label(
+                f"{partial['speaker']} · {self.model.time(partial['start_s'])}",
+                "caption",
+                "dim-label",
+                wrap=False,
+            )
+        )
         text = label(f"{partial['text']}…", "dim-label")
         text.add_css_class("bubble")
         text.add_css_class("partial")
@@ -152,9 +177,14 @@ class TranscriptPane(Gtk.Box):
         return box
 
     def _rename(self, speaker: str) -> None:
-        prompt_text(self, "Nommer cet intervenant",
-                    "Dans toute la réunion. Un nom déjà utilisé fusionne les deux intervenants.",
-                    speaker, "Renommer", lambda name: self.model.rename_speaker(speaker, name))  # fmt: skip
+        prompt_text(
+            self,
+            "Nommer cet intervenant",
+            "Dans toute la réunion. Un nom déjà utilisé fusionne les deux intervenants.",
+            speaker,
+            "Renommer",
+            lambda name: self.model.rename_speaker(speaker, name),
+        )
 
     def _copy(self, _button) -> None:
         copy_text(self, self.model.transcript_text)

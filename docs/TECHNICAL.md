@@ -257,3 +257,23 @@ forbids downloading code; the models are still downloaded at first launch. The A
 (`STORE_PROFILE`). To work on
 the interface, `cd macos && xcodegen` then open `SmartMeeting.xcodeproj`: a Debug build without the bundled server
 uses the one started with `./smart-meeting --no-window`. The server's log is in `~/Library/Logs/Smart Meeting/`.
+
+## Linux app
+
+`linux/` holds a native GNOME app (Python, GTK 4 and libadwaita from the system: `python3-gi`, `gir1.2-gtk-4.0`,
+`gir1.2-adw-1` ≥ 1.5, `gir1.2-soup-3.0`): the same features as the macOS app, on the same HTTP API and WebSockets
+(history in the sidebar, live recording with levels and a confirmed stop, questions, minutes, transcript in a side
+pane with named speakers, settings dialog, notification when minutes are ready). It starts the server with
+`./smart-meeting --app` from a login shell (the user's PATH and proxy), or uses one already answering, and stops the
+one it started when it quits, once the meeting being recorded is transcribed.
+
+```bash
+linux/smart-meeting-app      # from a clone (uses the server of ./smart-meeting --no-window if it runs)
+make deb                     # build/linux/smart-meeting_<version>_all.deb
+```
+
+The package puts the project in `/opt/smart-meeting` (read-only: the Python environment goes to
+`~/.local/share/smart-meeting/venv`, `UV_PROJECT_ENVIRONMENT`), the app in the applications menu
+(`io.github.graffkevin.SmartMeeting`) and `smart-meeting-app` on the PATH. Nothing is compiled: uv, the Python
+dependencies, Ollama and the models are installed for each user on first launch, like with `./smart-meeting`. The
+server's log is in `~/.local/state/smart-meeting/server.log` (menu > Server log).

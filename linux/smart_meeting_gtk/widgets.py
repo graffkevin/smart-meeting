@@ -15,7 +15,9 @@ CSS = """
 .tag-chip { padding: 0 2px 0 9px; min-height: 0; }
 .bubble { border-radius: 10px; padding: 7px 10px; background: alpha(@view_fg_color, 0.06); }
 .bubble.mine { background: alpha(@accent_bg_color, 0.18); }
-.bubble.partial { background: none; border: 1px dashed alpha(@view_fg_color, 0.25); font-style: italic; }
+.bubble.partial {
+  background: none; border: 1px dashed alpha(@view_fg_color, 0.25); font-style: italic;
+}
 .banner-box { border-radius: 10px; padding: 12px; }
 .banner-box.info { background: alpha(@accent_bg_color, 0.12); }
 .banner-box.warning { background: alpha(@warning_bg_color, 0.15); }
@@ -28,7 +30,8 @@ CSS = """
 .dot.down { background: @error_color; }
 .speaker-0 { background: @blue_3; } .speaker-1 { background: @purple_3; }
 .speaker-2 { background: @green_4; } .speaker-3 { background: @orange_3; }
-.speaker-4 { background: @red_2; } .speaker-5 { background: @brown_2; } .speaker-6 { background: @yellow_4; }
+.speaker-4 { background: @red_2; } .speaker-5 { background: @brown_2; }
+.speaker-6 { background: @yellow_4; }
 .panel { padding: 14px; }
 .answer { border-radius: 8px; padding: 10px 12px; background: alpha(@view_fg_color, 0.05); }
 """
@@ -71,7 +74,7 @@ def chip(text: str, *classes: str) -> Gtk.Label:
     widget = Gtk.Label(label=text)
     widget.add_css_class("chip")
     widget.add_css_class("caption")
-    for name in classes:
+    for name in filter(None, classes):
         widget.add_css_class(name)
     return widget
 
@@ -91,7 +94,9 @@ def toast(widget: Gtk.Widget, text: str) -> None:
         overlay.add_toast(Adw.Toast(title=text, timeout=2))
 
 
-def banner(title: str, detail: str = "", icon: str = "dialog-information-symbolic", kind: str = "info"):
+def banner(
+    title: str, detail: str = "", icon: str = "dialog-information-symbolic", kind: str = "info"
+):
     box = Gtk.Box(spacing=10)
     box.add_css_class("banner-box")
     box.add_css_class(kind)
@@ -118,8 +123,14 @@ def ai_status(state: tuple[str, str], model: str | None) -> Gtk.Box:
 class TagEditor(Gtk.Box):
     """Tags as removable chips, a new one typed then Enter."""
 
-    def __init__(self, on_change: Callable[[list[str]], None], placeholder: str = "Ajouter un tag"):
-        super().__init__(spacing=6)
+    def __init__(
+        self,
+        on_change: Callable[[list[str]], None],
+        placeholder: str = "Ajouter un tag",
+        vertical: bool = False,
+    ):
+        orientation = Gtk.Orientation.VERTICAL if vertical else Gtk.Orientation.HORIZONTAL
+        super().__init__(orientation=orientation, spacing=6)
         self.tags: list[str] = []
         self._on_change = on_change
         self._flow = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, column_spacing=4)

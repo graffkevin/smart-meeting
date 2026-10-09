@@ -4,7 +4,7 @@ summaries and transcripts; a right click renames or deletes a meeting."""
 from collections.abc import Callable
 from datetime import date, datetime, timedelta
 
-from gi.repository import Adw, Gdk, Gio, GLib, Gtk
+from gi.repository import Adw, Gdk, Gio, GLib, Graphene, Gtk
 
 from smart_meeting_gtk.meeting_model import duration
 from smart_meeting_gtk.state import AppState
@@ -12,9 +12,19 @@ from smart_meeting_gtk.widgets import STATUS_LABELS, ai_status, clear, confirm, 
 
 DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
 MONTHS = [
-    "janvier", "février", "mars", "avril", "mai", "juin",
-    "juillet", "août", "septembre", "octobre", "novembre", "décembre",
-]  # fmt: skip
+    "janvier",
+    "février",
+    "mars",
+    "avril",
+    "mai",
+    "juin",
+    "juillet",
+    "août",
+    "septembre",
+    "octobre",
+    "novembre",
+    "décembre",
+]
 
 
 def started(meeting: dict) -> datetime:
@@ -40,8 +50,13 @@ def by_date(meetings: list[dict]) -> list[tuple[str, list[dict]]]:
 
 def by_tag(meetings: list[dict]) -> list[tuple[str, list[dict]]]:
     tags = sorted({t for m in meetings for t in m.get("tags") or []}, key=str.casefold)
-    groups = [(f"{t} ({sum(t in (m.get('tags') or []) for m in meetings)})",
-               [m for m in meetings if t in (m.get("tags") or [])]) for t in tags]  # fmt: skip
+    groups = [
+        (
+            f"{t} ({sum(t in (m.get('tags') or []) for m in meetings)})",
+            [m for m in meetings if t in (m.get("tags") or [])],
+        )
+        for t in tags
+    ]
     untagged = [m for m in meetings if not m.get("tags")]
     if untagged:
         groups.append(("Sans tag", untagged))
@@ -49,7 +64,9 @@ def by_tag(meetings: list[dict]) -> list[tuple[str, list[dict]]]:
 
 
 class HistorySidebar(Gtk.Box):
-    def __init__(self, app: AppState, open_meeting: Callable[[int], None], go_home: Callable[[], None]):
+    def __init__(
+        self, app: AppState, open_meeting: Callable[[int], None], go_home: Callable[[], None]
+    ):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.app, self.open_meeting, self.go_home = app, open_meeting, go_home
         self.selected: int | None = None
@@ -63,8 +80,14 @@ class HistorySidebar(Gtk.Box):
         switch.append(self._by_date_button)
         switch.append(self._by_tag_button)
 
-        top = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin_start=10,
-                      margin_end=10, margin_top=6, margin_bottom=6)  # fmt: skip
+        top = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=8,
+            margin_start=10,
+            margin_end=10,
+            margin_top=6,
+            margin_bottom=6,
+        )
         new = Gtk.Button(label="Nouvelle réunion", css_classes=["suggested-action", "pill"])
         new.connect("clicked", lambda _b: self.go_home())
         top.append(new)
@@ -72,16 +95,25 @@ class HistorySidebar(Gtk.Box):
         top.append(switch)
         self.append(top)
 
-        self._list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin_start=6,
-                             margin_end=6, margin_bottom=6)  # fmt: skip
+        self._list = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=4,
+            margin_start=6,
+            margin_end=6,
+            margin_bottom=6,
+        )
         scrolled = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
         scrolled.set_child(self._list)
         self.append(scrolled)
 
-        self._footer = Gtk.Box(spacing=8, margin_start=12, margin_end=12, margin_top=6, margin_bottom=8)
+        self._footer = Gtk.Box(
+            spacing=8, margin_start=12, margin_end=12, margin_top=6, margin_bottom=8
+        )
         self.append(Gtk.Separator())
         self.append(self._footer)
 
+        self._menu = Gtk.PopoverMenu(has_arrow=False)
+        self._menu.set_parent(self)
         app.on("history", self.refresh)
         app.on("health", self._refresh_footer)
         self.refresh()
@@ -99,22 +131,35 @@ class HistorySidebar(Gtk.Box):
         clear(self._list)
         app = self.app
         if app.history_error:
-            self._list.append(Adw.StatusPage(icon_name="dialog-warning-symbolic",
-                                             title="Historique indisponible",
-                                             description=app.history_error))  # fmt: skip
+            self._list.append(
+                Adw.StatusPage(
+                    icon_name="dialog-warning-symbolic",
+                    title="Historique indisponible",
+                    description=app.history_error,
+                )
+            )
             return
         if not app.meetings:
             if app.health is not None:
-                text = ("Vos réunions apparaîtront ici après votre premier enregistrement."
-                        if not app.search else "Aucune réunion ne correspond.")  # fmt: skip
-                page = Adw.StatusPage(icon_name="audio-input-microphone-symbolic",
-                                      title="Aucune réunion", description=text)  # fmt: skip
+                text = (
+                    "Vos réunions apparaîtront ici après votre premier enregistrement."
+                    if not app.search
+                    else "Aucune réunion ne correspond."
+                )
+                page = Adw.StatusPage(
+                    icon_name="audio-input-microphone-symbolic",
+                    title="Aucune réunion",
+                    description=text,
+                )
                 page.add_css_class("compact")
                 self._list.append(page)
             return
         groups = by_tag(app.meetings) if app.by_tag else by_date(app.meetings)
         for title, meetings in groups:
-            self._list.append(label(title, "heading", "dim-label", wrap=False))
+            heading = label(title, "heading", "dim-label", wrap=False)
+            heading.set_margin_start(6)
+            heading.set_margin_top(8)
+            self._list.append(heading)
             box = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE, css_classes=["boxed-list"])
             box.connect("row-activated", lambda _b, row: self.open_meeting(row.meeting_id))
             for meeting in meetings:
@@ -127,8 +172,14 @@ class HistorySidebar(Gtk.Box):
     def _row(self, meeting: dict) -> Gtk.ListBoxRow:
         row = Gtk.ListBoxRow()
         row.meeting_id = meeting["id"]
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin_start=10,
-                      margin_end=10, margin_top=6, margin_bottom=6)  # fmt: skip
+        box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=2,
+            margin_start=10,
+            margin_end=10,
+            margin_top=6,
+            margin_bottom=6,
+        )
         title = Gtk.Box(spacing=6)
         recording = meeting["id"] == self.app.active_meeting_id
         if recording:
@@ -150,22 +201,22 @@ class HistorySidebar(Gtk.Box):
         box.append(info)
         row.set_child(box)
 
-        menu = Gio.Menu()
-        menu.append("Renommer…", f"history.rename({meeting['id']})")
-        menu.append("Supprimer…", f"history.delete({meeting['id']})")
-        popover = Gtk.PopoverMenu(menu_model=menu, has_arrow=False)
-        popover.set_parent(row)
         click = Gtk.GestureClick(button=3)
-        click.connect("pressed", lambda _g, _n, x, y: self._popup(popover, x, y))
+        click.connect("pressed", lambda _g, _n, x, y: self._popup(meeting["id"], row, x, y))
         row.add_controller(click)
         return row
 
-    @staticmethod
-    def _popup(popover: Gtk.PopoverMenu, x: float, y: float) -> None:
+    def _popup(self, meeting_id: int, row: Gtk.Widget, x: float, y: float) -> None:
+        """Right click: one menu for the whole sidebar, pointed at the row."""
+        menu = Gio.Menu()
+        menu.append("Renommer…", f"history.rename({meeting_id})")
+        menu.append("Supprimer…", f"history.delete({meeting_id})")
+        self._menu.set_menu_model(menu)
+        point = row.compute_point(self, Graphene.Point().init(x, y))[1]
         rect = Gdk.Rectangle()
-        rect.x, rect.y, rect.width, rect.height = int(x), int(y), 1, 1
-        popover.set_pointing_to(rect)
-        popover.popup()
+        rect.x, rect.y, rect.width, rect.height = int(point.x), int(point.y), 1, 1
+        self._menu.set_pointing_to(rect)
+        self._menu.popup()
 
     def install_actions(self, window: Gtk.Window) -> None:
         group = Gio.SimpleActionGroup()
@@ -188,8 +239,10 @@ class HistorySidebar(Gtk.Box):
         def renamed(title: str) -> None:
             title = title.strip()
             if title:
-                self.app.call(lambda: self.app.api.rename(meeting_id, title),
-                              lambda _r: self._after_change(meeting_id))  # fmt: skip
+                self.app.call(
+                    lambda: self.app.api.rename(meeting_id, title),
+                    lambda _r: self._after_change(meeting_id),
+                )
 
         prompt_text(self, "Renommer la réunion", "", meeting["title"], "Renommer", renamed)
 
@@ -209,7 +262,8 @@ class HistorySidebar(Gtk.Box):
         confirm(
             self,
             "Supprimer cette réunion ?",
-            f"« {meeting['title']} », sa transcription et son compte rendu seront définitivement supprimés.",
+            f"« {meeting['title']} », sa transcription et son compte rendu seront définitivement "
+            "supprimés.",
             "Supprimer",
             lambda: self.app.call(lambda: self.app.api.delete_meeting(meeting_id), deleted),
         )
@@ -220,8 +274,11 @@ class HistorySidebar(Gtk.Box):
 
     def _refresh_footer(self) -> None:
         clear(self._footer)
-        local = Gtk.Box(spacing=4, tooltip_text="Aucune donnée n'est envoyée ailleurs : le son, "
-                        "la transcription, vos questions et les réponses de l'IA restent sur votre ordinateur.")  # fmt: skip
+        local = Gtk.Box(
+            spacing=4,
+            tooltip_text="Aucune donnée n'est envoyée ailleurs : le son, "
+            "la transcription, vos questions et les réponses de l'IA restent sur votre ordinateur.",
+        )
         local.append(Gtk.Image(icon_name="security-high-symbolic", css_classes=["success"]))
         local.append(label("100 % local", "caption", wrap=False))
         self._footer.append(local)
@@ -229,8 +286,10 @@ class HistorySidebar(Gtk.Box):
         health = self.app.health or {}
         self._footer.append(ai_status(self.app.ai_state, health.get("ollama_model")))
         if self.app.ai_restartable:
-            restart = Gtk.Button(icon_name="view-refresh-symbolic", tooltip_text="Redémarrer l'IA locale",
-                                 css_classes=["flat"])  # fmt: skip
+            restart = Gtk.Button(
+                icon_name="view-refresh-symbolic",
+                tooltip_text="Redémarrer l'IA locale",
+                css_classes=["flat"],
+            )
             restart.connect("clicked", lambda _b: self.app.restart_ai())
             self._footer.append(restart)
-

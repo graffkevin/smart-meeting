@@ -1,6 +1,6 @@
 """Smart Meeting for Linux: a GNOME app (GTK 4, libadwaita) around the local server.
 
-    python3 -m smart_meeting_gtk        (from the linux/ folder; the .deb installs `smart-meeting-app`)
+python3 -m smart_meeting_gtk        (from the linux/ folder; the .deb installs `smart-meeting-app`)
 """
 
 import sys
@@ -9,6 +9,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
+gi.require_version("Graphene", "1.0")
 from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
 
 from smart_meeting_gtk.api import background  # noqa: E402
@@ -31,6 +32,7 @@ class Application(Adw.Application):
     def do_startup(self) -> None:
         Adw.Application.do_startup(self)
         install_css()
+        Gtk.Window.set_default_icon_name(APP_ID)  # installed by the package
         for name, callback, accels in (
             ("new", lambda: self.window.show_home(), ["<Control>n"]),
             ("import", lambda: self.window.import_file(), ["<Control>o"]),
@@ -60,9 +62,15 @@ class Application(Adw.Application):
         if self.quitting:
             return
         if self.state.active_meeting_id is not None and self.window is not None:
-            confirm(self.window, "Quitter Smart Meeting ?",
-                    "Une réunion est en cours : elle sera arrêtée et sa transcription terminée. Le compte "
-                    "rendu pourra être généré plus tard.", "Quitter", self._quit)  # fmt: skip
+            confirm(
+                self.window,
+                "Quitter Smart Meeting ?",
+                "Une réunion est en cours : elle sera arrêtée et sa transcription terminée. Le "
+                "compte "
+                "rendu pourra être généré plus tard.",
+                "Quitter",
+                self._quit,
+            )
         else:
             self._quit()
 
@@ -87,12 +95,13 @@ class Application(Adw.Application):
     def _about(self) -> None:
         about = Adw.AboutDialog(
             application_name="Smart Meeting",
-            application_icon="audio-input-microphone",
+            application_icon=APP_ID,
             version=VERSION,
             developer_name="Kevin Graff",
             license_type=Gtk.License.MIT_X11,
             website="https://github.com/graffkevin/smart-meeting",
-            comments="Transcription et compte rendu de vos réunions, 100 % local : rien de ce qui se "
+            comments="Transcription et compte rendu de vos réunions, 100 % local : rien de ce "
+            "qui se "
             "dit ne quitte votre ordinateur.",
         )
         about.present(self.window)

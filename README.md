@@ -10,44 +10,36 @@ what, answers your questions about the meeting, and writes the minutes at the en
 
 ## Install
 
-You only need **git**. The first launch installs everything else (no admin rights).
+**On macOS and Linux, use the app**: a real application in your Dock or applications menu, with its own window.
+The browser version is for Windows (and for development).
 
-| System | Install once | Launch |
+| System | Install | Then |
 |---|---|---|
-| **Ubuntu** 22.10+ | `sudo apt install git` | `./smart-meeting` |
-| **macOS** 13+ | `xcode-select --install` | `./smart-meeting` in the Terminal |
-| **Windows** 10/11 | `winget install Git.Git` | `.\smart-meeting` in PowerShell, or double-click `smart-meeting.cmd` |
+| **macOS** 14+ | Download `Smart-Meeting-<version>.dmg` from the [Releases](https://github.com/graffkevin/smart-meeting/releases) page, open it and drag **Smart Meeting** to **Applications** | Open it from the Applications folder or the Dock |
+| **Ubuntu** 24.04+ (GNOME) | Download `smart-meeting_<version>_all.deb` from the [Releases](https://github.com/graffkevin/smart-meeting/releases) page, then `sudo apt install ./smart-meeting_<version>_all.deb` | Super key, type "Smart Meeting"; right-click, **Pin to Dash** to keep it in the dock |
+| **Windows** 10/11 | `winget install Git.Git`, then the commands below | `.\smart-meeting` in PowerShell, or double-click `smart-meeting.cmd`: it opens in your browser |
 
 ```bash
+# Windows
 git clone https://github.com/graffkevin/smart-meeting.git
 cd smart-meeting
-./smart-meeting          # Windows: .\smart-meeting
+.\smart-meeting
 ```
 
 The first launch downloads about 8 GB (AI and transcription models): 10 to 30 minutes. You can already record
-meanwhile. The next launches take a few seconds.
+meanwhile: everything said is transcribed as soon as the models are there. The next launches take a few seconds.
+Behind a company proxy, the apps use the proxy of the system settings.
 
-To update: `git pull`, then launch again.
+To update: install the new version of the app (Windows: `git pull`, then launch again).
 
-## Put it in your dock or taskbar
-
-Run once, in the project folder:
-
-```bash
-./smart-meeting --install          # Windows: .\smart-meeting --install
-```
-
-| System | Then |
-|---|---|
-| **Ubuntu** | Super key, type "Smart Meeting", right-click, **Pin to Dash** |
-| **macOS** | in the Finder, open your **Applications** folder (Go > Home > Applications) and drag **Smart Meeting** to the Dock |
-| **Windows** | Start menu, right-click **Smart Meeting**, **Pin to taskbar** |
+On Windows, to keep it in the taskbar: `.\smart-meeting --install`, then Start menu, right-click **Smart Meeting**,
+**Pin to taskbar**.
 
 ## Use it
 
 ### 1. Start a meeting
 
-Click the Smart Meeting icon: the app opens in your browser. Give the meeting a name if you like, click **Start
+Open Smart Meeting (on Windows, it opens in your browser). Give the meeting a name if you like, click **Start
 recording**, then start your call. Smart Meeting follows the microphone and the headset your call uses.
 
 ### 2. Follow, and ask

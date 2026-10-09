@@ -20,7 +20,7 @@ UV := $(if $(shell uv --version 2>$(NULL)),uv,$(UV_LOCAL))
 EXTRAS := $(if $(shell nvidia-smi -L 2>$(NULL)),--extra cuda,)
 BACKEND := $(UV) run --directory backend $(EXTRAS)
 
-.PHONY: run install uv build dev dev-backend dev-frontend test lint check api desktop info mac
+.PHONY: run install uv build dev dev-backend dev-frontend test lint check api desktop info deb mac mac
 
 run: uv ## Start Smart Meeting (installs what is missing on first run)
 	$(BACKEND) smart-meeting
@@ -57,8 +57,8 @@ test: uv ## Backend and frontend tests
 	cd frontend && bun run test
 
 lint: uv ## Every check: Ruff, Biome, frontend rules and types
-	$(UV) run --directory backend ruff check src tests
-	$(UV) run --directory backend ruff format --check src tests
+	$(UV) run --directory backend ruff check src tests ../linux
+	$(UV) run --directory backend ruff format --check src tests ../linux
 	cd frontend && bunx biome check && bun run check:rules && bun run typecheck
 
 check: lint test ## Everything to run before committing
@@ -66,6 +66,9 @@ check: lint test ## Everything to run before committing
 api: uv ## Regenerate the frontend API client from the backend OpenAPI schema
 	$(UV) run --directory backend python -c "import json; from smart_meeting.main import app; print(json.dumps(app.openapi(), indent=2))" > frontend/openapi/smart-meeting.openapi.json
 	cd frontend && bun run api:generate
+
+deb: ## Build the Linux (GNOME) app package, build/linux/smart-meeting_<version>_all.deb
+	packaging/linux/build-deb.sh
 
 mac: uv ## Build the macOS app and its disk image (build/macos/); DEVELOPER_ID and NOTARY_PROFILE to sign it
 	packaging/macos/build.sh

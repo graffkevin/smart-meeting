@@ -254,7 +254,7 @@ def run() -> None:
     parser.add_argument(
         "--app",
         action="store_true",
-        help="started by the macOS app: it has its own interface, and stops this server",
+        help="started by a desktop app (macOS, Linux): its own interface, it stops this server",
     )
     parser.add_argument(
         "--install",
@@ -299,7 +299,9 @@ def run() -> None:
         open_window(write_starting_page(url, data_dir).as_uri())
 
     check_system()
-    if not getattr(sys, "frozen", False):  # bundled in the macOS app: no web interface
+    # Started by a desktop app (macOS bundle, Linux package): its own interface, and an installed
+    # project is read-only; the web interface comes built with it
+    if not (getattr(sys, "frozen", False) or args.app):
         build_frontend_if_needed(FRONTEND_DIST.parent)
 
     def open_when_ready() -> None:

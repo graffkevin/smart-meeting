@@ -31,8 +31,9 @@ def primary_menu() -> Gio.Menu:
 
 class MainWindow(Adw.ApplicationWindow):
     def __init__(self, application: Adw.Application, app: AppState) -> None:
-        super().__init__(application=application, title="Smart Meeting", default_width=1280,
-                         default_height=820)  # fmt: skip
+        super().__init__(
+            application=application, title="Smart Meeting", default_width=1280, default_height=820
+        )
         self.set_size_request(760, 520)
         self.app = app
         self.meeting_page: MeetingPage | None = None
@@ -40,13 +41,18 @@ class MainWindow(Adw.ApplicationWindow):
         self.sidebar = HistorySidebar(app, self.open_meeting, self.show_home)
         self.sidebar.install_actions(self)
         sidebar_header = Adw.HeaderBar()
-        menu = Gtk.MenuButton(icon_name="open-menu-symbolic", menu_model=primary_menu(),
-                              tooltip_text="Menu principal", primary=True)  # fmt: skip
+        menu = Gtk.MenuButton(
+            icon_name="open-menu-symbolic",
+            menu_model=primary_menu(),
+            tooltip_text="Menu principal",
+            primary=True,
+        )
         sidebar_header.pack_end(menu)
         sidebar_view = Adw.ToolbarView(content=self.sidebar)
         sidebar_view.add_top_bar(sidebar_header)
-        self.split = Adw.NavigationSplitView(min_sidebar_width=260, max_sidebar_width=380,
-                                             sidebar_width_fraction=0.26)  # fmt: skip
+        self.split = Adw.NavigationSplitView(
+            min_sidebar_width=260, max_sidebar_width=380, sidebar_width_fraction=0.26
+        )
         self.split.set_sidebar(Adw.NavigationPage(title="Smart Meeting", child=sidebar_view))
 
         self.home = HomePage(app, self.open_meeting, self.open_settings)

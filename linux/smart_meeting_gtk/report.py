@@ -55,19 +55,33 @@ def report_view(analysis: dict) -> Gtk.Box:
     else:
         grid = Gtk.Grid(column_spacing=16, row_spacing=10)
         for column, title in enumerate(("Action", "Qui", "Pour quand")):
-            grid.attach(label(title, "caption", "heading", "dim-label", wrap=False), column, 0, 1, 1)
+            grid.attach(
+                label(title, "caption", "heading", "dim-label", wrap=False), column, 0, 1, 1
+            )
         for row, action in enumerate(actions, 1):
             task = Gtk.Box(spacing=6, hexpand=True)
             text = label(action["task"])
             text.set_selectable(True)
             task.append(text)
             if action.get("verified") is False:
-                task.append(Gtk.Image(icon_name="dialog-warning-symbolic", css_classes=["warning"],
-                                      tooltip_text="Introuvable mot pour mot dans la transcription : à vérifier"))  # fmt: skip
+                task.append(
+                    Gtk.Image(
+                        icon_name="dialog-warning-symbolic",
+                        css_classes=["warning"],
+                        tooltip_text="Introuvable mot pour mot dans la transcription : à vérifier",
+                    )
+                )
             grid.attach(task, 0, row, 1, 1)
-            owner = chip(action["owner"]) if action.get("owner") else label("À définir", "caption", "dim-label")
-            deadline = (chip(action["deadline"], "purple") if action.get("deadline")
-                        else label("Non fixée", "caption", "dim-label"))  # fmt: skip
+            owner = (
+                chip(action["owner"])
+                if action.get("owner")
+                else label("À définir", "caption", "dim-label")
+            )
+            deadline = (
+                chip(action["deadline"], "purple")
+                if action.get("deadline")
+                else label("Non fixée", "caption", "dim-label")
+            )
             for column, widget in ((1, owner), (2, deadline)):
                 widget.set_halign(Gtk.Align.START)
                 widget.set_valign(Gtk.Align.START)
@@ -75,11 +89,30 @@ def report_view(analysis: dict) -> Gtk.Box:
         box.append(grid)
     view.append(frame)
 
-    flow = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, min_children_per_line=1,
-                       max_children_per_line=2, column_spacing=16, row_spacing=16, homogeneous=True)  # fmt: skip
-    flow.append(items("Décisions", analysis.get("decisions") or [], "emblem-ok-symbolic", "success"))
-    flow.append(items("Questions en suspens", analysis.get("questions") or [], "dialog-question-symbolic", "accent"))
-    flow.append(items("Points de vigilance", analysis.get("risks") or [], "dialog-warning-symbolic", "warning"))
+    flow = Gtk.FlowBox(
+        selection_mode=Gtk.SelectionMode.NONE,
+        min_children_per_line=1,
+        max_children_per_line=2,
+        column_spacing=16,
+        row_spacing=16,
+        homogeneous=True,
+    )
+    flow.append(
+        items("Décisions", analysis.get("decisions") or [], "emblem-ok-symbolic", "success")
+    )
+    flow.append(
+        items(
+            "Questions en suspens",
+            analysis.get("questions") or [],
+            "dialog-question-symbolic",
+            "accent",
+        )
+    )
+    flow.append(
+        items(
+            "Points de vigilance", analysis.get("risks") or [], "dialog-warning-symbolic", "warning"
+        )
+    )
     frame, box = panel("Sujets techniques")
     topics = analysis.get("technical_topics") or []
     if not topics:

@@ -35,12 +35,17 @@ def background(
             result = work()
         except Exception as error:  # noqa: BLE001 (any failure goes back to the window)
             if failed:
-                GLib.idle_add(lambda: failed(error) and False)
+                GLib.idle_add(_once, failed, error)
             return
         if done:
-            GLib.idle_add(lambda: done(result) and False)
+            GLib.idle_add(_once, done, result)
 
     threading.Thread(target=run, daemon=True).start()
+
+
+def _once(callback: Callable[[object], None], value: object) -> bool:
+    callback(value)
+    return False  # GLib: do not call again
 
 
 class Api:
