@@ -19,7 +19,7 @@ from smart_meeting_gtk.widgets import confirm, install_css  # noqa: E402
 from smart_meeting_gtk.window import MainWindow  # noqa: E402
 
 APP_ID = "io.github.graffkevin.SmartMeeting"
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 
 class Application(Adw.Application):
