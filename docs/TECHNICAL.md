@@ -43,6 +43,13 @@ The Quit button stops at once (a recording is stopped and its transcription fini
 | Windows | WASAPI loopback of the chosen output | WASAPI | not tested yet |
 | macOS | ScreenCaptureKit (whole system audio) | CoreAudio | not tested yet |
 
+**Echo**: when the microphone hears the others (laptop speakers, or a virtual input carrying the call), the same
+sentence is transcribed twice. A sentence of one source that overlaps a sentence of the other in time (give or take
+4 s) with a similar text (at least 3 words, `difflib` ratio ≥ 0.6) is an echo: the microphone copy is dropped, or
+removed if it was stored first (`meeting/echo.py`); the final check of the safety tracks recognizes it too. On macOS,
+the automatic microphone skips virtual inputs (Microsoft Teams Audio, Zoom, Webex, BlackHole, Loopback…): taken as
+the default input, the call itself was transcribed as "me".
+
 If one source cannot be captured, the meeting goes on with the other one and the interface tells why. On macOS, a
 capture blocked by the "Screen & System Audio Recording" permission is flagged (`permission_needed`): the interface
 then offers a button that opens that pane of System Settings (`POST /api/audio/permission-settings`). In automatic

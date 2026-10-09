@@ -30,7 +30,7 @@ from smart_meeting.audio.segmenter import Utterance, UtteranceSegmenter, silero_
 from smart_meeting.config import Settings
 from smart_meeting.db import Database, now_iso
 from smart_meeting.llm.analysis import MeetingNotes, OllamaClient, format_transcript
-from smart_meeting.meeting import safety
+from smart_meeting.meeting import echo, safety
 from smart_meeting.meeting.events import EventHub
 from smart_meeting.messages import tr
 from smart_meeting.models import (
@@ -145,6 +145,9 @@ class Recording:
     device_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     tasks: list[asyncio.Task[None]] = field(default_factory=list)
     stopping: bool = False
+    # Last sentences stored, to drop the echo of one source in the other (see echo.py):
+    # (source, start, end, text, segment id)
+    recent: deque = field(default_factory=lambda: deque(maxlen=40))
     # Seconds of speech waiting for Whisper, and the provisional text turned off to catch up
     backlog_s: float = 0.0
     partials_off: bool = False
@@ -773,6 +776,8 @@ class MeetingService:
         loop = asyncio.get_running_loop()
         folder = self.audio_path(recording.meeting_id)
         segments = self.db.list_segments(recording.meeting_id)
+        # Every sentence, to recognize the echo of the others that was left out of the microphone
+        recording.recent = deque((s.source, s.start_s, s.end_s, s.text, s.id) for s in segments)
         found = 0
         for source, stream in recording.streams.items():
             sentences = [(s.start_s, s.end_s) for s in segments if s.source == source]
@@ -825,21 +830,46 @@ class MeetingService:
         base = offset_s + utterance.start_s(sample_rate)
         utterance_end = offset_s + utterance.end_s(sample_rate)
         for piece in pieces:
+            start_s = round(base + piece.start_s, 2)
+            end_s = round(min(base + piece.end_s, utterance_end), 2)
+            if self._drop_echo(recording, source, start_s, end_s, piece.text):
+                continue
             segment = self.db.add_segment(
                 meeting_id,
                 Segment(
-                    source=source,
-                    speaker=speaker,
-                    start_s=round(base + piece.start_s, 2),
-                    end_s=round(min(base + piece.end_s, utterance_end), 2),
-                    text=piece.text,
+                    source=source, speaker=speaker, start_s=start_s, end_s=end_s, text=piece.text
                 ),
             )
+            recording.recent.append((source, start_s, end_s, piece.text, segment.id))
             if spoken is not None and segment.id is not None:
                 spoken.segment_ids.append(segment.id)
             self.hub.publish(meeting_id, {"type": "segment", "segment": segment.model_dump()})
         if pieces:
             stream.previous_text = " ".join(p.text for p in pieces)
+
+    def _drop_echo(
+        self, recording: Recording, source: Source, start_s: float, end_s: float, text: str
+    ) -> bool:
+        """The same sentence heard by both sources at the same time: the others' copy is kept.
+        True when this one (from the microphone) is the echo; a microphone copy stored before
+        is removed when the others' arrives."""
+        for other in list(recording.recent):
+            other_source, other_start, other_end, other_text, other_id = other
+            if other_source == source or not echo.at_same_time(
+                (start_s, end_s), (other_start, other_end)
+            ):
+                continue
+            if not echo.is_echo(text, other_text):
+                continue
+            if source == "mic":
+                logger.info("Echo of the others in the microphone dropped: %s", text)
+                return True
+            logger.info("Echo of the others in the microphone removed: %s", other_text)
+            recording.recent.remove(other)
+            if other_id is not None:
+                self.db.delete_segment(other_id)
+                self.hub.publish(recording.meeting_id, {"type": "speakers"})  # reload
+        return False
 
     async def stop(self, meeting_id: int) -> Meeting:
         recording = self.active

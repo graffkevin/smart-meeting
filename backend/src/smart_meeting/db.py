@@ -355,6 +355,10 @@ class Database:
                 ],
             )
 
+    def delete_segment(self, segment_id: int) -> None:
+        with self._connect() as conn:
+            conn.execute("DELETE FROM segments WHERE id = ?", (segment_id,))
+
     def set_speakers(self, speakers: dict[int, str]) -> None:
         """Speaker of each segment (by id), once the voices are regrouped."""
         with self._connect() as conn:

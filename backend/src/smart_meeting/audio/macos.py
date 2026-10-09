@@ -26,6 +26,32 @@ SYSTEM_AUDIO = "system"
 SCK_RATE = 48000
 
 
+# Inputs that carry the sound of an application, not a voice: the call itself (Teams, Zoom, Webex
+# install one), or routing tools. Taken as the microphone, everything the others say is
+# transcribed twice.
+VIRTUAL_INPUTS = (
+    "microsoft teams audio", "zoomaudiodevice", "zoom audio", "webex", "blackhole",
+    "soundflower", "loopback", "virtual",
+)  # fmt: skip
+
+
+def is_virtual(name: str) -> bool:
+    return any(marker in name.lower() for marker in VIRTUAL_INPUTS)
+
+
+def real_microphone(inputs: list[dict], default_index: int | None) -> dict | None:
+    """The default input, unless it is virtual: then the built-in microphone, else the first real
+    input (a headset)."""
+    default = next((d for d in inputs if d["index"] == default_index), None)
+    if default is not None and not is_virtual(default["name"]):
+        return default
+    real = [d for d in inputs if not is_virtual(d["name"])]
+    built_in = [
+        d for d in real if any(w in d["name"].lower() for w in ("macbook", "built-in", "intégré"))
+    ]
+    return (built_in or real or [default])[0]
+
+
 class MicCapture(ThreadedCapture):
     def __init__(self, target: str | None, on_audio: OnAudio, sample_rate: int) -> None:
         super().__init__(target, on_audio, sample_rate)
@@ -35,9 +61,7 @@ class MicCapture(ThreadedCapture):
         import sounddevice as sd
 
         device = (
-            sd.query_devices(self.target, "input")
-            if self.target
-            else sd.query_devices(kind="input")
+            sd.query_devices(self.target, "input") if self.target else _automatic_microphone(sd)
         )
         rate = int(device["default_samplerate"])
         self._stream = sd.InputStream(
@@ -146,6 +170,12 @@ PERMISSION_SETTINGS = (
 )
 
 
+def _automatic_microphone(sd) -> dict:
+    inputs = [d for d in sd.query_devices() if d["max_input_channels"] > 0]
+    default_index = sd.query_devices(kind="input")["index"]
+    return real_microphone(inputs, default_index) or sd.query_devices(kind="input")
+
+
 class MacBackend:
     name = "macos"
 
@@ -163,7 +193,10 @@ class MacBackend:
             for d in devices
             if d["max_input_channels"] > 0
         ]
-        default_name = next((s.name for s in sources if s.is_default), None)
+        # Automatic mode: the real microphone, the default input unless it is virtual
+        inputs = [d for d in devices if d["max_input_channels"] > 0]
+        chosen = real_microphone(inputs, default_in)
+        default_name = chosen["name"] if chosen else None
         return AudioDevices(
             sources=sorted(sources, key=lambda d: not d.is_default),
             sinks=[
