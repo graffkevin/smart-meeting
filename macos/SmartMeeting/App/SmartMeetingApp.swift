@@ -59,6 +59,11 @@ struct AppCommands: Commands {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            if app.updater.available {
+                Button("Rechercher les mises à jour…") { app.updater.checkForUpdates() }
+            }
+        }
         CommandGroup(replacing: .newItem) {
             Button("Nouvelle réunion") {
                 openWindow(id: "main")

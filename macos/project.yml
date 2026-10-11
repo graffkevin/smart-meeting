@@ -7,6 +7,11 @@ options:
     macOS: "14.0"
   developmentLanguage: fr
   createIntermediateGroups: true
+packages:
+  # Updates of the downloaded app (packaging/macos/sign-sparkle.sh); not in the App Store build
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.10.0
 settings:
   base:
     MARKETING_VERSION: "0.2.5"
@@ -18,6 +23,8 @@ targets:
     platform: macOS
     sources:
       - path: SmartMeeting
+    dependencies:
+      - package: Sparkle
     settings:
       base:
         PRODUCT_NAME: Smart Meeting
@@ -39,4 +46,8 @@ targets:
     postCompileScripts:
       - name: Embed the server
         script: '"$SRCROOT/../packaging/macos/embed-server.sh"'
+        basedOnDependencyAnalysis: false
+    postBuildScripts:
+      - name: Sign Sparkle
+        script: '"$SRCROOT/../packaging/macos/sign-sparkle.sh"'
         basedOnDependencyAnalysis: false

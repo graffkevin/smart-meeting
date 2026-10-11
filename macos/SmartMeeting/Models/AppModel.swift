@@ -35,6 +35,7 @@ struct AIState {
 @Observable
 final class AppModel {
     let server = ServerProcess()
+    let updater = AppUpdater()
     var api: APIClient { APIClient(baseURL: server.baseURL) }
 
     /// The server could not be started (no bundled server, none running)
@@ -54,7 +55,7 @@ final class AppModel {
     private(set) var preferences: Preferences?
     private(set) var devices: AudioDevices?
     private(set) var recentQuestions: [String] = []
-    /// Latest version published, when newer than this app (a new disk image to download)
+    /// Latest version published, when newer than this app (installed through Sparkle)
     private(set) var newVersion: UpdateInfo?
 
     /// File chosen to import (menu File > Import, drop on the window), shown on the home page
@@ -76,7 +77,8 @@ final class AppModel {
         serverMissing = !(await server.start())
         if serverMissing { return }
         Task { await pollHealth() }
-        Task { await pollUpdate() }
+        // The App Store updates its build: no banner pointing elsewhere
+        if updater.available { Task { await pollUpdate() } }
     }
 
     /// The server reads the latest release every few hours; compared with the version of this app

@@ -234,8 +234,16 @@ the proxy of the system. `POST /api/update` installs it the way this installatio
 clone, the `.deb` of the release in `/opt/smart-meeting` (checked against the SHA-256 GitHub gives, installed with
 `pkexec apt-get install`), and refused during a meeting, an import or the minutes. The browser version then restarts
 through the launcher (new dependencies, new interface) and the page reloads itself; the Linux app stops the server and
-restarts itself. The macOS app only shows the page of the release: its bundled server does not know its version, so
-the app compares the release with its own. The Windows app shows the page too (its server knows its version, from the
+restarts itself. The macOS app updates itself with Sparkle (2.10, `App/AppUpdater.swift`): every 6 hours it reads
+`appcast.xml` of the latest published release (`SUFeedURL`), written by the `Release` workflow
+(`packaging/macos/appcast.sh`: version and build number of the app in the disk image, EdDSA signature), and installs
+the disk image once the user agrees, after checking its signature against `SUPublicEDKey` (Info.plist) and its code
+signature against the app's. Its banner (the server reads the latest release every few hours; the app compares it with
+its own version, its bundled server not knowing it) also opens Sparkle. The private key is in the login keychain of
+the Mac that generated it (`generate_keys --account smart-meeting` of the Sparkle tools) and in the
+`SPARKLE_PRIVATE_KEY` secret: without it, the installed apps can no longer be updated. Sparkle's helpers are signed with
+the app's identity by `packaging/macos/sign-sparkle.sh`; the App Store build has no Sparkle (`APP_STORE` condition,
+framework neither linked nor bundled), the store updates it. The Windows app shows the page too (its server knows its version, from the
 package metadata bundled with it): the new installer goes over the current version.
 
 ## Privacy

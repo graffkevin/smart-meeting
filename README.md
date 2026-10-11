@@ -28,8 +28,9 @@ meanwhile: everything said is transcribed as soon as the models are there. The n
 Behind a company proxy, the apps use the proxy of the system settings.
 
 To update: from version 0.2.3, the app tells you when a new version is out. On Linux and in the browser version,
-**Update** installs it (the package asks for your password) and restarts; on a Mac and on Windows, **Download** opens
-its page: install it over the current one. Your
+**Update** installs it (the package asks for your password) and restarts. On a Mac, from version 0.2.6, the app
+updates itself: it checks every few hours, shows what is new and installs the new version when you agree (or now:
+**Smart Meeting > Rechercher les mises à jour…**). On Windows, **Download** opens its page: install it over the current one. Your
 meetings and settings are kept. Up to 0.2.2, install the new version by hand once, the same way (Windows: `git pull`,
 then launch again). Every release has the three packages, built by GitHub: the `.deb`, the `.dmg`, signed and
 notarized by Apple (it opens without warning), and the Windows installer.

@@ -18,6 +18,13 @@
   <key>NSHumanReadableCopyright</key><string>Licence MIT</string>
   <key>NSMicrophoneUsageDescription</key>
   <string>Transcrire votre micro pendant les réunions, sur votre ordinateur.</string>
+  <!-- Updates (Sparkle, not in the App Store build): the appcast of the latest release, written by
+       .github/workflows/release.yml; updates signed with the key of SPARKLE_PRIVATE_KEY -->
+  <key>SUFeedURL</key>
+  <string>https://github.com/graffkevin/smart-meeting/releases/latest/download/appcast.xml</string>
+  <key>SUPublicEDKey</key><string>6yH8oA7i9FuiMV0dWHK5R2PTWiybEVlHmvcqgCxrvd4=</string>
+  <key>SUEnableAutomaticChecks</key><true/>
+  <key>SUScheduledCheckInterval</key><integer>21600</integer>
   <!-- The interface talks to its own server, on this computer only -->
   <key>NSAppTransportSecurity</key>
   <dict>

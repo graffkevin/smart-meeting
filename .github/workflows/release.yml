@@ -16,6 +16,8 @@
 #   APPLE_ID                    Apple account of the developer team
 #   APPLE_APP_PASSWORD          app-specific password of that account (notarization)
 #   APPLE_TEAM_ID               team ID (10 characters)
+#   SPARKLE_PRIVATE_KEY         EdDSA key signing the updates of the Mac app (Sparkle), whose public
+#                               half is SUPublicEDKey in macos/SmartMeeting/Info.plist
 name: Release
 
 on:
@@ -223,6 +225,22 @@ jobs:
             exit 1
           fi
           gh release upload "$TAG" "$dmg" --clobber
+
+      - name: Sparkle appcast
+        if: env.TAG != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          # The installed Mac apps update themselves from the appcast of the latest published release
+          if [ -z "$SPARKLE_PRIVATE_KEY" ]; then
+            echo "::error::No SPARKLE_PRIVATE_KEY secret: the Mac apps will not be offered this version"
+            exit 1
+          fi
+          dmg="$(ls build/macos/Smart-Meeting-*.dmg)"
+          packaging/macos/appcast.sh "$dmg" "$TAG" > build/macos/appcast.xml
+          cat build/macos/appcast.xml
+          gh release upload "$TAG" build/macos/appcast.xml --clobber
 
       - name: Remove the signing keychain
         if: always()

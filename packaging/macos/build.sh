@@ -39,7 +39,10 @@ if [ "$STORE" = YES ]; then
     CODE_SIGN_IDENTITY="Apple Distribution" DEVELOPMENT_TEAM="$TEAM"
     PROVISIONING_PROFILE_SPECIFIER="$STORE_PROFILE"
     # No get-task-allow (debugging), which Xcode adds to a plain build: refused by the App Store
-    CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO)
+    CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO
+    # Without Sparkle, the store updates the app: its code compiled out, the framework not linked
+    # (sign-sparkle.sh removes it from the bundle)
+    SWIFT_ACTIVE_COMPILATION_CONDITIONS=APP_STORE OTHER_LDFLAGS=-Wl,-dead_strip_dylibs)
 elif [ -n "${DEVELOPER_ID:-}" ]; then
   # Same without get-task-allow: refused by the notarization
   signing=(CODE_SIGN_IDENTITY="$DEVELOPER_ID" OTHER_CODE_SIGN_FLAGS=--timestamp

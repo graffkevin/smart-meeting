@@ -254,7 +254,7 @@ enum History {
     }
 }
 
-/// A newer version: its page, to download the new disk image
+/// A newer version: installed through Sparkle (its window: notes, install, relaunch)
 struct UpdateBanner: View {
     @Environment(AppModel.self) private var app
     let version: String
@@ -265,7 +265,10 @@ struct UpdateBanner: View {
             Image(systemName: "arrow.down.circle.fill").foregroundStyle(.tint)
             Text("Smart Meeting \(version) est disponible")
             Spacer()
-            if let url {
+            if app.updater.available {
+                Button("Mettre à jour") { app.updater.checkForUpdates() }
+                    .buttonStyle(.borderedProminent)
+            } else if let url {
                 Button("Télécharger") { NSWorkspace.shared.open(url) }
                     .buttonStyle(.borderedProminent)
             }
